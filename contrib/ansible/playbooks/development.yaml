@@ -1,0 +1,33 @@
+---
+# development.yaml
+# Run using `ansible-playbook development.yaml`
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: microk8s, kubectl and helm3 install
+      snap:
+        name: "{{ item }}"
+        state: present
+        classic: yes
+      with_items:
+        - microk8s
+        - kubectl
+        - helm
+      become: yes
+    - name: kubectl configuration for microk8s
+      shell:
+        cmd: "microk8s config |sed 's/\(user\|name\): admin/\1: microk8s-admin/' >{{ lookup('env','HOME') }}/.kube/microk8s.config"
+        creates: "{{ lookup('env','HOME') }}/.kube/microk8s.config"
+    - name: KUBECONFIG kubectl setup
+      blockinfile:
+        path: "{{ lookup('env','HOME') }}/.profile"
+        block: |
+          DIR="${HOME}/.kube"
+          if [ -d "${DIR}" ]; then
+            KUBECONFIG="$(find "${DIR}" \( -name 'config' -o -name '*.config' \) \( -type f -o -type l \) -print0 | tr '\0' ':')"
+            KUBECONFIG="${KUBECONFIG%:}"
+            export KUBECONFIG
+          fi
+        marker: "ANSIBLE MANAGED BLOCK AIS"
+        state: present

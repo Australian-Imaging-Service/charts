@@ -1,0 +1,14 @@
+# Default values for xnat.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+postgresql:
+  enabled: false
+  # fullnameOverride: 
+  postgresqlDatabase: xnat
+  postgresqlPostgresPassword: xnat
+  postgresqlUsername: xnat
+  postgresqlPassword: xnat
+
+xnat-web:
+  enabled: true
