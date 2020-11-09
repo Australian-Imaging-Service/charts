@@ -58,7 +58,7 @@ microk8s enable dns fluentd ingress metrics-server prometheus rbac registry stor
 
 # Install and configure the kubectl client
 sudo snap install kubectl --classic
-# Start running more than one cluster and you will be glade you did these steps
+# Start running more than one cluster and you will be glad you did these steps
 microk8s config |sed 's/\(user\|name\): admin/\1: microk8s-admin/' >${HOME}/.kube/microk8s.config
 cat >>${HOME}/.profile <<'EOT'
 DIR="${HOME}/.kube"
@@ -73,6 +73,34 @@ kubectl config use-context microk8s
 ```
 
 If you have an issue with the operation of microk8s `microk8s inspect` command is you best friend.
+
+### NixOS + Minikube
+
+```bash
+# Configure environment
+cat <<EOF > default.nix
+{ pkgs ? import <nixpkgs> {} }:
+pkgs.mkShell {
+  buildInputs = with pkgs; [
+    minikube
+    kubernetes-helm
+  ];
+
+  shellHook = ''
+    alias kubectl='minikube kubectl'
+    . <(minikube completion bash)
+    . <(kubectl completion bash)
+    . <(helm completion bash)
+  '';
+}
+EOF
+nix-shell
+
+minikube start
+
+# Will block the terminal, will need to open a new one
+minikube dashboard
+```
 
 ## CI/CD
 
