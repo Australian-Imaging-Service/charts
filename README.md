@@ -21,7 +21,7 @@ microk8s enable dns fluentd ingress metrics-server prometheus rbac registry stor
 
 # Install and configure the kubectl client
 sudo snap install kubectl --classic
-# Start running more than one cluster and you will be glade you did these steps
+# Start running more than one cluster and you will be glad you did these steps
 microk8s config |sed 's/\(user\|name\): admin/\1: microk8s-admin/' >${HOME}/.kube/microk8s.config
 cat >>${HOME}/.profile <<'EOT'
 DIR="${HOME}/.kube"
