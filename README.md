@@ -101,6 +101,9 @@ minikube start
 
 # Will block the terminal, will need to open a new one
 minikube dashboard
+
+# Creates "default-http-backend"
+minikube addons enable ingress
 ```
 
 ## CI/CD
