@@ -50,7 +50,9 @@ pkgs.mkShell {
   ];
 
   shellHook = ''
+    alias kubectl='minikube kubectl'
     . <(minikube completion bash)
+    . <(kubectl completion bash)
     . <(helm completion bash)
   '';
 }
