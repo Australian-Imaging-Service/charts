@@ -1,3 +1,40 @@
+# Cheat sheet
+
+```bash
+# add the required help repositories
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# import the helm chart dependencies (e.g., PostgreSQL) from the xnat chart directory
+helm dependency update
+
+# view the helm output without deployment from the xnat chart directory
+helm install --debug --dry-run xnat-dev . --values ./values-dev.yaml 2>&1 |less
+
+# create xnat namespace in kubernetes
+kubectl create namespace xnat
+
+# Deploy and upgrade from the xnat chart directory
+helm upgrade xnat . --install --values ./values-dev.yaml --namespace xnat
+
+# watch it all happen, at least most of it
+watch kubectl -nxnat get all
+
+# watch the logs scroll by
+kubectl -nxnat logs xnat-xnat-web-0 -f
+
+# find out what happened if pod does not start
+kubectl -nxnat get pod xnat-xnat-web-0 -o json
+
+# view the persistent volumes
+kubectl -nxnat get pvc,pv
+
+# view the content of a secret
+kubectl -nxnat get secret xnat-xnat-web -o go-template='{{ index .data "xnat-conf.properties" }}' | base64 -d
+
+# tear it all down
+helm delete xnat -nxnat
+```
+
 # Tool chain(s)
 
 ## Development
@@ -43,6 +80,6 @@ If you have an issue with the operation of microk8s `microk8s inspect` command i
 
 # References (Must reads!)
 
-[The Chart Best Practices Guide](https://helm.sh/docs/chart_best_practices/)
-[Best Practices for Creating Production-Ready Helm charts](https://docs.bitnami.com/tutorials/production-ready-charts/)
-[Open Source Initiative licenses](https://opensource.org/licenses)
+* [The Chart Best Practices Guide](https://helm.sh/docs/chart_best_practices/)
+* [Best Practices for Creating Production-Ready Helm charts](https://docs.bitnami.com/tutorials/production-ready-charts/)
+* [Open Source Initiative licenses](https://opensource.org/licenses)
