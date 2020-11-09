@@ -37,6 +37,32 @@ kubectl config use-context microk8s
 
 If you have an issue with the operation of microk8s `microk8s inspect` command is you best friend.
 
+### NixOS + Minikube
+
+```bash
+# Configure environment
+cat <<EOF > default.nix
+{ pkgs ? import <nixpkgs> {} }:
+pkgs.mkShell {
+  buildInputs = with pkgs; [
+    minikube
+    kubernetes-helm
+  ];
+
+  shellHook = ''
+    . <(minikube completion bash)
+    . <(helm completion bash)
+  '';
+}
+EOF
+nix-shell
+
+minikube start
+
+# Will block the terminal, will need to open a new one
+minikube dashboard
+```
+
 ## CI/CD
 
 | [Kind](https://github.com/kubernetes-sigs/kind) | Tool for running local Kubernetes clusters using Docker container "nodes" | Testing chart functionality |
