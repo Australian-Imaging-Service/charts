@@ -8,7 +8,9 @@ xnat-web:
   ingress:
     enabled: true
     annotations:
-      kubernetes.io/ingress.class: nginx
+      kubernetes.io/ingress.class: "nginx"
+      kubernetes.io/tls-acme: "true"
+      #nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16 127.0.0.0/8"
       nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "100"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "100"
@@ -17,3 +19,43 @@ xnat-web:
     hosts:
       - host: xnat-dev.cmca.uwa.edu.au
         paths: [ "/" ]
+  plugin:
+    download: true
+    plugins:
+      openid-auth-plugin:
+        url: "http://dev.redboxresearchdata.com.au/nexus/service/local/repositories/snapshots/content/au/edu/qcif/xnat/openid/openid-auth-plugin/1.0.0-SNAPSHOT/openid-auth-plugin-1.0.0-20190409.122010-10.jar"
+  authentication:
+    methods:
+     openid:
+        # https://github.com/NrgXnat/xnat-openid-auth-plugin
+        name: "OpenID Authentication Provider"
+        disableUsernamePasswordLogin: false
+        # List of providers that appear on the login page
+        providers:
+          - id: aaf
+            # https://support.aaf.edu.au/support/solutions/articles/19000096640-openid-connect-
+            accessTokenUri: https://central.aaf.edu.au/providers/op/token
+            #accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
+            userAuthUri: https://central.aaf.edu.au/providers/op/authorize
+            #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
+            clientID: PPP
+            clientSecret: PPP
+            scopes: [ openid, profile, email ]
+            link: PPP
+            # Flag that sets if we should be checking email domains
+            shouldFilterEmailDomains: false
+            # Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
+            allowedEmailDomains:
+              - uwa.edu.au
+              - usyd.edu.au
+            # Flag to force the user creation process, normally this should be set to true
+            forceUserCreate: true
+            # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+            userAutoEnabled: false
+            # Flag to set the verified property of new users
+            userAutoVerified: false
+            # Property names to use when creating users
+            propertyNames:
+              email: email
+              givenName: name
+              familyName: deliberately_unknown_property

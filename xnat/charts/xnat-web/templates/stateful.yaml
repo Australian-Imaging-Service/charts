@@ -53,14 +53,40 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            - name: auth
+              mountPath: "/k8s-secrets/auth"
+              readOnly: true
             - name: config
-              mountPath: "/data/xnat/home/config"
+              mountPath: "/k8s-secrets/config"
               readOnly: true
             {{- range .Values.persistence }}
             - mountPath: {{ .mountPath | quote }}
               name: {{ .name | quote }}
             {{- end }}
+            {{- if .Values.plugin.download }}
+            - mountPath: /data/xnat/home/plugins
+              name: plugins
+            {{- end }}
+      initContainers:
+        {{- if .Values.plugin.download }}
+        {{- range $plugin, $c := .Values.plugin.plugins }}
+        - name: download-plugin-{{ $plugin }}
+          image: busybox:1.32.0
+          command:
+            - 'sh'
+            - '-c'
+            - |
+              url_filename=$(echo {{ $c.url | quote }} |awk -F'/' '{print $NF}')
+              [ -f "/plugins/${url_filename}" ] || wget -P/plugins {{ $c.url | quote }}
+          volumeMounts:
+            - mountPath: /plugins
+              name: plugins
+        {{- end }}
+        {{- end }}
       volumes:
+        - name: auth
+          secret:
+            secretName: {{ include "xnat-web.fullname" . }}-auth
         - name: config
           secret:
             secretName: {{ include "xnat-web.fullname" . }}
@@ -86,4 +112,14 @@ spec:
         resources:
           requests:
             storage: {{ .size }}
+    {{- end }}
+    {{- if .Values.plugin.download }}
+    - metadata:
+        name: plugins
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: 5Gi
     {{- end }}

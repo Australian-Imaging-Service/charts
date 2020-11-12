@@ -1,7 +1,7 @@
 # Cheat sheet
 
 ```bash
-# add the required help repositories
+# add the required helm repositories
 helm repo add bitnami https://charts.bitnami.com/bitnami
 
 # import the helm chart dependencies (e.g., PostgreSQL) from the xnat chart directory
