@@ -57,10 +57,6 @@ sudo snap install helm --classic
 sudo snap install microk8s --classic
 microk8s enable dns fluentd ingress metrics-server prometheus rbac registry storage
 
-# You may get an insufficient permissions error when running the command above - if so, run the following commands and retry
-sudo usermod -a -G microk8s ${USER}
-su - ${USER}
-
 # Install and configure the kubectl client
 sudo snap install kubectl --classic
 # Start running more than one cluster and you will be glad you did these steps
