@@ -5,7 +5,7 @@
 helm repo add bitnami https://charts.bitnami.com/bitnami
 
 # import the helm chart dependencies (e.g., PostgreSQL) from the xnat chart directory 
-# ensure you have cloned the repo and changed to charts/xnat/charts directory before running this command
+# ensure you have cloned the repo and changed to charts/xnat directory before running this command
 helm dependency update
 
 # view the helm output without deployment from the xnat chart directory
