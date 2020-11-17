@@ -42,10 +42,10 @@ spec:
           #  httpGet:
           #    path: /
           #    port: http
-          #readinessProbe:
-          #  httpGet:
-          #    path: /
-          #    port: http
+          readinessProbe:
+            httpGet:
+              path: /app/template/Login.vm#!
+              port: http
           #startupProbe:
           #  httpGet:
           #    path: /
@@ -59,30 +59,33 @@ spec:
             - name: config
               mountPath: "/k8s-secrets/config"
               readOnly: true
-            {{- range .Values.persistence }}
-            - mountPath: {{ .mountPath | quote }}
-              name: {{ .name | quote }}
+            {{- range $name, $c := .Values.persistence }}
+            {{- if $c.size }}
+            - mountPath: {{ $c.mountPath | quote }}
+              name: {{ $name | quote }}
             {{- end }}
-            {{- if .Values.plugin.download }}
-            - mountPath: /data/xnat/home/plugins
-              name: plugins
             {{- end }}
+            {{- range $name, $c := .Values.volumes }}
+            - mountPath: {{ $c.mountPath | quote }}
+              name: {{ $name | quote }}
+            {{- end }}
+      {{- if and .Values.plugin.download .Values.persistence.plugins }}
       initContainers:
-        {{- if .Values.plugin.download }}
         {{- range $plugin, $c := .Values.plugin.plugins }}
         - name: download-plugin-{{ $plugin }}
-          image: busybox:1.32.0
+          image: alpine:3.12.1
           command:
             - 'sh'
             - '-c'
             - |
+              set -x
               url_filename=$(echo {{ $c.url | quote }} |awk -F'/' '{print $NF}')
               [ -f "/plugins/${url_filename}" ] || wget -P/plugins {{ $c.url | quote }}
           volumeMounts:
             - mountPath: /plugins
               name: plugins
         {{- end }}
-        {{- end }}
+      {{- end }}
       volumes:
         - name: auth
           secret:
@@ -90,6 +93,12 @@ spec:
         - name: config
           secret:
             secretName: {{ include "xnat-web.fullname" . }}
+        {{- $context := . -}}
+        {{- range $name, $c := .Values.volumes }}
+        - name: {{ $name }}
+          persistentVolumeClaim:
+            claimName: {{ $name }}-{{ include "xnat-web.fullname" $context }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -103,23 +112,18 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
   volumeClaimTemplates:
-    {{- range .Values.persistence }}
+    {{- range $name, $c := .Values.persistence }}
+    {{- if $c.size }}
     - metadata:
-        name: {{ .name | quote }}
+        name: {{ $name | quote }}
       spec:
-        accessModes: [ {{ .accessMode | quote }} ]
+        accessModes: [ {{ $c.accessMode | quote }} ]
+        {{- if $c.storageClassName }}
+        storageClassName: {{ $c.storageClassName | quote }}
+        {{- end }}
         volumeMode: Filesystem
         resources:
           requests:
-            storage: {{ .size }}
+            storage: {{ $c.size }}
     {{- end }}
-    {{- if .Values.plugin.download }}
-    - metadata:
-        name: plugins
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        volumeMode: Filesystem
-        resources:
-          requests:
-            storage: 5Gi
     {{- end }}

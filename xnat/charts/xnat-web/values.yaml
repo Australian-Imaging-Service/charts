@@ -45,7 +45,7 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-    # nginx.ingress.kubernetes.io/whitelist-source-range: 130.95.0.0/16
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
     # nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
     # nginx.ingress.kubernetes.io/proxy-send-timeout: "100"
     # nginx.ingress.kubernetes.io/proxy-read-timeout: "100"
@@ -85,112 +85,126 @@ tolerations: []
 affinity: {}
 
 persistence:
-  - name: archive
-    accessMode: ReadWriteMany
-    mountPath: "/data/xnat/archive"
-    # storageClassName: "-"
-    size: 1Ti
-  - name: cache
+  cache:
     accessMode: ReadWriteOnce
     mountPath: "/data/xnat/cache"
+    # storageClassName: "-"
     size: 10Gi
-  - name: prearchive
-    accessMode: ReadWriteMany
-    mountPath: "/data/xnat/prearchive"
-    size: 10Gi
-  - name: work
+  work:
     accessMode: ReadWriteOnce
     mountPath: "/data/xnat/home/work"
+    # storageClassName: "-"
     size: 1Gi
-  - name: logs
+  logs:
     accessMode: ReadWriteOnce
     mountPath: "/data/xnat/home/logs"
+    # storageClassName: "-"
     size: 1Gi
+  plugins:
+    accessMode: ReadWriteOnce
+    mountPath: "/data/xnat/home/plugins"
+    # storageClassName: "-"
+    size: 0
+
+volumes:
+  archive:
+    accessMode: ReadWriteMany
+    #existingClaim: ""
+    mountPath: "/data/xnat/archive"
+    #storageClassName: "-"
+    size: 1Ti
+  prearchive:
+    accessMode: ReadWriteMany
+    #existingClaim: ""
+    mountPath: "/data/xnat/prearchive"
+    # storageClassName: "-"
+    size: 1Ti
 
 plugin:
   download: false
-  plugins: {}
-    #ldap:
-    #  filename: xnat-ldap-auth-plugin-1.0.0.jar
-    #  url: "https://bitbucket.org/xnatx/ldap-auth-plugin/downloads/xnat-ldap-auth-plugin-1.0.0.jar"
-    #openid:
-    #  filename: openid-auth-plugin-1.0.0.jar
-    #  url: "http://dev.redboxresearchdata.com.au/nexus/service/local/repositories/snapshots/content/au/edu/qcif/xnat/openid/openid-auth-plugin/1.0.0-SNAPSHOT/openid-auth-plugin-1.0.0-20190409.122010-10.jar"
+  plugins:
+    ldap:
+      filename: xnat-ldap-auth-plugin-1.0.0.jar
+      url: "https://bitbucket.org/xnatx/ldap-auth-plugin/downloads/xnat-ldap-auth-plugin-1.0.0.jar"
+    openid:
+      filename: openid-auth-plugin-1.0.0.jar
+      url: "http://dev.redboxresearchdata.com.au/nexus/service/local/repositories/snapshots/content/au/edu/qcif/xnat/openid/openid-auth-plugin/1.0.0-SNAPSHOT/openid-auth-plugin-1.0.0-20190409.122010-10.jar"
 
-# NB: uncomment the plugin download required for the authentication or install the plugin via other methods
 authentication:
-  methods: {}
-    #ldap:
-    #  # https://wiki.xnat.org/documentation/xnat-administration/configuring-authentication-providers
-    #  providers:
-    #    # uniquely identifies the provider in case there are multiple providers of a given type
-    #    - id: ldap1
-    #      name: "Institution Active Directory"
-    #      address: PPP
-    #      userdn: PPP
-    #      password: PPP
-    #      search:
-    #        base: PPP
-    #        filter: "(sAMAccountName={0})"
-    #openid:
-    #  # https://github.com/NrgXnat/xnat-openid-auth-plugin
-    #  name: "OpenID Authentication Provider"
-    #  disableUsernamePasswordLogin: false
-    #  # List of providers that appear on the login page
-    #  providers:
-    #    - id: aaf
-    #      # https://support.aaf.edu.au/support/solutions/articles/19000096640-openid-connect-
-    #      accessTokenUri: https://central.aaf.edu.au/providers/op/token
-    #      #accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
-    #      userAuthUri: https://central.aaf.edu.au/providers/op/authorize
-    #      #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
-    #      clientID: PPP
-    #      clientSecret: PPP
-    #      scopes: [ openid, profile, email ]
-    #      link: PPP
-    #      # Flag that sets if we should be checking email domains
-    #      shouldFilterEmailDomains: false
-    #      # Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
-    #      allowedEmailDomains:
-    #        - uwa.edu.au
-    #        - usyd.edu.au
-    #      # Flag to force the user creation process, normally this should be set to true
-    #      forceUserCreate: true
-    #      # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
-    #      userAutoEnabled: false
-    #      # Flag to set the verified property of new users
-    #      userAutoVerified: false
-    #      # Property names to use when creating users
-    #      propertyNames:
-    #        email: email
-    #        givenName: name
-    #        familyName: deliberately_unknown_property
-    #    - id: google
-    #      accessTokenUri: https://central.aaf.edu.au/providers/op/token
-    #      userAuthUri: https://central.aaf.edu.au/providers/op/authorize
-    #      clientID: PPP
-    #      clientSecret: PPP
-    #      scopes: [ openid, profile, email ]
-    #      link: PPP
-    #      # Flag that sets if we should be checking email domains
-    #      shouldFilterEmailDomains: false
-    #      # Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
-    #      allowedEmailDomains:
-    #        - uwa.edu.au
-    #        - usyd.edu.au
-    #      # Flag to force the user creation process, normally this should be set to true
-    #      forceUserCreate: true
-    #      # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
-    #      userAutoEnabled: false
-    #      # Flag to set the verified property of new users
-    #      userAutoVerified: false
-    #      # Property names to use when creating users
-    #      propertyNames:
-    #        email: email
-    #        givenName: given_name
-    #        familyName: family_name
+  methods:
+    ldap:
+      # https://wiki.xnat.org/documentation/xnat-administration/configuring-authentication-providers
+      providers:
+        # uniquely identifies the provider in case there are multiple providers of a given type
+        ldap1:
+          name: "Institution Active Directory"
+          address: ""
+          userdn: ""
+          password: ""
+          search:
+            base: ""
+            filter: "(sAMAccountName={0})"
+    openid:
+      # https://github.com/NrgXnat/xnat-openid-auth-plugin
+      name: "OpenID Authentication Provider"
+      disableUsernamePasswordLogin: false
+      preEstablishedRedirUri: "/openid-login"
+      siteUrl: ""
+      # List of providers that appear on the login page
+      providers:
+        aaf:
+          # https://support.aaf.edu.au/support/solutions/articles/19000096640-openid-connect-
+          accessTokenUri: https://central.aaf.edu.au/providers/op/token
+          #accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
+          userAuthUri: https://central.aaf.edu.au/providers/op/authorize
+          #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
+          clientID: ""
+          clientSecret: ""
+          scopes: [ openid, profile, email ]
+          link: '<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>'
+          # Flag that sets if we should be checking email domains
+          # Domains below are the only ones allowed to login, empty array allows ALL domains
+          allowedEmailDomains: []
+          #  - uwa.edu.au
+          #  - sydney.edu.au
+          #  - uq.edu.au
+          # Flag to force the user creation process, normally this should be set to true
+          forceUserCreate: true
+          # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+          userAutoEnabled: false
+          # Flag to set the verified property of new users
+          userAutoVerified: false
+          # Property names to use when creating users
+          propertyNames:
+            email: email
+            givenName: name
+            familyName: deliberately_unknown_property
+        google:
+          accessTokenUri: https://www.googleapis.com/oauth2/v3/token
+          userAuthUri: https://accounts.google.com/o/oauth2/auth
+          clientID: ""
+          clientSecret: ""
+          scopes: [ openid, profile, email ]
+          link: '<p>To sign-in using your Google credentials, please click on the button below.</p></p><p><a href="/openid-login?providerId=google"> <img src="/images/btn_google_signin_dark_normal_web.png" /> </a></p>'
+          # Flag that sets if we should be checking email domains
+          shouldFilterEmailDomains: false
+          # Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
+          allowedEmailDomains: []
+          #  - uwa.edu.au
+          #  - sydney.edu.au
+          # Flag to force the user creation process, normally this should be set to true
+          forceUserCreate: true
+          # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+          userAutoEnabled: false
+          # Flag to set the verified property of new users
+          userAutoVerified: false
+          # Property names to use when creating users
+          propertyNames:
+            email: email
+            givenName: given_name
+            familyName: family_name
 
 postgresql:
-  postgresqlDatabase: xnat
-  postgresqlUsername: xnat
-  postgresqlPassword: xnat
+  postgresqlDatabase: "xnat"
+  postgresqlUsername: "xnat"
+  postgresqlPassword: "xnat"

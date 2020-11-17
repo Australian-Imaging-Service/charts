@@ -1,0 +1,25 @@
+{{- $context := . -}}
+{{- range $name, $c := .Values.volumes }}
+{{- if .existingClaim }}
+{{- else }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-{{ include "xnat-web.fullname" $context }}
+  labels:
+    {{- include "xnat-web.labels" $context | nindent 4 }}
+spec:
+  accessModes: [ {{ $c.accessMode | quote }} ]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $c.size | quote }}
+  {{- if $c.storageClassName }}
+  storageClassName: {{ $c.storageClassName }}
+  {{- end }}
+  selector:
+    matchLabels: {}
+    matchExpressions: []
+{{- end }}
+{{- end }}

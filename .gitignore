@@ -1,2 +1,5 @@
 .*.swp
 Chart.lock
+/xnat/values-uat.yaml
+/xnat/values-prod.yaml
+/tmp

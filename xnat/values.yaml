@@ -2,13 +2,20 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-postgresql:
-  enabled: false
-  # fullnameOverride: 
-  postgresqlDatabase: xnat
-  postgresqlPostgresPassword: xnat
-  postgresqlUsername: xnat
-  postgresqlPassword: xnat
+global:
+  postgresql:
+    postgresqlDatabase: "xnat"
+    postgresqlUsername: "xnat"
+    postgresqlPassword: ""
+    servicePort: ""
+
+# Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
+# WARNING: Only change this post deployment if you know what you are doing
+postgresqlEnabled: true
+# External Database service endpoint, ensure `postgresqlEnabled: false`
+postgresqlExternalName: ""
+postgresqlExternalIPs: []
+#  - 130.95.126.8
 
 xnat-web:
   enabled: true
