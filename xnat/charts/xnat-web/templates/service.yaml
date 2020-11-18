@@ -14,3 +14,21 @@ spec:
       name: http
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
+{{- if .Values.dicom_scp.recievers }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-dicom-scp
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.dicom_scp.serviceType }}
+  ports:
+    {{- range .Values.dicom_scp.recievers }}
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+    {{- end }}
+  selector:
+    {{- include "xnat-web.selectorLabels" . | nindent 4 }}
+{{- end }}

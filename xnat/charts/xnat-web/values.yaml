@@ -204,6 +204,15 @@ authentication:
             givenName: given_name
             familyName: family_name
 
+# https://wiki.xnat.org/documentation/xnat-administration/connecting-xnat-to-dicom-scanners-and-pacs
+# DICOM C-STORE Service Class Provider (SCP)
+# DICOM Application Entity (AE)
+dicom_scp:
+  serviceType: "NodePort"
+  recievers:
+    - ae_title: "XNAT"
+      port: 8104
+
 postgresql:
   postgresqlDatabase: "xnat"
   postgresqlUsername: "xnat"
