@@ -4,7 +4,7 @@
 
 ```console
 $ helm repo add ais https://TODO/charts
-$ helm install xnat ais/xnat
+$ helm upgrade xnat ais/xnat --install
 ```
 
 ## Introduction
@@ -55,11 +55,12 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | `global.postgresql.postgresqlUsername`      | PostgreSQL username (overrides `postgresql.postgresqlUsername`)                      | `xnat` |
 | `global.postgresql.postgresqlPassword`      | PostgreSQL admin password (overrides `postgresql.postgresqlPassword`)                | `""` WARNING: A complex value must be provided for security |
 | `global.postgresql.servicePort`             | PostgreSQL port (overrides `postgresql.service.port`)                                | `nil` |
+| For more *PostgreSQL* detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
 | `postgresqlEnabled`                         | Deploy PostgreSQL as part of this Charts deployment, else provide external ref.      | `true` |
 | `postgresqlExternalHostname`                | Hostname of an external database if `postgresqlEnabled`=`false`                      | `nil` |
 | `postgresqlExternalIPs`                     | Hostname of an external database if `postgresqlEnabled`=`false`                      | `nil` |
-| `xnat-web.volumes.archive.existingClaim`    |
-| `xnat-web.volumes.prearchive.existingClaim` |
+| `xnat-web.volumes.archive.existingClaim`    | | |
+| `xnat-web.volumes.prearchive.existingClaim` | | |
+| For more *xnat-web* detail and configuration options please visit the [xnat-web](/charts/xnat-web#Parameters) sub-chart |||
 
-For more detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql).
