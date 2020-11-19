@@ -14,7 +14,7 @@ spec:
       name: http
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
-{{- if .Values.dicom_scp.recievers }}
+{{- if .Values.dicom_scp.receivers }}
 ---
 apiVersion: v1
 kind: Service
@@ -25,7 +25,7 @@ metadata:
 spec:
   type: {{ .Values.dicom_scp.serviceType }}
   ports:
-    {{- range .Values.dicom_scp.recievers }}
+    {{- range .Values.dicom_scp.receivers }}
     - port: {{ .port }}
       targetPort: {{ .port }}
     {{- end }}

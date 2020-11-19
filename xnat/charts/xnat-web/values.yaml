@@ -209,7 +209,7 @@ authentication:
 # DICOM Application Entity (AE)
 dicom_scp:
   serviceType: "NodePort"
-  recievers:
+  receivers:
     - ae_title: "XNAT"
       port: 8104
 
