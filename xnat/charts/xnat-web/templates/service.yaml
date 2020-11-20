@@ -14,7 +14,7 @@ spec:
       name: http
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
-{{- if .Values.dicom_scp.receivers }}
+{{- if .Values.dicom_scp.recievers }}
 ---
 apiVersion: v1
 kind: Service
