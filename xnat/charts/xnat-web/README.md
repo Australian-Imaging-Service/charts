@@ -16,3 +16,7 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
 | `volumes.archive.existingClaim`    | | |
 | `volumes.prearchive.existingClaim` | | |
+| `dicom_scp.serviceType                      | DICOM C-STORE Service Class Provider (SCP) service type (NodePort|LoadBalancer)      | `NodePort` |
+| `dicom_scp.recievers.ae_title`              |                                                                                      | `XNAT` |
+| `dicom_scp.recievers.port`                  |                                                                                      | `8104` |
+| `dicom_scp.recievers.nodePort`              |                                                                                      | `nil` |

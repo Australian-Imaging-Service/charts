@@ -209,9 +209,14 @@ authentication:
 # DICOM Application Entity (AE)
 dicom_scp:
   serviceType: "NodePort"
+  annotations: {}
+  #  metallb.universe.tf/address-pool: production-public-ips
+  #  metallb.universe.tf/allow-shared-ip: true
   recievers:
     - ae_title: "XNAT"
       port: 8104
+      # nodePort: 32514
+      # loadBalancerIp: "130.95.27.91"
 
 postgresql:
   postgresqlDatabase: "xnat"

@@ -22,12 +22,23 @@ metadata:
   name: {{ include "xnat-web.fullname" . }}-dicom-scp
   labels:
     {{- include "xnat-web.labels" . | nindent 4 }}
+  {{- with .Values.dicom_scp.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  type: {{ .Values.dicom_scp.serviceType }}
+  type: {{ .Values.dicom_scp.serviceType | quote }}
   ports:
+    {{- $serviceType := .Values.dicom_scp.serviceType }}
     {{- range .Values.dicom_scp.recievers }}
     - port: {{ .port }}
       targetPort: {{ .port }}
+      {{- if and (eq $serviceType "NodePort") .nodePort }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+      {{- if and (eq $serviceType "LoadBalancer") .loadBalancerIP }}
+      loadBalancerIP: {{ .loadBalancerIP }}
+      {{- end }}
     {{- end }}
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
