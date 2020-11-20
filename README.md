@@ -9,7 +9,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm dependency update
 
 # view the helm output without deployment from the xnat chart directory
-helm install --debug --dry-run xnat-dev . --values ./values-dev.yaml 2>&1 |less
+helm install --debug --dry-run xnat . --values ./values-dev.yaml 2>&1 |less
 
 # create xnat namespace in kubernetes
 kubectl create namespace xnat
