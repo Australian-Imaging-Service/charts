@@ -88,3 +88,13 @@ Create the name of the PostgreSQL service account to use
 {{- .Values.postgresql.postgresqlPassword }}
 {{- end }}
 {{- end -}}
+
+{{- define "xnat-web.auth.openid.providers" -}}
+{{- $openid_providers := dict -}}
+{{- range $provider, $p := . -}}
+  {{- if $p.clientID -}}
+    {{- $_ := set $openid_providers $provider $p -}}
+  {{- end -}}
+{{- end -}}
+{{- $openid_providers -}}
+{{- end -}}
