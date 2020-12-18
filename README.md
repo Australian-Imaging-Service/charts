@@ -52,7 +52,6 @@ sudo snap install helm --classic
 
 ### [microk8s](https://microk8s.io/)
 
-
 ```bash
 sudo snap install microk8s --classic
 microk8s enable dns fluentd ingress metrics-server prometheus rbac registry storage
@@ -76,6 +75,16 @@ kubectl config use-context microk8s
 ```
 
 If you have an issue with the operation of microk8s `microk8s inspect` command is you best friend.
+
+#### microk8s notes
+
+To enable a Load Balancer microk8s comes with [metalLB](https://metallb.universe.tf/) and configures [Layer2 mode](https://metallb.universe.tf/configuration/#layer-2-configuration) settings by default. You will be asked for an IPv4 block of addresses, ensure that the address block is in the same Layer 2 as your host, unused and reserved for this pupose (you may need to alter your DHCP service). When you are ready perform the following:
+
+```console
+$ microk8s enable metallb
+```
+
+* microk8s does not support IPv6 at this time!
 
 ### NixOS + Minikube
 

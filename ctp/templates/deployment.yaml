@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ctp.fullname" . }}
+  labels:
+    {{- include "ctp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ctp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ctp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ctp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: config-xml
+              mountPath: /JavaPrograms/CTP/config.xml
+              subPath: config.xml
+              readOnly: true
+            - name: users-xml
+              mountPath: /JavaPrograms/CTP/users.xml
+              subPath: users.xml
+              readOnly: true
+            {{- range $volume, $v := .Values.volumes }}
+            - mountPath: {{ $v.mountPath | quote }}
+              name: {{ $volume | quote }}
+            {{- end }}
+          #livenessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: http
+          #readinessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config-xml
+          configMap:
+            name: {{ include "ctp.fullname" . }}
+        - name: users-xml
+          secret:
+            secretName: {{ include "ctp.fullname" . }}
+        {{- $context := . -}}
+        {{- range $volume, $v := .Values.volumes }}
+        - name: {{ $volume }}
+          persistentVolumeClaim:
+            claimName: {{ if $v.existingClaim }}{{ $v.existingClaim | quote }}{{ else }}{{ $volume }}-{{ include "ctp.fullname" $context }}{{ end }}
+        {{- end }}

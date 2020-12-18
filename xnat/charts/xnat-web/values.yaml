@@ -2,6 +2,13 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+global:
+  postgresql: {}
+    # postgresqlDatabase: ""
+    # postgresqlUser: ""
+    # postgresqlPassword: ""
+    # servicePort: 5432
+
 replicaCount: 1
 
 image:
@@ -52,8 +59,7 @@ ingress:
     # nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
     # nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
   hosts:
-    - host: chart-example.local
-      paths: []
+    - "chart-example.local"
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:

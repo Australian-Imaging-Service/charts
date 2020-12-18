@@ -11,16 +11,26 @@ postgresqlExternalIPs:
 xnat-web:
   authentication:
     methods:
+      ldap:
+        address: "ldapkddkkd"
       openid:
         siteUrl: "https://xnat-dev.cmca.uwa.edu.au"
+        providers:
+          aaf:
+            clientID: "ttt"
+  dicom_scp:
+    recievers:
+      - ae_title: "XNAT"
+        port: 8104
+        nodePort: 32514
   image:
-    #repository: localhost:32000/xnat
+    repository: localhost:32000/xnat
     pullPolicy: Always
   ingress:
     enabled: true
     annotations:
       kubernetes.io/ingress.class: "nginx"
-      #kubernetes.io/tls-acme: "true"
+      kubernetes.io/tls-acme: "true"
       #nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16 127.0.0.0/8"
       nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "100"
@@ -28,5 +38,4 @@ xnat-web:
       nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
       nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
     hosts:
-      - host: xnat-dev.cmca.uwa.edu.au
-        paths: [ "/" ]
+      - "xnat-dev.cmca.uwa.edu.au"

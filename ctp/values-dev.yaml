@@ -1,0 +1,160 @@
+image:
+  repository: localhost:32000/mirc-ctp
+  pullPolicy: Always
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - ctp-dev.cmca.uwa.edu.au
+
+timezone: Australia/Perth
+
+users:
+  admin:
+    password: "126680608771750945340162210354335764377"
+    roles:
+      - admin
+  king:
+    password: "126680608771750945340162210354335764377"
+    roles:
+      - admin
+      - shutdown
+
+pipelines:
+  Main_Pipeline:
+    desc: "Main Pipeline"
+    stages:
+      - name: "DicomImportService"
+        root: "roots/dicom-import"
+        port: 1104
+      - name: "FileStorageService"
+        root: "storage"
+        returnStoredFile: false
+        quarantine: "quarantines/storage"
+      - name: "DicomAnonymizer"
+        root: "roots/anonymizer"
+        script: "scripts/da.script"
+        quarantine: "quarantines/anonymizer"
+      - name: "HttpExportService"
+        root: "roots/http-export"
+        url: "https://university.edu:1443"
+  Client_Pipeline:
+    desc: "Client Pipeline"
+    stages:
+      - name: "DicomImportService"
+        root: "test/roots/client/dicom-import"
+        port: 1104
+        quarantine: "test/quarantines/client/dicom-import"
+      - name: "HttpImportService"
+        root: "test/roots/client/https-import"
+        ssl: true
+        port: 5200
+        quarantine: "test/quarantines/client/https-import"
+      - name: "HttpImportService"
+        root: "test/roots/client/http-import"
+        ssl: false
+        port: 5201
+        quarantine: "test/quarantines/client/http-import"
+      #- name: "DirectoryImportService"
+      #  root: "test/roots/client/directory-import"
+      #  minAge: 5000
+      #  quarantine: "test/quarantines/client/directory-import"
+      - name: "ObjectLogger"
+        verbose: false
+      - name: "IDMap"
+        root: "test/roots/client/idmap"
+      - name: "ObjectTracker"
+        root: "test/roots/client/objecttracker"
+      - name: "DicomAnonymizer"
+        root: "test/roots/client/dicom-anonymizer"
+        lookupTable: "scripts/lookup-table.properties"
+        script: "scripts/dicom-anonymizer.properties"
+        quarantine: "test/quarantines/client/dicom-anonymizer"
+      - name: "XmlAnonymizer"
+        root: "test/roots/client/xml-anonymizer"
+        script: "scripts/xml-anonymizer.script"
+        quarantine: "test/quarantines/client/xml-anonymizer"
+      - name: "ZipAnonymizer"
+        root: "test/roots/client/zip-anonymizer"
+        script: "scripts/zip-anonymizer.script"
+        quarantine: "test/quarantines/client/zip-anonymizer"
+      - name: "DatabaseVerifier"
+        root: "test/roots/client/database-verifier"
+        interval: "10000"
+        url: "https://127.0.0.1:5210"
+        username: "client"
+        password: "password"
+      - name: "HttpExportService"
+        root: "test/roots/client/https-export"
+        url: "https://127.0.0.1:5300"
+        username: "client"
+        password: "password"
+        quarantine: "test/quarantines/client/https-export"
+      - name: "DicomExportService"
+        root: "test/roots/client/dicom-export"
+        url: "dicom://DICOMSERVER:CLIENT@127.0.0.1:1105"
+        quarantine: "test/quarantines/client/dicom-export"
+  HTTP_Server_Pipeline:
+    desc: "HTTP Server Pipeline"
+    stages:
+      - name: "HttpImportService"
+        root: "test/roots/httpserver/https-import"
+        ssl: true
+        port: 5300
+        requireAuthentication: true
+        quarantine: "test/quarantines/httpserver/https-import"
+      - name: "DicomFilter"
+        root: "test/roots/httpserver/dicom-filter"
+        script: "scripts/dicom-filter.script"
+        quarantine: "test/quarantines/httpserver/dicom-filter"
+      - name: "XmlFilter"
+        root: "test/roots/httpserver/xml-filter"
+        script: "scripts/xml-filter.script"
+        quarantine: "test/quarantines/httpserver/xml-filter"
+      - name: "ZipFilter"
+        root: "test/roots/httpserver/zip-filter"
+        script: "scripts/zip-filter.script"
+        quarantine: "test/quarantines/httpserver/zip-filter"
+      - name: "FileStorageService"
+        root: "test/storage/httpserver/file"
+        port: "1180"
+        returnStoredFile: false
+        quarantine: "test/quarantines/httpserver/file-storage"
+      - name: "BasicFileStorageService"
+        id: "sbfss"
+        index: "test/storage/httpserver/basic"
+        root: "test/storage/httpserver/basic/store"
+        nLevels: 3
+        maxSize: 200
+        quarantine: "test/quarantines/httpserver/basic-file-storage"
+        raw_content: |
+          <jpeg wmax="10000" wmin="96" q="-1" />
+      - name: "DatabaseExportService"
+        adapterClass: "org.rsna.ctp.stdstages.database.TestDatabaseAdapter"
+        poolSize: "1"
+        fileStorageServiceID: "sbfss"
+        root: "test/roots/httpserver/database-export"
+        interval: 10000
+        ssl: true
+        port: 5210
+        quarantine: "test/quarantines/httpserver/database-export"
+  DICOM_Server_Pipeline:
+    desc: "DICOM Server Pipeline"
+    stages:
+      - name: "DicomImportService"
+        root: "test/roots/dicomserver/dicom-import"
+        port: 1105
+        quarantine: "test/quarantines/dicomserver/dicom-import"
+      - name: "FileStorageService"
+        root: "test/storage/dicomserver/file"
+        port: 1181
+        returnStoredFile: false
+        quarantine: "test/quarantines/dicomserver/file-storage"
+
+volumes:
+  directoryimportservice:
+    accessMode: ReadWriteMany
+    mountPath: "/vol/DirectoryImportService"
+    size: 1Gi

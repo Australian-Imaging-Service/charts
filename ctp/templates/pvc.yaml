@@ -1,0 +1,24 @@
+{{- $context := . -}}
+{{- range $volume, $v := .Values.volumes }}
+{{- if not $v.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $volume }}-{{ include "ctp.fullname" $context }}
+  labels:
+    {{- include "ctp.labels" $context | nindent 4 }}
+spec:
+  accessModes: [ {{ $v.accessMode | quote }} ]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ $v.size | quote }}
+  {{- if $v.storageClassName }}
+  storageClassName: {{ $v.storageClassName }}
+  {{- end }}
+  selector:
+    matchLabels: {}
+    matchExpressions: []
+{{- end }}
+{{- end }}

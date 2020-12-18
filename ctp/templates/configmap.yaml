@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ctp.fullname" . }}
+  labels:
+    {{- include "ctp.labels" . | nindent 4 }}
+data:
+  config.xml: |
+    <Configuration>
+      <Server
+        port="1080"
+        {{- if .Values.proxyServer.ipAddress }}
+        {{- with .Values.proxyServer }}
+        <ProxyServer
+          proxyIPAddress={{ .ipAddress | quote }}
+          proxyPort={{ .port | quote }}
+          proxyUsername={{ .username | quote }}
+          proxyPassword={{ .password | quote }}
+        />
+        {{- end }}
+        {{- end }}
+      />
+      {{- range .Values.pipelines }}
+      <Pipeline name={{ .desc | quote }}>
+        {{- range .stages }}
+        <{{ .name }}
+          class="org.rsna.ctp.stdstages.{{ .name }}"
+          {{- $stage := . }}
+          {{- range (keys . | uniq | sortAlpha) }}
+          {{- if ne . "raw_content" }}
+          {{- if kindIs "bool" (index $stage .) }}
+          {{ . }}="{{ if index $stage . }}yes{{ else }}no{{ end }}"
+          {{- else if eq . "index" }}
+          {{ if isAbs (index $stage .) }}index={{ index $stage . | quote }}{{ else }}index="/tmp/indexes/{{ index $stage . }}"{{ end }}
+          {{- else if eq . "root" }}
+          {{ if isAbs (index $stage .) }}root={{ index $stage . | quote }}{{ else }}root="/vol/roots/{{ index $stage . }}"{{ end }}
+          {{- else if eq . "quarantine" }}
+          {{ if isAbs (index $stage .) }}quarantine={{ index $stage . | quote }}{{ else }}quarantine="/vol/quarantines/{{ index $stage . }}"{{ end }}
+          {{- else }}
+          {{ . }}={{ index $stage . | quote }}
+          {{- end }}
+          {{- end }}
+          {{- end }}
+        {{- if .raw_content }}
+          >
+          {{- .raw_content | nindent 12 -}}
+        </{{ .name }}>
+        {{- else }}
+        />
+        {{- end }}
+        {{- end }}
+      </Pipeline>
+      {{- end }}
+    </Configuration>
