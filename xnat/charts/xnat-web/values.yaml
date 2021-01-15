@@ -164,7 +164,7 @@ authentication:
           #accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
           userAuthUri: https://central.aaf.edu.au/providers/op/authorize
           #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
-          clientID: ""
+          clientId: ""
           clientSecret: ""
           scopes: [ openid, profile, email ]
           link: '<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>'
@@ -188,7 +188,7 @@ authentication:
         google:
           accessTokenUri: https://www.googleapis.com/oauth2/v3/token
           userAuthUri: https://accounts.google.com/o/oauth2/auth
-          clientID: ""
+          clientId: ""
           clientSecret: ""
           scopes: [ openid, profile, email ]
           link: '<p>To sign-in using your Google credentials, please click on the button below.</p></p><p><a href="/openid-login?providerId=google"> <img src="/images/btn_google_signin_dark_normal_web.png" /> </a></p>'
