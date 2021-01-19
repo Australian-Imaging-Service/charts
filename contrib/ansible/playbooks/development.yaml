@@ -29,5 +29,5 @@
             KUBECONFIG="${KUBECONFIG%:}"
             export KUBECONFIG
           fi
-        marker: "ANSIBLE MANAGED BLOCK AIS"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK AIS"
         state: present
