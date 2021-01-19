@@ -133,8 +133,8 @@ plugin:
       filename: xnat-ldap-auth-plugin-1.0.0.jar
       url: "https://bitbucket.org/xnatx/ldap-auth-plugin/downloads/xnat-ldap-auth-plugin-1.0.0.jar"
     openid:
-      filename: openid-auth-plugin-1.0.0.jar
-      url: "http://dev.redboxresearchdata.com.au/nexus/service/local/repositories/snapshots/content/au/edu/qcif/xnat/openid/openid-auth-plugin/1.0.0-SNAPSHOT/openid-auth-plugin-1.0.0-20190409.122010-10.jar"
+      filename: xnat-openid-auth-plugin-all-1.0.2.jar
+      url: "https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases/download/1.0.2/xnat-openid-auth-plugin-all-1.0.2.jar"
 
 authentication:
   methods:
