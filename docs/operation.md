@@ -3,9 +3,13 @@
 ## Requirements and rationals
 
 * Collaboration and knowledge share
+
   Tool selection has been chosen with a security oriented focus but enabling collaboration and sharing of site specific configurations, experiences and recommendations.
+
 * Security
+
   A layered security approach with mechanisms to provide access at granular levels either through Access Control Lists (ACLs) or encryption
+
 * Automated deployment
   * Allow use of Continuous Delivery (CD) pipelines
   * Incorporate automated testing principals, such as Canary deployments
