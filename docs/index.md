@@ -4,6 +4,9 @@
 
 layout: home
 ---
+
+The Charts repository contains Kubernetes Helm charts for the easy deployment of `xnat` and `ctp` instances in containerized form.
+
 What is Helm?
 
 Helm is a package manager for Kubernetes.
