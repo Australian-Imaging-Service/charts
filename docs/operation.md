@@ -1,3 +1,9 @@
+---
+layout: page
+title: "Operation"
+permalink: /operation/
+---
+
 # Operational recommendations
 
 ## Requirements and rationals
