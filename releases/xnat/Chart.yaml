@@ -27,5 +27,3 @@ dependencies:
   version: "~9.8.7"
   repository: "https://charts.bitnami.com/bitnami"
   condition: postgresqlEnabled
-- name: xnat-web
-  version: ">= 0"
