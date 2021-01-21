@@ -1,7 +1,7 @@
 ---
-layout: page
+layout: default
 title: "Operation"
-permalink: /operation/
+#permalink: /operation/
 ---
 
 # Operational recommendations
