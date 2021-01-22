@@ -90,42 +90,44 @@ https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/blob/maste
 I will provide an example filled out properties file with some caveats below. 
 Please note all of the bold italics are case sensitive, incorrectly capitalised entries will result in non-working AAF integration!
 
-#These need to be left as is
-***auth.method=openid
-type=openid
-provider.id=openid
-visible=true***
+These need to be left as is
+***auth.method=openid***
+***type=openid***
+***provider.id=openid***
+***visible=true***
 
-#Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended
-***auto.enabled=false
-auto.verified=false***
+Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended
+***auto.enabled=false***
+***auto.verified=false***
 
-#Name displayed in the UI – not particularly important 
+Name displayed in the UI – not particularly important 
 ***name=OpenID Authentication Provider***
 
-#Toggle username & password login visibility
+Toggle username & password login visibility
 ***disableUsernamePasswordLogin=false***
 
-#List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider
+List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider
 ***enabled=aaf***
 
-#Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document
+Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document
 ***siteUrl=https://xnat.example.com
 preEstablishedRedirUri=/openid-login***
 
-#AAF ClientID and Secret – CASE SENSITIVE - openid.aaf.clientID for example would mean AAF plugin will not function
-#These are fake details but an example – no “ (quotation marks) required.
-***openid.aaf.clientId=123jsdjd
-openid.aaf.clientSecret=chahdkdfdhffkhf***
+AAF ClientID and Secret – CASE SENSITIVE - openid.aaf.clientID for example would mean AAF plugin will not function
+These are fake details but an example – no “ (quotation marks) required.
 
-#The providers are covered at the top of the document
-***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token
-openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize***
+***openid.aaf.clientId=123jsdjd***
+
+***openid.aaf.clientSecret=chahdkdfdhffkhf***
+
+The providers are covered at the top of the document
+
+***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token***
+***openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize***
 
 
 You can find more details on the remaining values here:
 https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin
-
 
 ***openid.aaf.scopes=openid,profile,email***
 
