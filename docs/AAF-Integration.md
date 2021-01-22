@@ -4,12 +4,12 @@ title: "AAF-Integration"
 #permalink: /AAF-Integration/
 ---
 
-#Integrating AAF with AIS Kubernetes XNAT Deployment
+# Integrating AAF with AIS Kubernetes XNAT Deployment
 
 
 
 
-##Applying for AAF Integration ClientId and Secret
+## Applying for AAF Integration ClientId and Secret
 
 AAF have several services they offer which authenticate users, for example, Rapid Connect.
 We are interested in the AAF OIDC RP service.
@@ -55,7 +55,7 @@ For 5. Just go to https://keybase.io/ and create an account to provide to AAF su
 
 
 
-##Installing the AAF Plugin in a working XNAT environment
+## Installing the AAF Plugin in a working XNAT environment
 
 There have been long standing issues with the QCIF plugin that have been resolved by the AIS Deployment team – namely unable to access any projects – see image below.
 
@@ -90,35 +90,35 @@ https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/blob/maste
 I will provide an example filled out properties file with some caveats below. 
 Please note all of the bold italics are case sensitive, incorrectly capitalised entries will result in non-working AAF integration!
 
-### These need to be left as is
+#These need to be left as is
 *auth.method=openid
 type=openid
 provider.id=openid
 visible=true*
 
-### Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended
+#Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended
 *auto.enabled=false
 auto.verified=false*
 
-### Name displayed in the UI – not particularly important 
+#Name displayed in the UI – not particularly important 
 *name=OpenID Authentication Provider*
 
-### Toggle username & password login visibility
+#Toggle username & password login visibility
 *disableUsernamePasswordLogin=false*
 
-### List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider
+#List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider
 *enabled=aaf*
 
-### Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document
+#Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document
 *siteUrl=https://xnat.example.com
 preEstablishedRedirUri=/openid-login*
 
-### AAF ClientID and Secret – CASE SENSITIVE - openid.aaf.clientID for example would mean AAF plugin will not function
-### These are fake details but an example – no “ (quotation marks) required.
+#AAF ClientID and Secret – CASE SENSITIVE - openid.aaf.clientID for example would mean AAF plugin will not function
+#These are fake details but an example – no “ (quotation marks) required.
 *openid.aaf.clientId=123jsdjd
 openid.aaf.clientSecret=chahdkdfdhffkhf*
 
-### The providers are covered at the top of the document
+#The providers are covered at the top of the document
 *openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token
 openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize*
 
@@ -129,24 +129,24 @@ https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin
 
 *openid.aaf.scopes=openid,profile,email*
 
-### If the below is wrong the AAF logo will not appear on the login page and you won’t be able to login
+#If the below is wrong the AAF logo will not appear on the login page and you won’t be able to login
 *openid.aaf.link=<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>*
 
-### Flag that sets if we should be checking email domains
+#Flag that sets if we should be checking email domains
 *openid.aaf.shouldFilterEmailDomains=false*
 
-### Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
-### openid.aaf.allowedEmailDomains=example.com
-### Flag to force the user creation process, normally this should be set to true
+#Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
+#openid.aaf.allowedEmailDomains=example.com
+#Flag to force the user creation process, normally this should be set to true
 *openid.aaf.forceUserCreate=true*
 
-### Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+#Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
 *openid.aaf.userAutoEnabled=false*
 
-### Flag to set the verified property of new users – use in conjunction with auto.verified
+#Flag to set the verified property of new users – use in conjunction with auto.verified
 *openid.aaf.userAutoVerified=false*
 
-### Property names to use when creating users
+#Property names to use when creating users
 *openid.aaf.emailProperty=email
 openid.aaf.givenNameProperty=name
 openid.aaf.familyNameProperty=deliberately_unknown_property*
@@ -158,7 +158,7 @@ You should only need to restart Tomcat to enable login. This assumes you have a 
 
 
 
-##Using AAF with the AIS Kubernetes Chart Deployment
+## Using AAF with the AIS Kubernetes Chart Deployment
 
 The AIS Charts Helm template has all you need to setup a completely functional XNAT implementation in minutes, part of this is AAF integration.
 Prerequisites:
@@ -205,7 +205,7 @@ https://github.com/Australian-Imaging-Service/charts
 In order for this to work, you will need to point your domain name and SSL certificate to the Kubernetes xnat-web pod, which is outside of the scope of this document.
 
 
-##Troubleshooting
+## Troubleshooting
 Most of the above documentation should remove the need for troubleshooting but a few things to bear in mind.
 
 1.	All of the openid-provider.properties file and the values.yaml file mentioned above for either existing XNAT deployments are CASE SENSITIVE. The entries must match exactly AAF won’t work.
