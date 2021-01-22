@@ -30,8 +30,8 @@ For 1. This is extremely important and based on two options in the openid-provid
 
 We will use this example below (this is the correct syntax):
 
-*siteUrl=https://xnat.example.com
-preEstablishedRedirUri=/openid-login*
+***siteUrl=https://xnat.example.com
+preEstablishedRedirUri=/openid-login***
 
 In this case, the answer to 1 should be https://xnat.example.com/openid-login
 Submitting https://xnat.example.com will lead to a non functional AAF setup.
