@@ -59,8 +59,7 @@ For 5. Just go to https://keybase.io/ and create an account to provide to AAF su
 
 There have been long standing issues with the QCIF plugin that have been resolved by the AIS Deployment team – namely unable to access any projects – see image below.
 
-![Image of QCIF Openid plugin error]
-(https://user-images.githubusercontent.com/31684997/53543648-1f0f0f00-3b6f-11e9-886b-adbf3845277d.png)
+![Image of QCIF Openid plugin error](https://images.exxa.tech/xnat-aaf-error.png)
 
 This issue occurred regardless of project access permissions. You would receive this error message trying to access your own project!
 
