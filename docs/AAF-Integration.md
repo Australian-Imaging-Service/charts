@@ -30,8 +30,8 @@ For 1. This is extremely important and based on two options in the openid-provid
 
 We will use this example below (this is the correct syntax):
 
-*********siteUrl=https://xnat.example.com
-preEstablishedRedirUri=/openid-login*********
+***siteUrl=https://xnat.example.com***  
+***preEstablishedRedirUri=/openid-login***
 
 In this case, the answer to 1 should be https://xnat.example.com/openid-login
 Submitting https://xnat.example.com will lead to a non functional AAF setup.
@@ -42,13 +42,13 @@ Submitting https://xnat.example.com will lead to a non functional AAF setup.
 
 If it is a testing or development environment, you will use the following details:
 
-***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token
-openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize***
+***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token***  
+***openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize***
 
 For production environments (notice no test in the URLs):
 
-***openid.aaf.accessTokenUri=https://central.aaf.edu.au/providers/op/token
-openid.aaf.userAuthUri=https://central.aaf.edu.au/providers/op/authorize***
+***openid.aaf.accessTokenUri=https://central.aaf.edu.au/providers/op/token***  
+***openid.aaf.userAuthUri=https://central.aaf.edu.au/providers/op/authorize***
 
 For 5. Just go to https://keybase.io/ and create an account to provide to AAF support so you can receive the ClientId and ClientSecret securely.
 
@@ -76,7 +76,7 @@ Please note this was the latest version at the time of writing this document. Pl
 
 https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases
 
-You now have xnat-openid-auth-plugin-all-1.0.2.jar in /data/xnat/home/plugins.
+You now have xnat-openid-auth-plugin-all-1.0.2.jar in /data/xnat/home/plugins.  
 You now need the configuration file which will be (assuming previous location for XNAT Home directory): 
 
 ***/data/xnat/home/config/auth/openid-provider.properties***
@@ -90,70 +90,68 @@ https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/blob/maste
 I will provide an example filled out properties file with some caveats below. 
 Please note all of the bold italics are case sensitive, incorrectly capitalised entries will result in non-working AAF integration!
 
-These need to be left as is
-***auth.method=openid***
-***type=openid***
-***provider.id=openid***
-***visible=true***
+These need to be left as is  
+***auth.method=openid***  
+***type=openid***  
+***provider.id=openid***  
+***visible=true***  
 
-Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended
-***auto.enabled=false***
+Set these values to false if you want an Admin to enable and verify the account before users are allowed to login - recommended  
+***auto.enabled=false***  
 ***auto.verified=false***
 
 Name displayed in the UI – not particularly important 
 ***name=OpenID Authentication Provider***
 
-Toggle username & password login visibility
+Toggle username & password login visibility  
 ***disableUsernamePasswordLogin=false***
 
-List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider
+List of providers that appear on the login page, see options below. In our case we only need aaf but you can have any openid enabled provider  
 ***enabled=aaf***
 
-Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document
-***siteUrl=https://xnat.example.com
-preEstablishedRedirUri=/openid-login***
+Site URL - the main domain, needed to build the pre-established URL below. See notes at top of document  
+***siteUrl=https://xnat.example.com***  
+***preEstablishedRedirUri=/openid-login***
 
 AAF ClientID and Secret – CASE SENSITIVE - openid.aaf.clientID for example would mean AAF plugin will not function
-These are fake details but an example – no “ (quotation marks) required.
-
-***openid.aaf.clientId=123jsdjd***
-
+These are fake details but an example – no “ (quotation marks) required.  
+***openid.aaf.clientId=123jsdjd***  
 ***openid.aaf.clientSecret=chahdkdfdhffkhf***
 
-The providers are covered at the top of the document
-
-***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token***
+The providers are covered at the top of the document  
+***openid.aaf.accessTokenUri=https://central.test.aaf.edu.au/providers/op/token***  
 ***openid.aaf.userAuthUri=https://central.test.aaf.edu.au/providers/op/authorize***
 
 
-You can find more details on the remaining values here:
+You can find more details on the remaining values here:  
 https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin
 
 ***openid.aaf.scopes=openid,profile,email***
 
-#If the below is wrong the AAF logo will not appear on the login page and you won’t be able to login
-***openid.aaf.link=<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>***
-
-#Flag that sets if we should be checking email domains
+If the below is wrong the AAF logo will not appear on the login page and you won’t be able to login  
+```
+openid.aaf.link=<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>
+```
+Flag that sets if we should be checking email domains  
 ***openid.aaf.shouldFilterEmailDomains=false***
 
-#Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
-#openid.aaf.allowedEmailDomains=example.com
-#Flag to force the user creation process, normally this should be set to true
+Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true  
+openid.aaf.allowedEmailDomains=example.com  
+Flag to force the user creation process, normally this should be set to true  
 ***openid.aaf.forceUserCreate=true***
 
-#Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away  
 ***openid.aaf.userAutoEnabled=false***
 
-#Flag to set the verified property of new users – use in conjunction with auto.verified
+Flag to set the verified property of new users – use in conjunction with auto.verified  
 ***openid.aaf.userAutoVerified=false***
 
-#Property names to use when creating users
-***openid.aaf.emailProperty=email
-openid.aaf.givenNameProperty=name
-openid.aaf.familyNameProperty=deliberately_unknown_property***
+Property names to use when creating users  
+***openid.aaf.emailProperty=email***  
+***openid.aaf.givenNameProperty=name***  
+***openid.aaf.familyNameProperty=deliberately_unknown_property***  
 
-If you create your openid-provider.properties file with the above information, tailored to your environment, along with the plugin:
+If you create your openid-provider.properties file with the above information, tailored to your environment, along with the plugin:  
  ***/data/xnat/home/plugins/xnat-openid-auth-plugin-all-1.0.2.jar***
 
 You should only need to restart Tomcat to enable login. This assumes you have a valid AAF organisation login.
@@ -164,20 +162,20 @@ You should only need to restart Tomcat to enable login. This assumes you have a 
 
 The AIS Charts Helm template has all you need to setup a completely functional XNAT implementation in minutes, part of this is AAF integration.
 Prerequisites:
-•	A functional HTTPS URL with valid SSL certificate for your Kubernetes cluster. See the top of this document for details to provide to AAF. 
-•	A ClientId and Secret provided by AAF.
-•	A Load Balancer or way to connect externally to your Kubernetes using the functional URL with SSL certificate.
+•	A functional HTTPS URL with valid SSL certificate for your Kubernetes cluster. See the top of this document for details to provide to AAF.   
+•	A ClientId and Secret provided by AAF.  
+•	A Load Balancer or way to connect externally to your Kubernetes using the functional URL with SSL certificate.  
 
-Before you deploy the Helm template, clone it via git here:
+Before you deploy the Helm template, clone it via git here:  
 git clone https://github.com/Australian-Imaging-Service/charts.git
 
- then edit the following file:
+ then edit the following file:  
 ***charts/releases/xnat/charts/xnat-web/values.yaml***
 
-And update the following entries underneath openid:
+And update the following entries underneath openid:  
 NB> These entries DO require being placed within “”
 
-    ***preEstablishedRedirUri: "/openid-login"
+    preEstablishedRedirUri: "/openid-login"
       siteUrl: ""
       #List of providers that appear on the login page
       providers:
@@ -187,12 +185,12 @@ NB> These entries DO require being placed within “”
           userAuthUri: https://central.aaf.edu.au/providers/op/authorize
           #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
           clientId: ""
-          clientSecret: ""***
+          clientSecret: ""
 
 
 Comment out the Test or Production providers depending on which environment your XNAT will reside in. To use the example configuration from the previous configuration, the completed entries will look like this:
 
-    ***preEstablishedRedirUri: "/openid-login"
+    preEstablishedRedirUri: "/openid-login"
       siteUrl: "https://xnat.example.com"
       #List of providers that appear on the login page
       providers:
@@ -200,14 +198,14 @@ Comment out the Test or Production providers depending on which environment your
           accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
           userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
           clientId: "123jsdjd"
-          clientSecret: "chahdkdfdhffkhf"***
+          clientSecret: "chahdkdfdhffkhf"
 
 You can now deploy your Helm template by following the README here:
 https://github.com/Australian-Imaging-Service/charts
 In order for this to work, you will need to point your domain name and SSL certificate to the Kubernetes xnat-web pod, which is outside of the scope of this document.
 
 
-## Troubleshooting
+## Troubleshooting  
 Most of the above documentation should remove the need for troubleshooting but a few things to bear in mind.
 
 1.	All of the openid-provider.properties file and the values.yaml file mentioned above for either existing XNAT deployments are CASE SENSITIVE. The entries must match exactly AAF won’t work.
@@ -215,10 +213,10 @@ Most of the above documentation should remove the need for troubleshooting but a
 
 https://central.test.aaf.edu.au/providers/op/authorize?client_id=&redirect_uri=https://xnat.example.com/openid-login&response_type=code&scope=openid%20profile%20email&state=IcoFrh
 
-The ClientId entry is wrong. This happened before when the properties file had ClientId like this:
+The ClientId entry is wrong. This happened before when the properties file had ClientId like this:  
 ***openid.aaf.clientID***
 
-rather than:
+rather than:  
 ***openid.aaf.clientId***
 
 You can see client_id section is empty. This wrongly capitalised entry results in the clientId not be passed to the URL to redirect and a 400 error message.
