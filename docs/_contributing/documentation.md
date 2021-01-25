@@ -1,5 +1,5 @@
 ---
-template: default
+layout: default
 title: Documentation
 ---
 ## Adding and updating AIS Charts documentation
@@ -14,7 +14,7 @@ Add to Jekyll Page index, add a YAML front matter block
 
 ```
 ---
-template: default
+layout: default
 title: "Title of Page"
 ---
 add your markdown here

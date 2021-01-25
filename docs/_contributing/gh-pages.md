@@ -1,5 +1,5 @@
 ---
-template: default
+layout: default
 title: "GitHub Pages"
 ---
 These instruction are only to make alterations to Jekyll templates, configuration, etc..., not to create documents. The documents are created and maintained within other branches as standard work practices dictates.
