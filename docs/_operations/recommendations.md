@@ -1,7 +1,6 @@
 ---
 layout: default
-title: "Operation"
-#permalink: /operation/
+title: "Recommendations"
 ---
 
 # Operational recommendations
