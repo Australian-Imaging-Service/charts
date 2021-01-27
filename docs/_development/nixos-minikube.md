@@ -1,3 +1,9 @@
+---
+layout: default
+title: "NixOS + Minikube"
+author: "Zane Iperen"
+---
+
 ## NixOS + Minikube
 
 ```bash
