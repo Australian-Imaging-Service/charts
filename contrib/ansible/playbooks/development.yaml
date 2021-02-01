@@ -6,19 +6,24 @@
 
   tasks:
     - name: essential tools
-      packages:
+      package:
         name: "{{ item }}"
       with_items:
         - git
         - make
       become: yes
-    - name: microk8s, kubectl and helm3 install
+    - name: microk8s install
+      snap:
+        name: microk8s
+        channel: 1.19/stable
+        classic: yes
+      become: yes
+    - name: kubectl and helm3 install
       snap:
         name: "{{ item }}"
         state: present
         classic: yes
       with_items:
-        - microk8s
         - kubectl
         - helm
       become: yes
@@ -51,7 +56,7 @@
     - name: Docker engine install
       block:
         - name: Docker prereq.
-          packages:
+          package:
             name: "{{ item }}"
           with_items:
             - apt-transport-https
@@ -75,12 +80,13 @@
             state: present
             update_cache: yes
         - name: Docker install
-          packages:
+          package:
             name: "{{ item }}"
           with_items:
             - docker-ce
             - docker-ce-cli
             - containerd.io
+      become: yes
     - name: Packer
       block:
         - name: Packer apt-key
@@ -98,5 +104,6 @@
             state: present
             update_cache: yes
         - name: Packer install
-          packages:
+          package:
             name: packer
+      become: yes
