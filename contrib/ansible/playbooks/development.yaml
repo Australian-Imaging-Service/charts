@@ -40,19 +40,21 @@
           > {{ lookup('env','HOME') }}/.kube/microk8s.config
         creates: "{{ lookup('env','HOME') }}/.kube/microk8s.config"
     - name: KUBECONFIG kubectl setup
-      blockinfile:
-        path: /etc/profile.d/KUBECONFIG.sh
-        block: |
+      copy:
+        content: |
           DIR="${HOME}/.kube"
-          [ -d "${DIR}" ] || mkdir -p "${DIR}"
-          if [ -d "${DIR}" ]; then
+          if which kubectl &>/dev/null; then
+            [ -d "${DIR}" ] || mkdir -p "${DIR}"
+            if ! [ -f "${DIR}/microk8s.config" ]; then
+              which microk8s &>/dev/null && \
+                microk8s config | sed 's/\(user\|name\): admin/\1: microk8s-admin/' > "${DIR}/microk8s.config
+            fi
             KUBECONFIG="$(find "${DIR}" \( -name 'config' -o -name '*.config' \) \( -type f -o -type l \) -print0 | tr '\0' ':')"
             KUBECONFIG="${KUBECONFIG%:}"
             export KUBECONFIG
           fi
-        marker: "# {mark} ANSIBLE MANAGED BLOCK AIS"
-        state: present
-        become: true
+        dest: /etc/profile.d/KUBECONFIG.sh
+      become: true
     - name: Docker engine install
       block:
         - name: Docker prereq.
