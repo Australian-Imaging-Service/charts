@@ -28,17 +28,13 @@
         - helm
       become: yes
     - name: microk8s group membership
-      command: usermod -a -G microk8s "{{ item }}"
+      user:
+        name: "{{ item }}"
+        append: yes
+        groups: microk8s
       with_items:
         - ubuntu
       become: yes
-    - name: kubectl configuration for microk8s
-      shell:
-        cmd: >
-          microk8s config 
-          | sed 's/\(user\|name\): admin/\1: microk8s-admin/'
-          > {{ lookup('env','HOME') }}/.kube/microk8s.config
-        creates: "{{ lookup('env','HOME') }}/.kube/microk8s.config"
     - name: KUBECONFIG kubectl setup
       copy:
         content: |
@@ -75,9 +71,9 @@
           apt_repository:
             repo: >
               deb
-              [arch={{ ansible_architecture }}]
+              [arch={{ ansible_architecture|replace('x86_64','amd64') }}]
               https://download.docker.com/linux/ubuntu
-              "{{ ansible_distribution_release }}"
+              {{ ansible_distribution_release }}
               stable
             state: present
             update_cache: yes
@@ -99,9 +95,9 @@
           apt_repository:
             repo: >
               deb
-              [arch={{ ansible_architecture }}]
+              [arch={{ ansible_architecture|replace('x86_64','amd64') }}]
               https://apt.releases.hashicorp.com
-              "{{ ansible_distribution_release }}"
+              {{ ansible_distribution_release }}
               main
             state: present
             update_cache: yes
