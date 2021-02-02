@@ -141,7 +141,7 @@ The last option is useful as otherwise you will need to import the CA cert into 
 This means updating and rebuilding the XNAT docker image before being deployed to the Kubernetes Pod and this can be impractical.
 
 
-Complete string would look like this:  
+Complete string would look like this ( all on one line):
 ***datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory***
 
 
