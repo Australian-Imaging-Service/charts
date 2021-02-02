@@ -141,7 +141,7 @@ The last option is useful as you need to import the CA cert into your Java keyst
 
 
 Complete string would look like this:  
-***datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory
+***datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory***
 
 
 ### Update your Helm Configuration:
