@@ -137,7 +137,8 @@ Options:
 ***sslmode=require*** - require SSL encryption  
 ***sslfactory=org.postgresql.ssl.NonValidatingFactory*** - Do not require validation of Certificate Authority. 
 
-The last option is useful as you need to import the CA cert into your Java keystone on the docker container otherwise which is deployed to the Kubernetes Pod which can be impractical.
+The last option is useful as otherwise you will need to import the CA cert into your Java keystone on the docker container.  
+This means updating and rebuilding the XNAT docker image before being deployed to the Kubernetes Pod and this can be impractical.
 
 
 Complete string would look like this:  
