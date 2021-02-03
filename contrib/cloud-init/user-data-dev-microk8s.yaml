@@ -1,10 +1,10 @@
 #cloud-config
 locale: en_AU.utf8
 packages:
-- ansible
-- curl
+  - ansible
+  - curl
 packages_update: true
 runcmd:
-- ['curl','-sS','-o/tmp/ais-playbook-charts-development.yaml','https://raw.githubusercontent.com/Australian-Imaging-Service/charts/main/contrib/ansible/playbooks/development.yaml']
-- ['ansible-playbook','/tmp/ais-playbook-charts-development.yaml']
+  - ['curl','-sS','-o/tmp/ais-playbook-charts-development.yaml','https://raw.githubusercontent.com/Australian-Imaging-Service/charts/main/contrib/ansible/development.yaml']
+  - ['ansible-playbook','/tmp/ais-playbook-charts-development.yaml']
 timezone: "Australia/Perth"
