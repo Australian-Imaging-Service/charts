@@ -3,3 +3,4 @@ Chart.lock
 /releases/xnat/values-uat.yaml
 /releases/xnat/values-prod.yaml
 /tmp
+.vagrant/
