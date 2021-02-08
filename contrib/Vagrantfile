@@ -1,0 +1,31 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # https://docs.vagrantup.com.
+  config.vm.box = "ubuntu/focal64"
+  config.vm.hostname = "ais-dev"
+  config.vm.network "private_network", type: "dhcp"
+  config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.cpus = 4
+    vb.memory = "1024"
+  end
+
+  config.vm.provision "shell", inline: <<-SCRIPT
+    FACTS_D='/etc/ansible/facts.d'
+    apt-get update
+    apt-get -y install ansible
+    if ! [ -f ${FACTS_D}/vagrant.fact ]; then
+      mkdir -p "${FACTS_D}"
+      cat <<EOT >${FACTS_D}/vagrant.fact
+[default]
+user=vagrant
+EOT
+    fi
+  SCRIPT
+  config.vm.provision :ansible_local do |ansible|
+    ansible.playbook = "ansible/development.yaml"
+  end
+end
