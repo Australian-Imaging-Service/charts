@@ -9,8 +9,15 @@
       with_items:
         - git
         - gpg
+        - jq
         - make
+        - python3-pip
       become: yes
+    - name: python modules
+      become: yes
+      pip:
+        name:
+          - yq
     - name: microk8s
       become: yes
       block:
@@ -49,6 +56,18 @@
                 export KUBECONFIG
               fi
             dest: /etc/profile.d/KUBECONFIG.sh
+        - name: microk8s FACTS
+          copy:
+            content: |
+              #!/usr/bin/env bash
+              microk8s status --format yaml | yq
+            dest: /etc/ansible/facts.d/microk8s.fact
+            mode: 0755
+          register: microk8s_facts
+        - name: FACTS reload
+          ansible.builtin.setup:
+            filter: ansible_local
+          when: microk8s_facts.changed
         - name: microk8s enable features
           command: microk8s enable {{ item }}
           with_items:
@@ -58,6 +77,7 @@
             - rbac
             - registry
             - storage
+          when: (ansible_local.microk8s.addons | selectattr('name','contains', item ) | first).status == "disabled"
     - name: Docker engine install
       become: yes
       block:
@@ -99,6 +119,19 @@
             groups: [ "docker" ]
           with_items:
             - "{{ 'ubuntu' if not ansible_local.vagrant.default.user else ansible_local.vagrant.default.user }}"
+        - name: Docker microk8s insecure-registries
+          copy:
+            content: |
+              {
+                  "insecure-registries" : ["localhost:32000"]
+              }
+            dest: /etc/docker/daemon.json
+          register: docker_daemon_json
+        - name: restart Docker service
+          service:
+            name: docker
+            state: restarted
+          when: docker_daemon_json.changed
     - name: Packer
       become: yes
       block:
