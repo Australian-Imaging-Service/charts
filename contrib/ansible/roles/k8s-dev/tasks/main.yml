@@ -56,7 +56,9 @@
           fi
         dest: /etc/profile.d/KUBECONFIG.sh
     - name: kubectl config for ansible user
-      shell: 'microk8s config | sed "s/\(user\|name\): admin/\1: microk8s-admin/" > {{ ansible_user_dir }}/.kube/microk8s.config'
+      shell: >
+        [ -d {{ ansible_user_dir }}/.kube ] || mkdir -p {{ ansible_user_dir }}/.kube; \
+        microk8s config | sed "s/\(user\|name\): admin/\1: microk8s-admin/" > {{ ansible_user_dir }}/.kube/microk8s.config
       args:
         creates: "{{ ansible_user_dir }}/.kube/microk8s.config"
     - name: Wait for microk8s to start
