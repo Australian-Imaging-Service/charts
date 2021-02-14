@@ -1,0 +1,72 @@
+---
+# tasks file for k8s-cert-manager---
+# ansible-galaxy collection install community.kubernetes
+# https://docs.ansible.com/ansible/latest/collections/community/kubernetes/
+
+- name: requirements
+  become: yes
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python3-yaml
+- name: python requirements
+  become: yes
+  pip:
+    name:
+      - openshift
+    state: present
+
+- name: kubectl create namespace cert-manager
+  k8s:
+    context: microk8s
+    kind: Namespace
+    kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
+    name: cert-manager
+    state: present
+
+- name: helm repo add jetstack
+  helm_repository:
+    name: jetstack
+    repo_url: https://charts.jetstack.io
+
+- name: cert-manager.cerds download
+  get_url:
+    dest: /tmp/cert-manager.crds.yaml
+    url: https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.crds.yaml
+- name: kubectl apply cert-manager.crds
+  k8s:
+    kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
+    src: /tmp/cert-manager.crds.yaml
+    state: present
+
+- name: helm install cert-manager
+  helm:
+    name: cert-manager
+    chart_ref: jetstack/cert-manager
+    chart_version: v1.1.0
+    kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
+    release_namespace: cert-manager
+    release_values:
+      ingressShim:
+        defaultIssuerName: "selfsigned"
+        defaultIssuerKind: "ClusterIssuer"
+        defaultIssuerGroup: "cert-manager.io"
+- name: Wait for cert-manager pods to become ready
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ ansible_user_dir }}/.kube/microk8s.config"
+  shell: kubectl -ncert-manager wait pod --all --for='condition=Ready' --timeout=60s
+  register: kubectl_wait_cert_manager
+
+- name: kubectl apply ClusterIssuer selfsign
+  k8s:
+    kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
+    resource_definition:
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: selfsigned
+      spec:
+        selfSigned: {}
+    state: present

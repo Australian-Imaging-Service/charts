@@ -81,3 +81,11 @@ So if your VM's IP address is `192.168.11.93` and your service FQDN is `xnat.cmc
 ```C:\Windows\System32\drivers\etc\hosts
 192.168.11.93	xnat.cmca.dev.local
 ```
+## Launch Ubuntu 20.04 LTS (Focal) with AIS development tools
+
+NB: This may take some time
+
+```console
+PS C:\Users\00078081\ais> Invoke-WebRequest https://raw.githubusercontent.com/Australian-Imaging-Service/charts/main/contrib/cloud-init/user-data-dev-microk8s.yaml -OutFile user-data-dev-microk8s.yaml
+PS C:\Users\00078081\ais> multipass launch --cpus 4 --mem 2G -nais-dev --cloud-init .\user-data-dev-microk8s.yaml
+```

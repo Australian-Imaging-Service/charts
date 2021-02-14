@@ -1,0 +1,5 @@
+---
+# defaults file for k8s-dev
+microk8s:
+  snap:
+    channel: 1.19/stable

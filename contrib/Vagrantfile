@@ -10,13 +10,19 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |vb|
     vb.cpus = 4
-    vb.memory = "1024"
+    vb.memory = "4096"
   end
 
   config.vm.provision "shell", inline: <<-SCRIPT
+    COLLECTIONS_PATH='/usr/share/ansible/collections'
     FACTS_D='/etc/ansible/facts.d'
+    REQUIREMENTS_YML='/vagrant/ansible/requirements.yml'
     apt-get update
     apt-get -y install ansible
+    set -x
+    [ -f $REQUIREMENTS_YML ] && \
+      ansible-galaxy collection install --collections-path $COLLECTIONS_PATH -r $REQUIREMENTS_YML && \
+      chown -R vagrant:vagrant $COLLECTIONS_PATH
     if ! [ -f ${FACTS_D}/vagrant.fact ]; then
       mkdir -p "${FACTS_D}"
       cat <<EOT >${FACTS_D}/vagrant.fact

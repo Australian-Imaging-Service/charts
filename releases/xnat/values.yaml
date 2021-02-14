@@ -19,3 +19,140 @@ postgresqlExternalIPs: []
 
 xnat-web:
   enabled: true
+  replicaCount: 1
+  image:
+    repository: registry.gitlab.com/cerds/xnat-deploy
+    pullPolicy: IfNotPresent
+    tag: ''
+  imagePullSecrets: []
+  nameOverride: ''
+  fullnameOverride: ''
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ''
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    annotations: {}
+    hosts:
+      - chart-example.local
+    tls: []
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  persistence:
+    cache:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/cache
+      size: 10Gi
+    work:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/work
+      size: 1Gi
+    logs:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/logs
+      size: 1Gi
+    plugins:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/plugins
+      size: 0
+  volumes:
+    archive:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/archive
+      size: 1Ti
+    prearchive:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/prearchive
+      size: 1Ti
+  plugin:
+    download: false
+    plugins:
+      ldap:
+        filename: xnat-ldap-auth-plugin-1.0.0.jar
+        url: https://bitbucket.org/xnatx/ldap-auth-plugin/downloads/xnat-ldap-auth-plugin-1.0.0.jar
+      openid:
+        filename: xnat-openid-auth-plugin-all-1.0.2.jar
+        url: https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases/download/1.0.2/xnat-openid-auth-plugin-all-1.0.2.jar
+  authentication:
+    methods:
+      ldap:
+        providers:
+          ldap1:
+            name: Institution Active Directory
+            address: ''
+            userdn: ''
+            password: ''
+            search:
+              base: ''
+              filter: (sAMAccountName={0})
+      openid:
+        name: OpenID Authentication Provider
+        disableUsernamePasswordLogin: false
+        preEstablishedRedirUri: /openid-login
+        siteUrl: ''
+        providers:
+          aaf:
+            accessTokenUri: https://central.aaf.edu.au/providers/op/token
+            userAuthUri: https://central.aaf.edu.au/providers/op/authorize
+            clientId: ''
+            clientSecret: ''
+            scopes:
+              - openid
+              - profile
+              - email
+            link: <p>To sign-in using your AAF credentials, please click on the button
+              below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png"
+              /></a></p>
+            allowedEmailDomains: []
+            forceUserCreate: true
+            userAutoEnabled: false
+            userAutoVerified: false
+            propertyNames:
+              email: email
+              givenName: name
+              familyName: deliberately_unknown_property
+          google:
+            accessTokenUri: https://www.googleapis.com/oauth2/v3/token
+            userAuthUri: https://accounts.google.com/o/oauth2/auth
+            clientId: ''
+            clientSecret: ''
+            scopes:
+              - openid
+              - profile
+              - email
+            link: <p>To sign-in using your Google credentials, please click on the
+              button below.</p></p><p><a href="/openid-login?providerId=google"> <img
+              src="/images/btn_google_signin_dark_normal_web.png" /> </a></p>
+            shouldFilterEmailDomains: false
+            allowedEmailDomains: []
+            forceUserCreate: true
+            userAutoEnabled: false
+            userAutoVerified: false
+            propertyNames:
+              email: email
+              givenName: given_name
+              familyName: family_name
+  dicom_scp:
+    serviceType: NodePort
+    annotations: {}
+    recievers:
+      - ae_title: XNAT
+        port: 8104
+  postgresql:
+    postgresqlDatabase: xnat
+    postgresqlUsername: xnat
+    postgresqlPassword: xnat
