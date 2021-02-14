@@ -133,8 +133,22 @@ plugin:
       filename: xnat-ldap-auth-plugin-1.0.0.jar
       url: "https://bitbucket.org/xnatx/ldap-auth-plugin/downloads/xnat-ldap-auth-plugin-1.0.0.jar"
     openid:
+      enabled: true
       filename: xnat-openid-auth-plugin-all-1.0.2.jar
       url: "https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases/download/1.0.2/xnat-openid-auth-plugin-all-1.0.2.jar"
+      providers: 
+        aaf:
+          accessTokenUrl: https://central.aaf.edu.au/providers/op/token
+          userAuthUri: https://central.aaf.edu.au/providers/op/authorize
+          clientId: AAFClientID
+          clientSecret: AAFClientSecrect
+          allowedEmailDomains: AllowedDomain1,AllowedDomain2
+        google:
+          accessTokenUrl: https://www.googleapis.com/oauth2/v3/token
+          userAuthUri: https://accounts.google.com/o/oauth2/auth
+          clientId: ""
+          clientSecret: ""
+          allowedEmailDomains: ""
 
 authentication:
   methods:
@@ -228,3 +242,4 @@ postgresql:
   postgresqlDatabase: "xnat"
   postgresqlUsername: "xnat"
   postgresqlPassword: "xnat"
+
