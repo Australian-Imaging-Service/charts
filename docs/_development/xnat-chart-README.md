@@ -12,15 +12,15 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm dependency update
 
 # view the helm output without deployment from the xnat chart directory
-helm install --debug --dry-run xnat . --values ./values-dev.yaml 2>&1 |less
+helm install --debug --dry-run xnat ais/xnat  2>&1 |less
 
 # create xnat namespace in kubernetes
-kubectl create namespace xnat
+kubectl create ns xnat
 
-# Deploy and upgrade from the xnat chart directory
-helm upgrade xnat . --install --values ./values-dev.yaml --namespace xnat
+# Deploy the AIS XNAT service
+helm upgrade xnat ais/xnat --install --values ./my-site-overrides.yaml --namespace xnat
 
-# watch it all happen, at least most of it
+# Watch the AIS goodness
 watch kubectl -nxnat get all
 
 # watch the logs scroll by
@@ -37,5 +37,8 @@ kubectl -nxnat get secret xnat-xnat-web -o go-template='{{ index .data "xnat-con
 
 # tear it all down
 helm delete xnat -nxnat
+kubectl -nxnat delete pod,svc,pvc --all
+kubectl delete namespace xnat
+
 ```
 

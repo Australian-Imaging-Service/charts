@@ -35,7 +35,7 @@ Deploy Clinical Trials Processor (CTP)
 ```bash
 # Create a namespace and deploy the AIS CTP service
 kubectl create namespace ctp
-helm upgrade ctp ais/ctp --install --values ./my-ctp-site-overrides.yalm --namespace ctp
+helm upgrade ctp ais/ctp --install --values ./my-ctp-site-overrides.yaml --namespace ctp
 
 # Watch the AIS goodness
 watch kubectl -nctp get all
