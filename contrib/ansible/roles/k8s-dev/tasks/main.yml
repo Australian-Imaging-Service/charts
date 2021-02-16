@@ -177,15 +177,35 @@
     - name: SOPS download
       get_url:
         dest: "/usr/local/bin"
-        url: "https://github.com/mozilla/sops/releases/download/v3.6.1/sops-v3.6.1.linux"
+        url: "https://github.com/mozilla/sops/releases/download/{{ sops.version }}/sops-{{ sops.version }}.linux"
         mode: 0755
     - name: SOPS symlink
       file:
         path: "/usr/local/bin/sops"
-        src: "/usr/local/bin/sops-v3.6.1.linux"
+        src: "/usr/local/bin/sops-{{ sops.version }}.linux"
         state: link
 - name: git-secrets
   become: yes
   package:
     name: git-secrets
     state: latest
+- name: kustomize
+  become: yes
+  block:
+    - name: kustomize install
+      unarchive:
+        creates: "/usr/local/bin/kustomize"
+        dest: "/usr/local/bin"
+        remote_src: yes
+        src: >
+          https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F
+          {{ kustomize.version }}/kustomize_
+          {{ kustomize.version }}_linux_
+          {{ ansible_architecture|replace('x86_64','amd64') }}.tar.gz
+    - name: kustomize bash shell completion
+      shell: "kustomize completion bash > /etc/profile.d/kustomize.sh"
+      args:
+        creates: "/etc/profile.d/kustomize.sh"
+
+
+

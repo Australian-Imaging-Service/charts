@@ -3,3 +3,7 @@
 microk8s:
   snap:
     channel: 1.19/stable
+kustomize:
+  version: v4.0.1
+sops:
+  version: v3.6.1
