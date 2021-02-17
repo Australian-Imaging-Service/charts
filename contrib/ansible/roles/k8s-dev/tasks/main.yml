@@ -66,6 +66,10 @@
       changed_when: false
       shell: "microk8s status --format yaml --wait-ready --timeout 60"
       register: microk8s_status
+    - name: ansible facts.d
+      file:
+        path: /etc/ansible/facts.d
+        state: directory
     - name: microk8s FACTS
       copy:
         content: |
@@ -176,7 +180,7 @@
   block:
     - name: SOPS download
       get_url:
-        dest: "/usr/local/bin"
+        dest: "/usr/local/bin/sops-{{ sops.version }}.linux"
         url: "https://github.com/mozilla/sops/releases/download/{{ sops.version }}/sops-{{ sops.version }}.linux"
         mode: 0755
     - name: SOPS symlink
