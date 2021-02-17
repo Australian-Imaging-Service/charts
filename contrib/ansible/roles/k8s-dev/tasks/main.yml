@@ -197,11 +197,7 @@
         creates: "/usr/local/bin/kustomize"
         dest: "/usr/local/bin"
         remote_src: yes
-        src: >
-          https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F
-          {{ kustomize.version }}/kustomize_
-          {{ kustomize.version }}_linux_
-          {{ ansible_architecture|replace('x86_64','amd64') }}.tar.gz
+        src: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F{{ kustomize.version }}/kustomize_{{ kustomize.version }}_linux_{{ ansible_architecture|replace('x86_64','amd64') }}.tar.gz
     - name: kustomize bash shell completion
       shell: "kustomize completion bash > /etc/profile.d/kustomize.sh"
       args:
