@@ -1,0 +1,71 @@
+users:
+  dean:
+    roles:
+      - admin
+
+pipelines:
+  HTTPReceiver:
+    stages:
+      - name: HttpImportService
+        id: HttpImportService
+        root: root-directory
+        port: 443
+        ssl: true
+        zip: false
+        requireAuthentication: true
+        acceptDicomObjects: true
+        acceptXmlObjects: true
+        acceptZipObjects: true
+        acceptFileObjects: true
+        logConnections: false
+        logDuplicates: false
+        quarantine: quarantine-directory
+        raw_content: |
+          <accept ip="xxx.xxx.xxx.xxx" />
+          <accept ip="yyy.yyy.yyy.yyy" />
+      - name: FileStorageService
+        id: FileStorageService
+        root: roots/FileStorageService
+        type: day
+        timeDepth: 1
+        acceptDuplicateUIDs: true
+        acceptDicomObjects: true
+        acceptXmlObjects: true
+        acceptZipObjects: true
+        acceptFileObjects: true
+        returnStoredFile: true
+        setWorldReadable: false
+        setWorldWritable: false
+        quarantine: "quarantines/FileStorageService"
+      - name: DicomAnonymizer
+        id: DicomAnonymizer
+        root: "roots/DicomAnonymizer"
+        script: "scripts/dicom-anonymizer-receiver.script"
+        lookupTable: "scripts/LookupTable.properties"
+        quarantine: "quarantines/DicomAnonymizer"
+      - name: FileStorageService
+        id: FileStorageServiceAfterAnonymization
+        root: "roots/FileStorageServiceAfterAnonymization"
+        type: day
+        timeDepth: 1
+        acceptDuplicateUIDs: true
+        acceptDicomObjects: true
+        acceptXmlObjects: true
+        acceptZipObjects: true
+        acceptFileObjects: true
+        returnStoredFile: true
+        setWorldReadable: false
+        setWorldWritable: false
+        quarantine: "quarantines/FileStorageServiceAfterAnonymization"
+      - name: DicomExportService
+        id: DicomExportService
+        root: "root-directory"
+        quarantine: "quarantine-directory"
+        auditLogID: "AuditLog"
+        auditLogTags: "PatientID;SOPInstanceUID;StudyInstanceUID;InstanceNumber"
+        url: "dicom://DestinationAET:ThisAET@XNATDomainName:port"
+        associationTimeout: 0
+        forceClose: false
+        dicomScript: "scripts/df.script"
+        throttle: 0
+        interval: 5000

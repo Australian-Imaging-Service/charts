@@ -181,10 +181,12 @@
     - name: SOPS download
       get_url:
         dest: "/usr/local/bin/sops-{{ sops.version }}.linux"
-        url: "https://github.com/mozilla/sops/releases/download/{{ sops.version }}/sops-{{ sops.version }}.linux"
+        force: no
         mode: 0755
+        url: "https://github.com/mozilla/sops/releases/download/{{ sops.version }}/sops-{{ sops.version }}.linux"
     - name: SOPS symlink
       file:
+        force: yes
         path: "/usr/local/bin/sops"
         src: "/usr/local/bin/sops-{{ sops.version }}.linux"
         state: link
@@ -201,11 +203,11 @@
         creates: "/usr/local/bin/kustomize"
         dest: "/usr/local/bin"
         remote_src: yes
-        src: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F{{ kustomize.version }}/kustomize_{{ kustomize.version }}_linux_{{ ansible_architecture|replace('x86_64','amd64') }}.tar.gz
+        src: "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F\
+              {{ kustomize.version }}/kustomize_\
+              {{ kustomize.version }}_linux_\
+              {{ ansible_architecture|replace('x86_64','amd64') }}.tar.gz"
     - name: kustomize bash shell completion
       shell: "kustomize completion bash > /etc/profile.d/kustomize.sh"
       args:
         creates: "/etc/profile.d/kustomize.sh"
-
-
-

@@ -6,6 +6,7 @@ metadata:
     {{- include "ctp.labels" . | nindent 4 }}
 data:
   config.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
     <Configuration>
       <Server
         port="1080"
@@ -20,9 +21,9 @@ data:
         {{- end }}
         {{- end }}
       />
-      {{- range .Values.pipelines }}
-      <Pipeline name={{ .desc | quote }}>
-        {{- range .stages }}
+      {{- range $pipeline, $p := .Values.pipelines }}
+      <Pipeline name={{ $pipeline | quote }}>
+        {{- range $p.stages }}
         <{{ .name }}
           class="org.rsna.ctp.stdstages.{{ .name }}"
           {{- $stage := . }}
