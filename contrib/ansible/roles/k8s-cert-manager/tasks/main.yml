@@ -33,7 +33,7 @@
 - name: cert-manager.cerds download
   get_url:
     dest: /tmp/cert-manager.crds.yaml
-    url: https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.crds.yaml
+    url: https://github.com/jetstack/cert-manager/releases/download/{{ cert_manager_chart_version }}/cert-manager.crds.yaml
 - name: kubectl apply cert-manager.crds
   k8s:
     kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
@@ -44,7 +44,7 @@
   helm:
     name: cert-manager
     chart_ref: jetstack/cert-manager
-    chart_version: v1.1.0
+    chart_version: "{{ cert_manager_chart_version }}"
     kubeconfig: "{{ ansible_user_dir }}/.kube/microk8s.config"
     release_namespace: cert-manager
     release_values:

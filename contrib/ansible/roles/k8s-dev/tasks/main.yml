@@ -1,6 +1,6 @@
 ---
 # tasks file for k8s-dev
-- name: essential tools
+- name: essential packages
   become: yes
   package:
     name: "{{ item }}"
@@ -37,7 +37,8 @@
         append: yes
         groups: microk8s
       with_items:
-        - "{{ 'ubuntu' if not ansible_local.vagrant.default.user is defined else ansible_local.vagrant.default.user }}"
+        - "{{ ansible_user_id }}"
+        - "{{ group_members }}"
     - name: KUBECONFIG kubectl setup
       copy:
         content: |
@@ -58,8 +59,9 @@
     - name: kubectl config for ansible user
       shell: >
         [ -d {{ ansible_user_dir }}/.kube ] || mkdir -p {{ ansible_user_dir }}/.kube && \
+        umask 0077 && \
         microk8s config | sed "s/\(user\|name\): admin/\1: microk8s-admin/" > {{ ansible_user_dir }}/.kube/microk8s.config && \
-        chown -R {{ ansible_user }}:{{ ansible_user }} {{ ansible_user_dir }}/.kube
+        chown -R {{ ansible_user_uid }}:{{ ansible_user_gid }} {{ ansible_user_dir }}/.kube
       args:
         creates: "{{ ansible_user_dir }}/.kube/microk8s.config"
     - name: Wait for microk8s to start
@@ -141,7 +143,8 @@
         name: "{{ item }}"
         groups: [ "docker" ]
       with_items:
-        - "{{ 'ubuntu' if not ansible_local.vagrant.default.user is defined else ansible_local.vagrant.default.user }}"
+        - "{{ ansible_user_id }}"
+        - "{{ group_members }}"
     - name: Docker microk8s insecure-registries
       copy:
         content: |

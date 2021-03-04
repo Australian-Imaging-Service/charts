@@ -1,9 +1,10 @@
 ---
 # defaults file for k8s-dev
+group_members: []
+kustomize:
+  version: v4.0.1
 microk8s:
   snap:
     channel: 1.19/stable
-kustomize:
-  version: v4.0.1
 sops:
   version: v3.6.1
