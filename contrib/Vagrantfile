@@ -33,6 +33,6 @@ EOT
   SCRIPT
   config.vm.provision :ansible_local do |ansible|
     ansible.playbook = "ansible/development.yaml"
-    ansible.extra_vars = {"group_members":[ "vagrant"]}
+    ansible.extra_vars = {"group_members": ["vagrant"]}
   end
 end
