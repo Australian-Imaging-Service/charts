@@ -136,7 +136,7 @@ This assumes you have a valid certificate created through AWS Certificate Manage
 
 These are additional annotations to add to values file and explanations above:  
 
-Listen on port 80 and 443: 
+Listen on port 80 and 443:   
       ***alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'***
 
 Specify the ARN of your SSL certificate from AWS Certificate Manager (change for your actual ARN):  
@@ -159,7 +159,7 @@ This does not work on Kubernetes 1.19 or above as the “use-annotation” comma
 
 Add the following annotation to your values file below the ports to listen on (see above):
 
-     ***alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'***
+     alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
  
 You must then update the Rules section of ingress.yaml found within the releases/xnat/charts/xnat-web/templates directory to look like this:
 
