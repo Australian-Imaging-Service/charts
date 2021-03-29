@@ -41,7 +41,8 @@ xnat-web:
     enabled: false
     annotations: {}
     hosts:
-      - chart-example.local
+      - host: chart-example.local
+        paths: []
     tls: []
   resources: {}
   autoscaling:

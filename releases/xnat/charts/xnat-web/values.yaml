@@ -59,7 +59,8 @@ ingress:
     # nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
     # nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
   hosts:
-    - "chart-example.local"
+    - host: "chart-example.local"
+      paths: []
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
