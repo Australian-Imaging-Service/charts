@@ -194,7 +194,7 @@ Full values.yaml file ingress section:
       alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
       alb.ingress.kubernetes.io/healthcheck-path: "/"
       alb.ingress.kubernetes.io/success-codes: "302"
-      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:ap-southeast-2:848329958938:certificate/9d28d698-f1d1-4dbf-bd1c-140cf03e1561"
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:XXXXXXX:certificate/XXXXXX"
       alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
       alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800
 ```
