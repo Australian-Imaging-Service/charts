@@ -165,18 +165,18 @@ You must then update the Rules section of ingress.yaml found within the releases
 
 ```
   rules:
-    - host: {{ $host }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
       http:
         paths:
-          - path: "/*"
-            backend:
-              serviceName: ssl-redirect
-              servicePort: use-annotation
-          - path: "/*"
+          {{- range .paths }}
+          - path: {{ .path }}
             backend:
               serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
-  {{- end }}
+          {{- end }}
+    {{- end }}
+  
 ```
 
 This will redirect HTTP to HTTPS on Kubernetes 1.18 and below.
