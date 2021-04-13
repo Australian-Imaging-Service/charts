@@ -188,7 +188,6 @@ spec:
 Size doesn't really matter as like EFS, Azure files is completely scaleable. Just make sure it is the same as your values file for those volumes.  
 
 ### Apply the volumes
-
 ```
 kubectl apply -f pv_archive.yaml
 kubectl apply -f pv_prearchive.yaml
@@ -196,8 +195,10 @@ kubectl apply -f pv_prearchive.yaml
 
 We should now have two newly created volumes our Helm chart can mount.
 
-# Update our override values file for our Helm chart.
 
+
+
+# Update our override values file for our Helm chart.
 Edit your values-aks.yaml file from above and add the following in (postgresl entries already added):  
 
 Paste the following:
@@ -257,6 +258,8 @@ Check that the XNAT service comes up:
 ***kubectl -nxnat logs xnat-xnat-web-0 -f***
 
 
+
+
 ## Creat a static public IP, an ingress controller, LetsEncrypt certififcates and point it to our Helm chart  
 
 OK so all good so far but we can't actually access our XNAT environment from outside of our cluster so we need to create an Ingress Controller.
@@ -272,6 +275,8 @@ This will create the output for your next command.
 ***az network public-ip create --resource-group <output from previous command> --name <a name for your public IP> --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv***
 
 
+
+
 ### Point your FQDN to the public IP address you created
 For the Letsencrypt certificate issuer to work it needs to be based on a working FQDN (fully qualified domain name), so in whatever DNS manager you use, create a new A record and point your xnat FQDN (xnat.example.com for example) to the IP address you just created.  
 
@@ -283,6 +288,8 @@ Please ensure to update the details above to suit your environment - including n
 
 
 
+
+
 ## Install Cert-Manager and attach to the Helm chart and Ingress Controller  
 ```
 kubectl label namespace xnat cert-manager.io/disable-validation=true
@@ -290,8 +297,9 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 helm install   cert-manager   --namespace xnat   --version v0.16.1   --set installCRDs=true   --set nodeSelector."beta\.kubernetes\.io/os"=linux   jetstack/cert-manager
 ```
-
 You can find a write up of these commands and what they do in the Microsoft article.
+
+
 
 
 
@@ -322,6 +330,7 @@ Please do not forget to use your email address here.
 
 Apply the yaml file:  
 ***kubectl apply -f cluster-issuer.yaml -nxnat***
+
 
 
 
