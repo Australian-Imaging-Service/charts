@@ -100,10 +100,10 @@ Create a storage account:
 ***az storage account create -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -l $AKS_PERS_LOCATION --sku Standard_LRS***
 
 Export the connection string as an environment variable, this is used when creating the Azure file share:  
-export AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -o tsv)***
+***export AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -o tsv)***
 
 Create the file share:  
-***az storage share create -n $AKS_PERS_SHARE_NAME --connection-string $AZURE_STORAGE_CONNECTION_STRING******
+***az storage share create -n $AKS_PERS_SHARE_NAME --connection-string $AZURE_STORAGE_CONNECTION_STRING***
 
 Get storage account key:  
 ***STORAGE_KEY=$(az storage account keys list --resource-group $AKS_PERS_RESOURCE_GROUP --account-name $AKS_PERS_STORAGE_ACCOUNT_NAME --query "[0].value" -o tsv)***
@@ -116,6 +116,7 @@ Make a note of the Storage account name and key as you will need them.
 
 Now repeat this process but update the Share name to prearchive-xnat-xnat-web. Run this first and then repeat the rest of the commands:  
 ***AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web***
+
 
 ## Create a Kubernetes Secret  
 
@@ -195,9 +196,9 @@ kubectl apply -f pv_prearchive.yaml
 
 We should now have two newly created volumes our Helm chart can mount.
 
-# Create an override values file for our Helm chart.
+# Update our override values file for our Helm chart.
 
-Create a new values file - let's call it values-aks.yaml and put it somewhere. 
+Edit your values-aks.yaml file from above and add the following in (postgresl entries already added):  
 
 Paste the following:
 
@@ -235,6 +236,10 @@ xnat-web:
       mountPath: /data/xnat/prearchive
       storageClassName: ""
       size: 10Gi
+  postgresql:
+    postgresqlDatabase: <your database>
+    postgresqlUsername: <your username>
+    postgresqlPassword: <your password>
 ```
 
 You can now apply the helm chart with your override and all the volumes will mount.  
@@ -243,11 +248,10 @@ You can now apply the helm chart with your override and all the volumes will mou
 Congratulations! Your should now have a working XNAT environment with properly mounted volumes.
 
 You can check everything is working:  
-```
-kubectl -nxnat get ev
-kubectl -nxnat get all
-kubectl -nxnat get pvc,pv
-```
+***kubectl -nxnat get ev***
+***kubectl -nxnat get all***
+***kubectl -nxnat get pvc,pv***
+
 
 Check that the XNAT service comes up:  
 ***kubectl -nxnat logs xnat-xnat-web-0 -f***
@@ -267,7 +271,8 @@ First, find out the resource name of the AKS Cluster:
 This will create the output for your next command.  
 ***az network public-ip create --resource-group <output from previous command> --name <a name for your public IP> --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv***
 
-### Point your FQDN to the public IP address you created  
+
+### Point your FQDN to the public IP address you created
 For the Letsencrypt certificate issuer to work it needs to be based on a working FQDN (fully qualified domain name), so in whatever DNS manager you use, create a new A record and point your xnat FQDN (xnat.example.com for example) to the IP address you just created.  
 
 Now create the ingress controller with a DNS Label (doesn't need to be FQDN here) and the IP created in the last command:  
@@ -275,6 +280,8 @@ Now create the ingress controller with a DNS Label (doesn't need to be FQDN here
 ***helm install nginx-ingress ingress-nginx/ingress-nginx --namespace xnat --set controller.replicaCount=2 --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.admissionWebhooks.patch.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.service.loadBalancerIP="1.2.3.4" --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"="xnat-aks"***
 
 Please ensure to update the details above to suit your environment - including namespace.
+
+
 
 ## Install Cert-Manager and attach to the Helm chart and Ingress Controller  
 ```
@@ -286,8 +293,9 @@ helm install   cert-manager   --namespace xnat   --version v0.16.1   --set insta
 
 You can find a write up of these commands and what they do in the Microsoft article.
 
-### Create a cluster-issuer.yaml to issue the Letsencrypt certificates  
 
+
+### Create a cluster-issuer.yaml to issue the Letsencrypt certificates  
 ```
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
@@ -309,14 +317,17 @@ spec:
                 "kubernetes.io/os": linux
 ```
 
-In our case, we want production Letsencrypt certificates hence letsencrypt-prod (mentioned twice here and in values-aks.yaml). If you are doing testing you can use letsencrypt-staging. See Microsoft article for mre details.  
+In our case, we want production Letsencrypt certificates hence letsencrypt-prod (mentioned twice here and in values-aks.yaml). If you are doing testing you can use letsencrypt-staging. See Microsoft article for more details.  
 Please do not forget to use your email address here.
 
 Apply the yaml file:  
 ***kubectl apply -f cluster-issuer.yaml -nxnat***
 
+
+
+
 ## Update your override values file to point to your ingress controller and Letsencrypt Cluster issuer  
-Add the following to your values-aks.yaml file:
+Add the following to your values-aks.yaml file (I have added the volume and postgresql details as well for the complete values file):
 
 ```
 xnat-web:
@@ -339,6 +350,42 @@ xnat-web:
               backend:
                 serviceName: "xnat-xnat-web"
                 servicePort: 80
+  persistence:
+    cache:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/cache
+      storageClassName: ""
+      size: 10Gi
+    work:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/work
+      storageClassName: ""
+      size: 1Gi
+    logs:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/logs
+      storageClassName: ""
+      size: 1Gi
+    plugins:
+      accessMode: ReadWriteOnce
+      mountPath: /data/xnat/home/plugins
+      storageClassName: ""
+      size: 0
+  volumes:
+    archive:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/archive
+      storageClassName: ""
+      size: 10Gi
+    prearchive:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/prearchive
+      storageClassName: ""
+      size: 10Gi
+  postgresql:
+    postgresqlDatabase: <your database>
+    postgresqlUsername: <your username>
+    postgresqlPassword: <your password>
 ```
 
 Change yourxnat.example.com to whatever you want your XNAT FQDN to be.  
