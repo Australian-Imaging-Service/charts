@@ -73,7 +73,7 @@ xnat-web:
     postgresqlDatabase: <your database>
     postgresqlUsername: <your username>
     postgresqlPassword: <your password>
-
+```
 
 ## Update volume / persistence information
 It turns out that there is an issue with Storage classes that means that the volumes are not created automatically.
