@@ -27,20 +27,25 @@ az aks create \
 
 *Get AZ AKS credentials to run kubectl commands against your Cluster*
 
-***az aks get-credentials --name xnat --resource-group <Resource Group Name>***
+```
+az aks get-credentials --name xnat --resource-group <Resource Group Name>
+```
 
 
 Confirm everything is setup correctly:
 
-***kubectl get nodes -o wide***  
-
-***kubectl cluster-info***
+```
+kubectl get nodes -o wide
+kubectl cluster-info
+```
 
 
 
 ## Download and install AIS Chart 
 
-***git clone https://github.com/Australian-Imaging-Service/charts.git***
+```
+git clone https://github.com/Australian-Imaging-Service/charts.git
+```
 
 Add the AIS repo and update Helm:  
 
@@ -97,32 +102,46 @@ AKS_PERS_SHARE_NAME=archive-xnat-xnat-web
 ***archive-xnat-xnat-web*** will need to be used or the Helm chart won't be able to find the mount.
 
 Create a storage account:  
-***az storage account create -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -l $AKS_PERS_LOCATION --sku Standard_LRS***
+```
+az storage account create -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -l $AKS_PERS_LOCATION --sku Standard_LRS
+```
 
 Export the connection string as an environment variable, this is used when creating the Azure file share:  
-***export AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -o tsv)***
+```
+export AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -o tsv)
+```
 
 Create the file share:  
-***az storage share create -n $AKS_PERS_SHARE_NAME --connection-string $AZURE_STORAGE_CONNECTION_STRING***
+```
+az storage share create -n $AKS_PERS_SHARE_NAME --connection-string $AZURE_STORAGE_CONNECTION_STRING
+```
 
 Get storage account key:  
-***STORAGE_KEY=$(az storage account keys list --resource-group $AKS_PERS_RESOURCE_GROUP --account-name $AKS_PERS_STORAGE_ACCOUNT_NAME --query "[0].value" -o tsv)***
+```
+STORAGE_KEY=$(az storage account keys list --resource-group $AKS_PERS_RESOURCE_GROUP --account-name $AKS_PERS_STORAGE_ACCOUNT_NAME --query "[0].value" -o tsv)
+```
 
 Echo storage account name and key:  
-***echo Storage account name: $AKS_PERS_STORAGE_ACCOUNT_NAME***
-***echo Storage account key: $STORAGE_KEY***
+```
+echo Storage account name: $AKS_PERS_STORAGE_ACCOUNT_NAME
+echo Storage account key: $STORAGE_KEY
+```
 
 Make a note of the Storage account name and key as you will need them.
 
 Now repeat this process but update the Share name to prearchive-xnat-xnat-web. Run this first and then repeat the rest of the commands:  
-***AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web***
+```
+AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web***
+```
 
 
 ## Create a Kubernetes Secret  
 
 In order to mount the volumes, you need to create a secret. As we have created our Helm chart in the xnat namespace, we need to make sure that is added into the following command (not in the original Microsoft guide):  
 
-***kubectl -nxnat create secret generic azure-secret --from-literal=azurestorageaccountname=$AKS_PERS_STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_KEY***
+```
+kubectl -nxnat create secret generic azure-secret --from-literal=azurestorageaccountname=$AKS_PERS_STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_KEY
+```
 
 
 ## Create Kubernetes Volumes  
@@ -244,18 +263,24 @@ xnat-web:
 ```
 
 You can now apply the helm chart with your override and all the volumes will mount.  
-***helm upgrade xnat ais/xnat -i -f values-aks.yaml -nxnat***
+```
+helm upgrade xnat ais/xnat -i -f values-aks.yaml -nxnat
+```
 
 Congratulations! Your should now have a working XNAT environment with properly mounted volumes.
 
-You can check everything is working:  
-***kubectl -nxnat get ev***
-***kubectl -nxnat get all***
-***kubectl -nxnat get pvc,pv***
+You can check everything is working:
+```  
+kubectl -nxnat get ev
+kubectl -nxnat get all
+kubectl -nxnat get pvc,pv
+```
 
 
 Check that the XNAT service comes up:  
-***kubectl -nxnat logs xnat-xnat-web-0 -f***
+```
+kubectl -nxnat logs xnat-xnat-web-0 -f
+```
 
 
 
@@ -269,10 +294,14 @@ You can follow the URL here from Microsoft for more detailed information:
 https://docs.microsoft.com/en-us/azure/aks/ingress-static-ip
 
 First, find out the resource name of the AKS Cluster:  
-***az aks show --resource-group <your resource group> --name <your cluster name> --query nodeResourceGroup -o tsv***
+```
+az aks show --resource-group <your resource group> --name <your cluster name> --query nodeResourceGroup -o tsv
+```
 
 This will create the output for your next command.  
-***az network public-ip create --resource-group <output from previous command> --name <a name for your public IP> --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv***
+```
+az network public-ip create --resource-group <output from previous command> --name <a name for your public IP> --sku Standard --allocation-method static --query publicIp.ipAddress -o tsv
+```
 
 
 
@@ -282,7 +311,9 @@ For the Letsencrypt certificate issuer to work it needs to be based on a working
 
 Now create the ingress controller with a DNS Label (doesn't need to be FQDN here) and the IP created in the last command:  
 
-***helm install nginx-ingress ingress-nginx/ingress-nginx --namespace xnat --set controller.replicaCount=2 --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.admissionWebhooks.patch.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.service.loadBalancerIP="1.2.3.4" --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"="xnat-aks"***
+```
+helm install nginx-ingress ingress-nginx/ingress-nginx --namespace xnat --set controller.replicaCount=2 --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.admissionWebhooks.patch.nodeSelector."beta\.kubernetes\.io/os"=linux --set controller.service.loadBalancerIP="1.2.3.4" --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-dns-label-name"="xnat-aks"
+```
 
 Please ensure to update the details above to suit your environment - including namespace.
 
@@ -329,7 +360,9 @@ In our case, we want production Letsencrypt certificates hence letsencrypt-prod 
 Please do not forget to use your email address here.
 
 Apply the yaml file:  
-***kubectl apply -f cluster-issuer.yaml -nxnat***
+```
+kubectl apply -f cluster-issuer.yaml -nxnat
+```
 
 
 
@@ -402,7 +435,9 @@ If you are using Letsencrypt-staging, update the cert-manager.io annotation acco
 
 Now update your helm chart and you should now have a fully working Azure XNAT installation with HTTPS redirection enabled, working volumes and fully automated certificates with automatic renewal.
 
-***helm upgrade xnat ais/xnat -i -f values-aks.yaml -nxnat***
+```
+helm upgrade xnat ais/xnat -i -f values-aks.yaml -nxnat
+```
 
 
 
