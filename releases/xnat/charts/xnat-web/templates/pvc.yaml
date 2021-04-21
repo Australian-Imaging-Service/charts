@@ -18,8 +18,5 @@ spec:
   {{- if $c.storageClassName }}
   storageClassName: {{ $c.storageClassName }}
   {{- end }}
-  selector:
-    matchLabels: {}
-    matchExpressions: []
 {{- end }}
 {{- end }}
