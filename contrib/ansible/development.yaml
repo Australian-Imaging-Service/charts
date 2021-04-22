@@ -1,7 +1,13 @@
 ---
 # development.yaml
 # Run using `ansible-playbook -clocal localhost development.yaml`
-- hosts: kubernetes
+- hosts: all
+  become: yes
+  roles:
+    - systemd
+  vars:
+    systemd_multicastDNS: true
+- hosts: microk8s
   roles:
     - k8s-dev
     - k8s-cert-manager

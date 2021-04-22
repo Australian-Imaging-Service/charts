@@ -5,7 +5,7 @@ collections:
   #- kubernetes.core
 
 roles:
-  - nmae: docker
+  - name: docker
     src: https://github.com/dean-taylor/ansible-role-docker
     version: main
   - name: systemd
