@@ -3,3 +3,11 @@
 collections:
   - community.kubernetes
   #- kubernetes.core
+
+roles:
+  - nmae: docker
+    src: https://github.com/dean-taylor/ansible-role-docker
+    version: main
+  - name: systemd
+    src: https://github.com/dean-taylor/ansible-role-systemd
+    version: main

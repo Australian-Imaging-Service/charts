@@ -1,7 +1,11 @@
 ---
 # development.yaml
 # Run using `ansible-playbook -clocal localhost development.yaml`
-- hosts: all
+- hosts: kubernetes
   roles:
     - k8s-dev
     - k8s-cert-manager
+- hosts: swarm
+  become: yes
+  roles:
+    - docker
