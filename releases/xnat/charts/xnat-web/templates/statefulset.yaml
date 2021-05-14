@@ -54,12 +54,32 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: auth
-              mountPath: "/k8s-secrets/auth"
+            - name: passwd
+              mountPath: /etc/passwd
               readOnly: true
-            - name: config
-              mountPath: "/k8s-secrets/config"
+              subPath: passwd
+            - name: tomcat
+              mountPath: /usr/local/tomcat
+            - name: conf-catalina
+              mountPath: /usr/local/tomcat/conf/Catalina
+            - name: xnat-home
+              mountPath: /data/xnat/home
+            - name: home-plugins
+              mountPath: /data/xnat/home/plugins
+            - name: xnat-config
+              mountPath: "/data/xnat/home/config/xnat-conf.properties"
               readOnly: true
+              subPath: "xnat-conf.properties"
+            {{- range $plugin, $p := .Values.plugins }}
+            {{- range $p }}
+            {{- if .auth }}
+            - name: auth-{{ .provider.id }}
+              mountPath: /data/xnat/home/config/auth/{{ .provider.id }}-provider.properties
+              readOnly: true
+              subPath: {{ .provider.id }}-provider.properties
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- range $name, $c := .Values.persistence }}
             {{- if $c.size }}
             - mountPath: {{ $c.mountPath | quote }}
@@ -70,28 +90,63 @@ spec:
             - mountPath: {{ $c.mountPath | quote }}
               name: {{ $name | quote }}
             {{- end }}
-      {{- if and .Values.plugin.download .Values.persistence.plugins }}
       initContainers:
-        {{- range $plugin, $c := .Values.plugin.plugins }}
-        - name: download-plugin-{{ $plugin }}
-          image: alpine:3.12.1
+        - name: home-init
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - 'sh'
+            - 'bash'
             - '-c'
             - |
               set -x
-              url_filename=$(echo {{ $c.url | quote }} |awk -F'/' '{print $NF}')
-              [ -f "/plugins/${url_filename}" ] || wget -P/plugins {{ $c.url | quote }}
+              shopt -s extglob
+              plugins=( {{ join " " (keys .Values.plugins) }} )
+              # Copy Tomcat folder
+              [ -d /TOMCAT ] && cp -r --preserve=mode,timestamps /usr/local/tomcat/* /TOMCAT
+              # Copy XNAT_HOME directory excluding the plugins folder
+              cp -r --preserve=mode,timestamps ${XNAT_HOME}/!(plugins) /XNAT_HOME
+              # Copy plugins that are configured in values.yml
+              for plugin in ${plugins[@]}; do
+                cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
+              done
           volumeMounts:
-            - mountPath: /plugins
-              name: plugins
-        {{- end }}
-      {{- end }}
+            - name: tomcat
+              mountPath: /TOMCAT
+            - name: xnat-home
+              mountPath: /XNAT_HOME
+            - name: home-plugins
+              mountPath: /HOME-PLUGINS
       volumes:
-        - name: auth
+        - name: passwd
+          configMap:
+            name: {{ include "xnat-web.fullname" . }}
+            items:
+              - key: passwd
+                path: passwd
+        - name: tomcat
+          emptyDir: {}
+        # SEVERE: Unable to create directory for deployment: [/usr/local/tomcat/conf/Catalina/localhost]
+        - name: conf-catalina
+          emptyDir: {}
+        - name: xnat-home
+          emptyDir: {}
+        - name: home-plugins
+          emptyDir: {}
+        {{- range $plugin, $p := .Values.plugins }}
+        {{- range $p }}
+        {{- if .auth }}
+        - name: auth-{{ .provider.id }}
           secret:
-            secretName: {{ include "xnat-web.fullname" . }}-auth
-        - name: config
+            secretName: {{ include "xnat-web.fullname" $ }}-plugin-{{ $plugin }}
+            items:
+              - key: {{ .provider.id }}-provider.properties
+                path: {{ .provider.id }}-provider.properties
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        - name: xnat-config
           secret:
             secretName: {{ include "xnat-web.fullname" . }}
         {{- $context := . -}}

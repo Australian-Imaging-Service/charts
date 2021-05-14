@@ -62,122 +62,20 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Create the name of the PostgreSQL service account to use
+Converty yaml to xnat configuration syntax
 */}}
-{{- define "xnat-web.postgresql.fullname" -}}
-{{- printf "%s-%s" .Release.Name "postgresql" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- define "xnat-web.postgresql.postgresqlDatabase" -}}
-{{- if .Values.global.postgresql.postgresqlDatabase }}
-{{- .Values.global.postgresql.postgresqlDatabase }}
-{{- else }}
-{{- .Values.postgresql.postgresqlDatabase }}
-{{- end }}
-{{- end -}}
-{{- define "xnat-web.postgresql.postgresqlUsername" -}}
-{{- if .Values.global.postgresql.postgresqlUsername }}
-{{- .Values.global.postgresql.postgresqlUsername }}
-{{- else }}
-{{- .Values.postgresql.postgresqlUsername }}
-{{- end }}
-{{- end -}}
-{{- define "xnat-web.postgresql.postgresqlPassword" -}}
-{{- if .Values.global.postgresql.postgresqlPassword }}
-{{- .Values.global.postgresql.postgresqlPassword }}
-{{- else }}
-{{- .Values.postgresql.postgresqlPassword }}
-{{- end }}
-{{- end -}}
-
-{{- define "xnat-web.auth.openid.providers" -}}
-{{- $openid_providers := dict -}}
-{{- range $provider, $p := . -}}
-  {{- if $p.clientID -}}
-    {{- $_ := set $openid_providers $provider $p -}}
+{{- define "xnat-web.envify" -}}
+{{- $prefix := index . 0 -}}
+{{- $value := index . 1 -}}
+{{- if kindIs "map" $value -}}
+  {{- range $k, $v := $value -}}
+    {{- if $prefix -}}
+      {{- template "xnat-web.envify" (list (printf "%s.%s" $prefix $k) $v) -}}
+    {{- else -}}
+      {{- template "xnat-web.envify" (list (printf "%s" $k) $v) -}}
+    {{- end -}}
   {{- end -}}
+{{- else -}}
+{{ $prefix }}={{ $value }}
+{{ end -}}
 {{- end -}}
-{{- $openid_providers -}}
-{{- end -}}
-
-{{- define "xnat-web.plugin.openid" }}
-{{- range $provider, $c := .Values.plugin.plugins.openid.providers }}
-{{- if empty $c.clientId }}
-{{- else }}
-openid-provider-{{ $provider }}.properties: |
-  name=OpenID Authentication Provider
-  auth.method=openid
-  type=openid
-  provider.id={{ $provider }}
-  visible=true
-  auto.enabled=true
-  auto.verified=true
-  disableUsernamePasswordLogin=false
-  siteUrl={{ index $.Values.ingress.hosts 0 }}
-  preEstablishedRedirUri=/openid-login
-  {{- if eq $provider "aaf" }}
-  {{- include "xnat-web.plugin.openid.provider.aaf" $ | indent 2 }}
-  {{- end }}
-  {{- if eq $provider "google" }}
-  {{- include "xnat-web.plugin.openid.provider.google" $ | indent 2 }}
-  {{- end }}
-  openid.{{ $provider }}.scopes=openid,profile,email
-  openid.{{ $provider }}.link=<p>To sign-in as an <b>external user</b> using your {{ upper $provider }} credentials, please click on the button below.</p><p><a href="/openid-login?providerId={{ $provider }}"><img src="/images/{{ $provider }}_service_223x54.png" /></a></p>
-  openid.{{ $provider }}.forceUserCreate=true
-  openid.{{ $provider }}.userAutoEnabled=true
-  openid.{{ $provider }}.userAutoVerified=true
-  openid.{{ $provider }}.emailProperty=email
-  openid.{{ $provider }}.givenNameProperty=given_name
-  openid.{{ $provider }}.familyNameProperty=family_name
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-openid aaf configuration
-*/}}
-{{- define "xnat-web.plugin.openid.provider.aaf" }}
-{{- if .Values.plugin.plugins.openid.providers.aaf.userAuthUri }}
-openid.aaf.clientSecret={{ .Values.plugin.plugins.openid.providers.aaf.userAuthUri }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.aaf.accessTokenUrl }}
-openid.aaf.clientSecret={{ .Values.plugin.plugins.openid.providers.aaf.accessTokenUrl }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.aaf.clientId }}
-openid.aaf.clientId={{ .Values.plugin.plugins.openid.providers.aaf.clientId }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.aaf.clientSecret }}
-openid.aaf.clientSecret={{ .Values.plugin.plugins.openid.providers.aaf.clientSecret }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.aaf.allowedEmailDomains }}
-openid.aaf.shouldFilterEmailDomains=true
-openid.aaf.allowedEmailDomains={{ .Values.plugin.plugins.openid.providers.aaf.allowedEmailDomains }}
-{{- else }}
-openid.aaf.shouldFilterEmailDomains=false
-{{- end }}
-{{- end }}
-
-{{/*
-openid google configuration
-*/}}
-{{- define "xnat-web.plugin.openid.provider.google" }}
-{{- if .Values.plugin.plugins.openid.providers.google.userAuthUri }}
-openid.google.clientSecret={{ .Values.plugin.plugins.openid.providers.google.userAuthUri }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.google.accessTokenUrl }}
-openid.google.clientSecret={{ .Values.plugin.plugins.openid.providers.google.accessTokenUrl }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.google.clientId }}
-openid.google.clientId={{ .Values.plugin.plugins.openid.providers.google.clientId }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.google.clientSecret }}
-openid.google.clientSecret={{ .Values.plugin.plugins.openid.providers.google.clientSecret }}
-{{- end }}
-{{- if .Values.plugin.plugins.openid.providers.google.allowedEmailDomains }}
-openid.google.shouldFilterEmailDomains=true
-openid.google.allowedEmailDomains={{ .Values.plugin.plugins.openid.providers.google.allowedEmailDomains }}
-{{- else}}
-openid.google.shouldFilterEmailDomains=false
-{{- end }}
-{{- end }}
-
-
