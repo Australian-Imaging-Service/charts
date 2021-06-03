@@ -309,6 +309,11 @@ az network public-ip create --resource-group <output from previous command> --na
 ### Point your FQDN to the public IP address you created
 For the Letsencrypt certificate issuer to work it needs to be based on a working FQDN (fully qualified domain name), so in whatever DNS manager you use, create a new A record and point your xnat FQDN (xnat.example.com for example) to the IP address you just created.  
 
+Add the ingress-nginx repo:  
+```
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+```
+
 Now create the ingress controller with a DNS Label (doesn't need to be FQDN here) and the IP created in the last command:  
 
 ```
