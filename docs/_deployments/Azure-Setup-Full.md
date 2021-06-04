@@ -331,7 +331,7 @@ Please ensure to update the details above to suit your environment - including n
 kubectl label namespace xnat cert-manager.io/disable-validation=true
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
-helm install   cert-manager   --namespace xnat   --version v0.16.1   --set installCRDs=true   --set nodeSelector."beta\.kubernetes\.io/os"=linux   jetstack/cert-manager
+helm install   cert-manager   --namespace xnat   --version v1.3.1   --set installCRDs=true   --set nodeSelector."beta\.kubernetes\.io/os"=linux   jetstack/cert-manager
 ```
 You can find a write up of these commands and what they do in the Microsoft article.
 
