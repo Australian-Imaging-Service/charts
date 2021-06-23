@@ -237,9 +237,9 @@ NAME                  READY   STATUS    RESTARTS   AGE
 pod/xnat-xnat-web-0   1/1     Running   0          3h27m
 pod/xnat-xnat-web-1   1/1     Running   0          3h23m
 ```
-
-
-
+<br />
+<br />
+<br />
 
 
 ## Troubleshooting
