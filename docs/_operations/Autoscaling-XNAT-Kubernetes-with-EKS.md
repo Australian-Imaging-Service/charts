@@ -213,7 +213,7 @@ If a pod is descheduled, deleted and recreated, or an instance where the pod was
 
 You can refer to AWS documentation for how to install the EKS Cluster-autoscaler:  
 
-https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html
+https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html  
 This is specific for your deployment IAM roles, clusternames etc, so will not specified here.
 
 
@@ -235,7 +235,7 @@ Add the following lines into your values file under the xnat-web section:
     targetMemoryUtilizationPercentage: 80
 ```
 
-Tailor it your own environment. this will create 2 replicas (pods) at start up and will scale up pods when 80% CPU and 80% Memory are utilised - read more about that again here:  
+Tailor it your own environment. this will create 2 replicas (pods) at start up, up to a limit of 100 replicas, and will scale up pods when 80% CPU and 80% Memory are utilised - read more about that again here:  
 https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/  
 
 This is the relevant parts of my environment when running the get command:  
