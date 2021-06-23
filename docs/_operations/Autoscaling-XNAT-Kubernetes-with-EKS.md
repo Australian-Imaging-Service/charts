@@ -20,7 +20,10 @@ Cluster-autoscaling is where the Kubernetes cluster itself spins up or down new 
 
 
 You can't use HPA and VPA together so we will use HPA and Cluster-Autoscaling.
-
+<br />
+<br />
+<br />
+<br />
 
 ## Prerequisites  
 
@@ -30,7 +33,10 @@ You can't use HPA and VPA together so we will use HPA and Cluster-Autoscaling.
 **Metrics Server**  
 **Cluster-Autoscaler**  
 
-
+<br />
+<br />
+<br />
+<br />
 
 You can find more information on applying ALB implementation for the AIS Helm Chart deployment in the ALB-Ingress-Controller document in this repo, so will not be covering that here, save to say there are some specific annotations that are required for autoscaling to work effectively.  
 
@@ -59,7 +65,10 @@ Not sure why but if target-type is set to ***instance*** and not ***ip***, it di
 ```
 alb.ingress.kubernetes.io/target-type: ip
 ```
-
+<br />
+<br />
+<br />
+<br />
 
 
 ### Resources (requests and limits) need to specified in your values file
@@ -91,8 +100,10 @@ https://github.com/kubernetes/kubernetes/issues/72811
 2. XNAT is extremely memory hungry, and any pod will use approximately 750MB of RAM without doing anything. This is important as when the requests are set below that, you will have a lot of pods scale up, then scale down and no consistency for the user experience. This will play havoc with user sessions and annoy everyone a lot. Applications - specifically XNAT Desktop can use a LOT of memory for large uploads (I have seen 12GB RAM used on an instance) so try and specify as much RAM as you can for the instances you have. In the example above I have specified 3000MB of RAM and 1 vCPU. The worker node instance has 4 vCPUs and 4GB. You would obviously use larger instances if you can. You will have to do some testing to work out the best Pod to Instance ratio for your environment.  
 
 
-
-
+<br />
+<br />
+<br />
+<br />
 
 ### Metrics Server
 
@@ -140,8 +151,10 @@ You can read more about Metrics Server here:
 https://github.com/kubernetes-sigs/metrics-server
 ```
 
-
-
+<br />
+<br />
+<br />
+<br />
 
 ### Cluster-Autoscaler  
 
@@ -204,7 +217,10 @@ https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html
 This is specific for your deployment IAM roles, clusternames etc, so will not specified here.
 
 
-
+<br />
+<br />
+<br />
+<br />
 
 
 ### Configure Horizontal Pod Autoscaler
@@ -237,6 +253,7 @@ NAME                  READY   STATUS    RESTARTS   AGE
 pod/xnat-xnat-web-0   1/1     Running   0          3h27m
 pod/xnat-xnat-web-1   1/1     Running   0          3h23m
 ```
+<br />
 <br />
 <br />
 <br />
