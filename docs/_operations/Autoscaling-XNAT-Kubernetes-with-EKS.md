@@ -12,7 +12,7 @@ There are three types of autoscaling that Kubernetes offers:
 Horizontal Pod Autoscaling (HPA) is a technology that scales up or down the number of replica pods for an application based on resource limits specified in a values file.
 
 2. Vertical Pod Autoscaling  
-Vertical Pod Autoscaling increases or decreases the resources to each pod when it gets to a certain percentage to help you best deal with your resources.
+Vertical Pod Autoscaling (VPA) increases or decreases the resources to each pod when it gets to a certain percentage to help you best deal with your resources.
 After some testing this is legacy and HPA is preferred and also built into the Helm chart so we won't be utilising this technology.  
 
 3. Cluster-autoscaling  
