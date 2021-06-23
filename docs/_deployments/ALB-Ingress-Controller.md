@@ -48,10 +48,11 @@ Added to values file:
       kubernetes.io/ingress.class: alb
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/group.name: xnat
-      alb.ingress.kubernetes.io/target-type: instance
+      alb.ingress.kubernetes.io/target-type: ip
 ```
  
-NB. You can specify as either instance or ip.
+NB. Although you can specify ip or instance for the target-type, you need to specify ip or autoscaling won't function correctly. This is because stickiness isn't honoured for target-type instance so you have the known issue where XNAT database thinks you are logged in but instance / pod knows you are not and then it logs you out again.
+
 For more ALB annotations / options, please see article at the bottom of the page.
 
 Commented out / removed:  
@@ -114,9 +115,11 @@ When updating ALB is often doesn't update properly so you will need to delete an
 ***helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller --set clusterName=xnat --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller -n kube-system***
  
 Change the stickiness of the Load Balancer:  
-It is important to set a stickiness time on the load balancer or you can get an issue where the Database thinks you have logged in but the pod you connect to knows you haven’t so you can’t login. Setting stickiness reasonably high – say 30 minutes, can get round this.
-
+It is important to set a stickiness time on the load balancer or you can get an issue where the Database thinks you have logged in but the pod you connect to knows you haven’t so you can’t login. Setting stickiness reasonably high – say 30 minutes, can get round this.  
 ***alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800***
+
+Change the Load Balancing Algorithm:  
+***alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests***  
   
 
 ## Add SSL encryption to your Application Load Balancer
@@ -189,14 +192,14 @@ Full values.yaml file ingress section:
     annotations:
       kubernetes.io/ingress.class: alb
       alb.ingress.kubernetes.io/scheme: internet-facing
-      alb.ingress.kubernetes.io/target-type: instance
+      alb.ingress.kubernetes.io/target-type: ip
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
       alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
       alb.ingress.kubernetes.io/healthcheck-path: "/"
       alb.ingress.kubernetes.io/success-codes: "302"
       alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:XXXXXXX:certificate/XXXXXX"
       alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
-      alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800
+      alb.ingress.kubernetes.io/target-group-attributes: "stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800,load_balancing.algorithm.type=least_outstanding_requests"
 ```
 
 Further Reading:  
