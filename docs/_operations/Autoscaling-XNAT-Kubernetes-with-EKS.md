@@ -24,14 +24,13 @@ You can't use HPA and VPA together so we will use HPA and Cluster-Autoscaling.
 
 ## Prerequisites  
 
-### Running Kubernetes Cluster and XNAT Helm Chart AIS Deployment  
-### AWS Application Load Balancer (ALB) as an Ingress Controller with some specific annotations  
-### Resources (requests and limits) need to specified in your values file  
-### Metrics Server  
-### Cluster-Autoscaler  
+**Running Kubernetes Cluster and XNAT Helm Chart AIS Deployment**  
+**AWS Application Load Balancer (ALB) as an Ingress Controller with some specific annotations**  
+**Resources (requests and limits) need to specified in your values file**  
+**Metrics Server**  
+**Cluster-Autoscaler**  
 
 
-### AWS Application Load Balancer (ALB) as an Ingress Controller with some specific annotations  
 
 You can find more information on applying ALB implementation for the AIS Helm Chart deployment in the ALB-Ingress-Controller document in this repo, so will not be covering that here, save to say there are some specific annotations that are required for autoscaling to work effectively.  
 
@@ -44,7 +43,8 @@ alb.ingress.kubernetes.io/target-type: ip
 Let's breakdown and explain the sections.
 
 **Change the stickiness of the Load Balancer:**  
-It is important to set a stickiness time on the load balancer or you can get an issue where the Database thinks you have logged in but the pod you connect to knows you haven’t so you can’t login and it keeps logging you out all the time. Setting stickiness reasonably high – say 30 minutes, can get round this.  
+It is important to set a stickiness time on the load balancer. This forces you to the same pod all the time and retains your session information.
+Without stickiness, after logging in, the Database thinks you have logged but the Load Balancer can alternate which pod you go to. The session details are kept on each pod so the new pod thinks you aren't logged in and keeps logging you out all the time. Setting stickiness time reasonably high – say 30 minutes, can get round this.  
 ```
 stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800
 ```
@@ -60,12 +60,14 @@ Not sure why but if target-type is set to ***instance*** and not ***ip***, it di
 alb.ingress.kubernetes.io/target-type: ip
 ```
 
+
+
 ### Resources (requests and limits) need to specified in your values file
 
 In order for HPA and Cluster-autoscaling to work, you need to specify resources - requests and limits, in the AIS Helm chart values file, or it won't know when to scale.  
 This makes sense because how can you know when you are running out of resources to start scaling up if you don't know what your resources are to start with?  
 
-In your values file add the following lines below the xnat-web section:  
+In your values file add the following lines below the xnat-web section (please adjust the CPU and memory to fit with your environment):  
 
 ```
   resources:
@@ -82,11 +84,13 @@ You can read more about what this means here:
 https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/  
 
 From my research with HPA, I discovered a few important facts.  
-1. Horizontal Podautoscaler doesn't care about limits, it bases autoscaling on requests. Requests are meant to be the minimum needed to safely run a pod and limits are the maximum. However, this is completely irrelevant for HPA as it ignores the limits altogether so I specify the same resaources for requests and limits. See this issue for more details:  
+1. Horizontal Podautoscaler doesn't care about limits, it bases autoscaling on requests. Requests are meant to be the minimum needed to safely run a pod and limits are the maximum. However, this is completely irrelevant for HPA as it ignores the limits altogether so I specify the same resources for requests and limits. See this issue for more details:  
 
 https://github.com/kubernetes/kubernetes/issues/72811  
 
-2. XNAT is extremely memory hungry, and any pod will use approximately 750MB of RAM without doing anything. This is important as when the requests are set below that, you will have a lot of pods scale up, then scale down and no consistency for the user experience. This will play havoc with user sessions and annoy everyone a lot. Applications - specifically XNAT Desktop can use a LOT of memory for large uploads (I have seen 12GB RAM used on an instance) so try and specify as much RAM as you can for the instances you have. In the example above I have specified 3000MB of RAM and 1 vCPU. The worker node instance has 4 vCPUs and 4GB. You would obviously use larger instances if you can. You will have to do some testing to work out the best POD / Instance ratio for your environment.  
+2. XNAT is extremely memory hungry, and any pod will use approximately 750MB of RAM without doing anything. This is important as when the requests are set below that, you will have a lot of pods scale up, then scale down and no consistency for the user experience. This will play havoc with user sessions and annoy everyone a lot. Applications - specifically XNAT Desktop can use a LOT of memory for large uploads (I have seen 12GB RAM used on an instance) so try and specify as much RAM as you can for the instances you have. In the example above I have specified 3000MB of RAM and 1 vCPU. The worker node instance has 4 vCPUs and 4GB. You would obviously use larger instances if you can. You will have to do some testing to work out the best Pod to Instance ratio for your environment.  
+
+
 
 
 
@@ -124,7 +128,7 @@ Completed section should look like this:
         - --metric-resolution=15s
 ```
 
-Now apply it to your CLuster:  
+Now apply it to your Cluster:  
 ```
 k -nkube-system apply -f components.yaml
 ```
@@ -137,9 +141,11 @@ https://github.com/kubernetes-sigs/metrics-server
 ```
 
 
+
+
 ### Cluster-Autoscaler  
 
-There are quite a lot of ways to use the Cluster-autoscaler - single zone node clusters deployed in single availability zones (no AZ redundancy), single zone node clusters deployed in multiple Availability zones or single Cluster-autoscalers that deploy in multiple Availability Zones. In this example we will be deploying in the autoscaler in multiple Availability Zones (AZ's).
+There are quite a lot of ways to use the Cluster-autoscaler - single zone node clusters deployed in single availability zones (no AZ redundancy), single zone node clusters deployed in multiple Availability zones or single Cluster-autoscalers that deploy in multiple Availability Zones. In this example we will be deploying the autoscaler in multiple Availability Zones (AZ's).
 
 In order to do this, a change needs to be made to the StorageClass configuration used.
 
@@ -195,8 +201,10 @@ If a pod is descheduled, deleted and recreated, or an instance where the pod was
 You can refer to AWS documentation for how to install the EKS Cluster-autoscaler:  
 
 https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html
-
 This is specific for your deployment IAM roles, clusternames etc, so will not specified here.
+
+
+
 
 
 ### Configure Horizontal Pod Autoscaler
@@ -229,6 +237,9 @@ NAME                  READY   STATUS    RESTARTS   AGE
 pod/xnat-xnat-web-0   1/1     Running   0          3h27m
 pod/xnat-xnat-web-1   1/1     Running   0          3h23m
 ```
+
+
+
 
 
 ## Troubleshooting
