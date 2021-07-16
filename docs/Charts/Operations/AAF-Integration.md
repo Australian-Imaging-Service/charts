@@ -1,13 +1,8 @@
 ---
-layout: default
-title: "AAF-Integration"
-#permalink: /AAF-Integration/
+title: "Integrating AAF with AIS Kubernetes XNAT Deployment"
+linktitle: "AAF Integration"
+weight: 10
 ---
-
-# Integrating AAF with AIS Kubernetes XNAT Deployment
-
-
-
 
 ## Applying for AAF Integration ClientId and Secret
 

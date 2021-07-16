@@ -1,7 +1,7 @@
 ---
-layout: default
 title: "NixOS + Minikube"
 author: "Zane Iperen"
+weight: 10
 ---
 
 ## NixOS + Minikube

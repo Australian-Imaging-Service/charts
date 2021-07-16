@@ -1,7 +1,6 @@
 ---
-layout: default
 title: "External-PGSQL-DB-Connection"
-#permalink: /External-PGSQL-DB-Connection/
+weight: 10
 ---
 
 # Connecting AIS XNAT Helm Deployment to an External Postgresql Database

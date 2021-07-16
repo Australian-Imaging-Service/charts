@@ -1,8 +1,8 @@
 ---
-layout: default
-title: "CI/CD"
+linktitle: "CI/CD"
+title: "Continuous Integration / Continuous Delivery"
+weight: 10
 ---
-# Continuous Integration / Continuous Delivery
 
 ## Tools
 

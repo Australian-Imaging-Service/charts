@@ -1,6 +1,6 @@
 ---
-layout: default
 title: "microk8s-Ubuntu"
+weight: 10
 ---
 NB: [Ansible playbooks and/or roles](https://github.com/Australian-Imaging-Service/charts/contrib/ansible/) may be helpful.
 

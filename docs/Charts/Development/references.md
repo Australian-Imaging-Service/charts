@@ -1,9 +1,9 @@
 ---
-layout: default
 title: References
+weight: 10
 ---
 
-# References (Must reads!)
+## References (Must reads!)
 
 * [The Chart Best Practices Guide](https://helm.sh/docs/chart_best_practices/)
 * [Best Practices for Creating Production-Ready Helm charts](https://docs.bitnami.com/tutorials/production-ready-charts/)

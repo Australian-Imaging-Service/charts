@@ -1,10 +1,9 @@
 ---
-layout: default
-title: "Azure-Setup-Full"
-#permalink: /Azure-Setup-Full/
+title: "Azure Setup Full"
+weight: 10
 ---
 
-# Create an AKS Cluster
+## Create an AKS Cluster
 
 One of the great things about Azure is the Azure Cli. Specify Bash and then you can run all commands through your web browser and all tools and kubectl / az commands are already installed and available without having to create them on your workstation or spin up a VM instance for the sole purpose of controlling the cluster.  
 
@@ -25,7 +24,7 @@ az aks create \
 ```
 
 
-*Get AZ AKS credentials to run kubectl commands against your Cluster*
+Get AZ AKS credentials to run kubectl commands against your Cluster
 
 ```
 az aks get-credentials --name xnat --resource-group <Resource Group Name>
@@ -41,7 +40,7 @@ kubectl cluster-info
 
 
 
-## Download and install AIS Chart 
+### Download and install AIS Chart 
 
 ```
 git clone https://github.com/Australian-Imaging-Service/charts.git
@@ -80,7 +79,7 @@ xnat-web:
     postgresqlPassword: <your password>
 ```
 
-## Update volume / persistence information
+### Update volume / persistence information
 It turns out that there is an issue with Storage classes that means that the volumes are not created automatically.
 We need to make a small change to the storageClass configuration for the ReadWriteOnce volumes and create new external volumes for the ReadWriteMany ones.
 
@@ -135,7 +134,7 @@ AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web***
 ```
 
 
-## Create a Kubernetes Secret  
+### Create a Kubernetes Secret  
 
 In order to mount the volumes, you need to create a secret. As we have created our Helm chart in the xnat namespace, we need to make sure that is added into the following command (not in the original Microsoft guide):  
 
@@ -144,7 +143,7 @@ kubectl -nxnat create secret generic azure-secret --from-literal=azurestorageacc
 ```
 
 
-## Create Kubernetes Volumes  
+### Create Kubernetes Volumes  
 Now we need to create two persistent volumes outside of the Helm Chart which the Chart can mount - hence requiring the exact name.  
 Create two files - ***pv_archive.yaml*** and ***pv_prearchive.yaml***
 
@@ -206,7 +205,7 @@ spec:
 
 Size doesn't really matter as like EFS, Azure files is completely scaleable. Just make sure it is the same as your values file for those volumes.  
 
-### Apply the volumes
+#### Apply the volumes
 ```
 kubectl apply -f pv_archive.yaml
 kubectl apply -f pv_prearchive.yaml
@@ -217,7 +216,7 @@ We should now have two newly created volumes our Helm chart can mount.
 
 
 
-# Update our override values file for our Helm chart.
+## Update our override values file for our Helm chart.
 Edit your values-aks.yaml file from above and add the following in (postgresl entries already added):  
 
 Paste the following:
@@ -285,7 +284,7 @@ kubectl -nxnat logs xnat-xnat-web-0 -f
 
 
 
-## Creat a static public IP, an ingress controller, LetsEncrypt certififcates and point it to our Helm chart  
+### Creat a static public IP, an ingress controller, LetsEncrypt certififcates and point it to our Helm chart  
 
 OK so all good so far but we can't actually access our XNAT environment from outside of our cluster so we need to create an Ingress Controller.
 
@@ -306,7 +305,7 @@ az network public-ip create --resource-group <output from previous command> --na
 
 
 
-### Point your FQDN to the public IP address you created
+#### Point your FQDN to the public IP address you created
 For the Letsencrypt certificate issuer to work it needs to be based on a working FQDN (fully qualified domain name), so in whatever DNS manager you use, create a new A record and point your xnat FQDN (xnat.example.com for example) to the IP address you just created.  
 
 Add the ingress-nginx repo:  
@@ -326,7 +325,7 @@ Please ensure to update the details above to suit your environment - including n
 
 
 
-## Install Cert-Manager and attach to the Helm chart and Ingress Controller  
+### Install Cert-Manager and attach to the Helm chart and Ingress Controller  
 ```
 kubectl label namespace xnat cert-manager.io/disable-validation=true
 helm repo add jetstack https://charts.jetstack.io
@@ -339,7 +338,7 @@ You can find a write up of these commands and what they do in the Microsoft arti
 
 
 
-### Create a cluster-issuer.yaml to issue the Letsencrypt certificates  
+#### Create a cluster-issuer.yaml to issue the Letsencrypt certificates  
 ```
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
@@ -373,7 +372,7 @@ kubectl apply -f cluster-issuer.yaml -nxnat
 
 
 
-## Update your override values file to point to your ingress controller and Letsencrypt Cluster issuer  
+### Update your override values file to point to your ingress controller and Letsencrypt Cluster issuer  
 Add the following to your values-aks.yaml file (I have added the volume and postgresql details as well for the complete values file):
 
 ```
