@@ -1,0 +1,19 @@
+name: github pages
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:  # Allow manual triggering by a user with write access to this repo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.PAT }}
+          repository: Australian-Imaging-Service/Australian-Imaging-Service.github.io
+          event-type: Rebuild docs

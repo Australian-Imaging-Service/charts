@@ -1,10 +1,7 @@
 ---
-layout: default
 title: "Autoscaling XNAT on Kubernetes with EKS"
-#permalink: /Autoscaling-XNAT-Kubernetes-with-EKS/
+weight: 10
 ---
-
-# Autoscaling XNAT on Kubernetes with EKS
 
 There are three types of autoscaling that Kubernetes offers:  
 

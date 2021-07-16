@@ -1,10 +1,9 @@
 ---
-layout: default
-title: "ALB-Ingress-Controller"
-#permalink: /ALB-Ingress-Controller/
+title: "ALB Ingress Controller"
+weight: 10
 ---
 
-# Creating an Application Load Balancer to connect to the AIS Helm chart XNAT Implementation
+## Creating an Application Load Balancer to connect to the AIS Helm chart XNAT Implementation
 
 We will be following this AWS Guide:  
 https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
@@ -17,25 +16,39 @@ The Charts Repo has the service defined as ClusterIP so some changes need to be 
 In this document we create a Cluster called xnat in ap-southeast-2. Please update these details for your environment.
  
 Create an IAM OIDC provider and associate with cluster:  
-***eksctl utils associate-iam-oidc-provider --region ap-southeast-2 --cluster xnat --approve***
+```
+eksctl utils associate-iam-oidc-provider --region ap-southeast-2 --cluster xnat --approve
+```
  
 Download the IAM Policy:  
-***curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json***
+```
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+```
  
 Create the IAM policy and take a note of the ARN:  
-***aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam-policy.json***
+```
+aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam-policy.json
+```
  
 Create the service account using ARN from the previous command (substitute your ARN for the XXX):  
-***eksctl create iamserviceaccount --cluster=xnat --namespace=kube-system --name=aws-load-balancer-controller --attach-policy-arn=arn:aws:iam::XXXXXXXXX:policy/AWSLoadBalancerControllerIAMPolicy --override-existing-serviceaccounts --approve***
+```
+eksctl create iamserviceaccount --cluster=xnat --namespace=kube-system --name=aws-load-balancer-controller --attach-policy-arn=arn:aws:iam::XXXXXXXXX:policy/AWSLoadBalancerControllerIAMPolicy --override-existing-serviceaccounts --approve
+```
  
 Install TargetGroupBinding:  
-***kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"***
+```
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+```
  
 Install the AWS Load Balancer Controller:  
-***helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller --set clusterName=xnat --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller -n kube-system***
+```
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller --set clusterName=xnat --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller -n kube-system
+```
  
 Confirm it is installed:  
-***kubectl get deployment -n kube-system aws-load-balancer-controller***
+```
+kubectl get deployment -n kube-system aws-load-balancer-controller
+```
  
 You should see - READY 1/1 if it is installed properly
 
@@ -84,11 +97,15 @@ service:
 
 In xnat/charts/xnat-web/templates/service.yaml remove the line:  
   
-***clusterIP: None***
+```
+clusterIP: None
+```
 
 Then create the Helm chart with the usual command (after building dependencies - just follow README.md). If you are updating an existing xnat installation it will fail so you will need to create a new application. 
 
-***helm upgrade xnat . -nxnat***
+```
+helm upgrade xnat . -nxnat
+```
 
 It should now create a Target Group and Application Load Balancer in AWS EC2 Services. I had to make a further change to get this to work.
  
@@ -101,25 +118,35 @@ You can fix this by adding the following line to values file:
       alb.ingress.kubernetes.io/success-codes: "302"
 ```
 Troubleshooting and make sure ALB is created:  
-***watch kubectl -n kube-system get all***
+```
+watch kubectl -n kube-system get all
+```
  
 Find out controller name in pod. In this case - pod/aws-load-balancer-controller-98f66dcb8-zkz8k
  
 Make sure all are up.
  
 Check logs:  
-***kubectl logs -n kube-system aws-load-balancer-controller-98f66dcb8-zkz8k***
+```
+kubectl logs -n kube-system aws-load-balancer-controller-98f66dcb8-zkz8k
+```
  
 When updating ALB is often doesn't update properly so you will need to delete and recreate the ALB:  
-***kubectl delete deployment -n kube-system aws-load-balancer-controller***
-***helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller --set clusterName=xnat --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller -n kube-system***
+```
+kubectl delete deployment -n kube-system aws-load-balancer-controller
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller --set clusterName=xnat --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller -n kube-system
+```
  
 Change the stickiness of the Load Balancer:  
 It is important to set a stickiness time on the load balancer or you can get an issue where the Database thinks you have logged in but the pod you connect to knows you haven’t so you can’t login. Setting stickiness reasonably high – say 30 minutes, can get round this.  
-***alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800***
+```
+alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800
+```
 
 Change the Load Balancing Algorithm:  
-***alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests***  
+```
+alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
+```
   
 
 ## Add SSL encryption to your Application Load Balancer
@@ -140,13 +167,13 @@ This assumes you have a valid certificate created through AWS Certificate Manage
 These are additional annotations to add to values file and explanations above:  
 
 Listen on port 80 and 443:   
-      ***alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'***
+      `alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'`
 
 Specify the ARN of your SSL certificate from AWS Certificate Manager (change for your actual ARN):  
-      ***alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:XXXXXXX:certificate/XXXXXX"***
+      `alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:XXXXXXX:certificate/XXXXXX"`
    
 Specify AWS SSL Policy:  
-      ***alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"***
+      `alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"`
 
 For more details see here of SSL policy options:  
 https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html

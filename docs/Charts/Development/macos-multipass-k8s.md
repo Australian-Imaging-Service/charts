@@ -1,10 +1,11 @@
 ---
-layout: default
-title: "MacOS+Multipass"
+linktitle: "MacOS+Multipass"
+title: "Development workstation with Multipass on MacOS"
 author: "Fang Xu <xu.fang@sydney.edu.au>"
+weight: 10
 ---
-# Development workstation with Multipass on MacOS
-Requirements:
+
+## Requirements
 * An enabled hypervisor, either HyperKit or Virtualbox. HyperKit is the default hypervisor backend on MacOS Yosemite or later installed on a 2010 or newer Mac.
 * Administrative access on Mac.
 

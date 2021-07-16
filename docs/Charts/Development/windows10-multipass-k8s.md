@@ -1,7 +1,7 @@
 ---
-layout: default
 title: "Windows 10+Multipass"
 author: "Dean Taylor <dean.taylor@uwa.edu.au>"
+weight: 10
 ---
 # Development workstation with [Multipass](https://multipass.run/) on Windows 10
 

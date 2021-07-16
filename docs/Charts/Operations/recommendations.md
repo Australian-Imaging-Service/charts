@@ -1,6 +1,6 @@
 ---
-layout: default
 title: "Recommendations"
+weight: 10
 ---
 
 # Operational recommendations

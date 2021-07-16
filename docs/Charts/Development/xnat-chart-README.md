@@ -1,6 +1,6 @@
 ---
-layout: default
 title: "XNAT chart README"
+weight: 10
 ---
 
 ```bash
