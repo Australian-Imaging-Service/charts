@@ -14,6 +14,6 @@ jobs:
       - name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v1
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.GITHUBPAGES_KEY }}
           repository: Australian-Imaging-Service/Australian-Imaging-Service.github.io
           event-type: Rebuild docs
