@@ -11,44 +11,44 @@ weight: 10
 
 ## Download, install and setup Multipass
 There are two ways to install Multipass on MacOS: brew or the installer. Using brew is the simplest:
-```console
+```bash
 $ brew install --cask multipass
 ```
 
 Check Multipass version which you are running:
-```console
+```bash
 $ multipass version 
 ```
 
 Start a Multipass VM, then install Microk8s
 Brew is the easiest way to install Microk8s, but it is not so easy to install an older version. At the time of writing, Microk8s latest version v1.20 seems to have problem for Ingress to attach an external IP (127.0.0.1 on Microk8s vm). We recommend manual installation. 
-```console
+```bash
 $ multipass launch --name microk8s-vm --cpus 2 --mem 4G --disk 40G 
 ```
 
 Get a shell inside the newly created VM:
-```console
+```bash
 multipass shell microk8s-vm
 ```
 
 Install Microk8s v1.19 in the VM:
-```console
+```bash
 $ sudo snap install microk8s --classic --channel=1.19/stable
 $ sudo iptables -P FORWARD ACCEPT
 ```
 
 List your Multik8s VM:
-```console
+```bash
 $ multipass list
 ```
 
 Shutdown the VM
-```console
+```bash
 $ multipass stop microk8s-vm
 ```
 
 Delete and cleanup the VM:
-```console
+```bash
 $ multipass delete microk8s-vm
 $ multipass purge
 ```

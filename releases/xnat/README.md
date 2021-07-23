@@ -2,7 +2,7 @@
 
 [XNAT](https://www.xnat.org/) is an open source imaging informatics platform developed by the Neuroinformatics Research Group at Washington University. XNAT was originally developed at Washington University in the Buckner Lab, which is now located at Harvard University. It facilitates common management, productivity, and quality assurance tasks for imaging and associated data.
 
-```console
+```bash
 $ helm repo add ais https://TODO/charts
 $ helm upgrade xnat ais/xnat --install
 ```
@@ -19,7 +19,7 @@ $ helm upgrade xnat ais/xnat --install
 
 To install the chart with the release name my-xnat
 
-```console
+```bash
 $ helm upgrade my-xnat ais/xnat --install
 ```
 
@@ -29,7 +29,7 @@ The command deploys XNAT on the Kubernetes cluster in the default configuration.
 
 To uninstall/delete the my-xnat deployment
 
-```console
+```bash
 $ helm delete my-xnat
 ```
 
@@ -39,7 +39,7 @@ To delete the PVC's associated with `my-xnat`:
 
 > **WARNING**: Deleting the PVC's will delete all the associated data. Perform this action with the utmost care and consideration, there is no turning back.
 
-```console
+```bash
 kubectl delete pvc -l release=my-xnat
 ```
 

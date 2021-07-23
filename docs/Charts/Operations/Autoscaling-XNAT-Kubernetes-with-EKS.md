@@ -38,7 +38,7 @@ You can't use HPA and VPA together so we will use HPA and Cluster-Autoscaling.
 You can find more information on applying ALB implementation for the AIS Helm Chart deployment in the ALB-Ingress-Controller document in this repo, so will not be covering that here, save to say there are some specific annotations that are required for autoscaling to work effectively.  
 
 Specific annotations required:  
-```
+```yaml
 alb.ingress.kubernetes.io/target-group-attributes: "stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800,load_balancing.algorithm.type=least_outstanding_requests"
 alb.ingress.kubernetes.io/target-type: ip
 ```
@@ -48,18 +48,18 @@ Let's breakdown and explain the sections.
 **Change the stickiness of the Load Balancer:**  
 It is important to set a stickiness time on the load balancer. This forces you to the same pod all the time and retains your session information.
 Without stickiness, after logging in, the Database thinks you have logged but the Load Balancer can alternate which pod you go to. The session details are kept on each pod so the new pod thinks you aren't logged in and keeps logging you out all the time. Setting stickiness time reasonably high – say 30 minutes, can get round this.  
-```
+```yaml
 stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800
 ```
 
 **Change the Load Balancing Algorithm for best performance:** 
-```
+```yaml
 load_balancing.algorithm.type=least_outstanding_requests
 ```
 
 **Change the Target type:**  
 Not sure why but if target-type is set to ***instance*** and not ***ip***, it disregards the stickiness rules.  
-```
+```yaml
 alb.ingress.kubernetes.io/target-type: ip
 ```
 <br />
@@ -75,7 +75,7 @@ This makes sense because how can you know when you are running out of resources 
 
 In your values file add the following lines below the xnat-web section (please adjust the CPU and memory to fit with your environment):  
 
-```
+```yaml
   resources:
     limits:
       cpu: 1000m
@@ -106,17 +106,17 @@ https://github.com/kubernetes/kubernetes/issues/72811
 
 Download the latest Kubernetes Metrics server yaml file. We will need to edit it before applying the configuration or HPA won't be able to see what resources are being used and none of this will work.  
 
-```
+```bash
 wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
 Add the following line:  
-```
+```yaml
         - --kubelet-insecure-tls
 ```
 
 to here:  
-```
+```yaml
     spec:
       containers:
       - args:
@@ -124,7 +124,7 @@ to here:
 ```
 
 Completed section should look like this:
-```
+```yaml
     spec:
       containers:
       - args:
@@ -137,7 +137,7 @@ Completed section should look like this:
 ```
 
 Now apply it to your Cluster:  
-```
+```bash
 k -nkube-system apply -f components.yaml
 ```
 
@@ -162,7 +162,7 @@ In order to do this, a change needs to be made to the StorageClass configuration
 Delete whatever StorageClasses you have and then recreate them changing the VolumeBindingMode. At a minimum you will need to change the GP2 / EBS StorageClass VolumeBindingMode but if you are using a persistent volume for archive / prearchive, that will also need to be updated.  
 
 Change this:  
-```
+```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -178,7 +178,7 @@ parameters:
 
 to this:
 
-```
+```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -193,7 +193,7 @@ parameters:
 ```
 
 The run the following commands (assuming the file above is called storageclass.yaml):  
-```
+```bash
 kubectl delete sc --all
 kubectl apply -f storageclass.yaml
 ```
@@ -223,7 +223,7 @@ This is specific for your deployment IAM roles, clusternames etc, so will not sp
 ### Configure Horizontal Pod Autoscaler
 
 Add the following lines into your values file under the xnat-web section:  
-```
+```yaml
   autoscaling:
     enabled: true
     minReplicas: 2
@@ -237,14 +237,14 @@ https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/
 
 This is the relevant parts of my environment when running the get command:  
 
-```
+```bash
 k -nxnat get horizontalpodautoscaler.autoscaling/xnat-xnat-web
 NAME            REFERENCE                   TARGETS           MINPODS   MAXPODS   REPLICAS   AGE
 xnat-xnat-web   StatefulSet/xnat-xnat-web   34%/80%, 0%/80%   2         100       2          3h29m
 ```
 
 As you can see 34% of memory is used and 0% CPU. Example of get command for pods - no restarts and running nicely.
-```
+```bash
 k -nxnat get pods
 NAME                  READY   STATUS    RESTARTS   AGE
 pod/xnat-xnat-web-0   1/1     Running   0          3h27m
@@ -259,18 +259,18 @@ pod/xnat-xnat-web-1   1/1     Running   0          3h23m
 ## Troubleshooting
 
 Check Metrics server is working (assuming in the xnat namespace) and see memory and CPU usage:  
-```
+```bash
 kubectl top pods -nxnat
 kubectl top nodes
 ```
 
 Check Cluster-Autoscaler logs:  
-```
+```bash
 kubectl logs -f deployment/cluster-autoscaler -n kube-system
 ```
 
 Check the HPA:  
-```
+```bash
 kubectl -nxnat describe horizontalpodautoscaler.autoscaling/xnat-xnat-web
 ```
 
