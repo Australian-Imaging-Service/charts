@@ -24,13 +24,13 @@ Right click `Windows PowerShell` and select `Run as Administrator`, enter your A
   * *WARNING* edit this file with care and ensure that you only append entries while leaving the original entries intact.
   * *WARNING* also be aware that you have started Notepad as an Administrator allowing this application to be able to edit any file on your system. Close the editor and PowerShell console if you intend to leave your workstation!
 
-```console
+```powershell
 PS C:\> notepad.exe C:\Windows\System32\drivers\etc\hosts
 ```
 
 * Verify Hyper-V state; the bellow shows that Hyper-V is Enabled on this workstation
 
-```console
+```powershell
 PS C:\> Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V-All -Online
 
 FeatureName      : Microsoft-Hyper-V-All
@@ -44,7 +44,7 @@ CustomProperties :
 
   If this is not the case!
 
-```console
+```powershell
 PS C:\> Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
 ```
 
@@ -66,26 +66,26 @@ This is required to direct your workstations browser and other clients to the de
 
 For each service requiring a DNS entry you will need to add an entry into your `hosts` file. From your Notepad application opened as an Administrator you will need to enter the following.
 
-```C:\Windows\System32\drivers\etc\hosts
+{{< code "bash" "C:\Windows\System32\drivers\etc\hosts" >}}
 IP_Address_of_the_VM	fqdn.service.name fqdn2.service.name
-```
+{{</ code >}}
 
 Get the IP address of your VM
 
-```console
+```powershell
 PS C:\> multipass exec vm-name -- ip addr
 ```
 
 So if your VM's IP address is `192.168.11.93` and your service FQDN is `xnat.cmca.dev.local` add the following entry into `C:\Windows\System32\drivers\etc\hosts` file and save.
 
-```C:\Windows\System32\drivers\etc\hosts
+{{< code "bash" "C:\Windows\System32\drivers\etc\hosts" >}}
 192.168.11.93	xnat.cmca.dev.local
-```
+{{</ code >}}
 ## Launch Ubuntu 20.04 LTS (Focal) with AIS development tools
 
 NB: This may take some time
 
-```console
+```powershell
 PS C:\Users\00078081\ais> Invoke-WebRequest https://raw.githubusercontent.com/Australian-Imaging-Service/charts/main/contrib/cloud-init/user-data-dev-microk8s.yaml -OutFile user-data-dev-microk8s.yaml
 PS C:\Users\00078081\ais> multipass launch --cpus 4 --mem 2G -nais-dev --cloud-init .\user-data-dev-microk8s.yaml
 ```

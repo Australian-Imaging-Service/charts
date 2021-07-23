@@ -15,18 +15,20 @@ Luckily a mechanism was put into the Helm template to allow connecting to an Ext
 
 Firstly, clone the AIS Charts Helm template:
 
-***git clone https://github.com/Australian-Imaging-Service/charts.git***
+```bash
+git clone https://github.com/Australian-Imaging-Service/charts.git
+```
 
 
 
 
 ### values-dev.yaml
 
-This file is located in ***charts/releases/xnat***
+This file is located in `charts/releases/xnat`
 
 Current default configuration:
 
-```
+```yaml
 global:
   postgresql:
     postgresqlPassword: "xnat"
@@ -40,16 +42,17 @@ postgresqlExternalIPs:
 
 this line:  
 
-***postgresqlEnabled: true***
+`postgresqlEnabled: true`
 
-Needs to be changed to ***false*** to disable creation of the Postgresql pod and create an external database connection.
+Needs to be changed to `false` to disable creation of the Postgresql pod and create an external database connection.
+
 The other details are relatively straightforward - Generally you would only specify either:  
-***postgresqlExternalName*** or ***postgresqlExternalIPs***  
-***postgresqlPassword*** will be your database user password.
+`postgresqlExternalName` or `postgresqlExternalIPs`  
+`postgresqlPassword` will be your database user password.
 
 An example configuration using a sample AWS RDS instance would look like this:
 
-```
+```yaml
 global:
   postgresql:
     postgresqlPassword: "yourpassword"
@@ -61,11 +64,11 @@ postgresqlExternalName: "xnat.randomstring.ap-southeast-2.rds.amazonaws.com"
 
 ### Top level values.yaml
 
-This file is also located in ***charts/releases/xnat***
+This file is also located in `charts/releases/xnat`
 
 Current default configuration:
 
-```
+```yaml
 global:
   postgresql:
     postgresqlDatabase: "xnat"
@@ -80,7 +83,7 @@ postgresqlExternalIPs: []
 
 An example configuration using a sample AWS RDS instance would look like this:
 
-```
+```yaml
 global:
   postgresql:
     postgresqlDatabase: "yourdatabase"
@@ -97,12 +100,12 @@ Please change the database, username, password and External DNS (or IP) details 
 
 ### xnat-web values.yaml
 
-This file is also located in ***charts/releases/xnat/charts/xnat-web***
+This file is also located in `charts/releases/xnat/charts/xnat-web`
 
 
 Current default configuration:
 
-```
+```yaml
 postgresql:
   postgresqlDatabase: "xnat"
   postgresqlUsername: "xnat"
@@ -115,7 +118,7 @@ Change to match your environment as with the other values.yaml.
 You should now be able to connect your XNAT application Kubernetes deployment to your external Postgresql DB to provide a suitable environment for production.
 
 For more details about deployment have a look at the README.md here:  
-***https://github.com/Australian-Imaging-Service/charts/tree/main/releases/xnat***
+`https://github.com/Australian-Imaging-Service/charts/tree/main/releases/xnat`
 
 
 
@@ -123,36 +126,38 @@ For more details about deployment have a look at the README.md here:
 
 
 The database connection string for XNAT is found in the XNAT home directory - usually  
-***/data/xnat/home/config/xnat-conf.properties***
+`/data/xnat/home/config/xnat-conf.properties`
 
 
 By default the connection is unencrypted. If you wish to encrypt this connection you must append to the end of the Database connection string.
 
 Usual string:  
-***datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase***
+`datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase`
 
 Options:  
-***ssl=true*** - use SSL encryption  
-***sslmode=require*** - require SSL encryption  
-***sslfactory=org.postgresql.ssl.NonValidatingFactory*** - Do not require validation of Certificate Authority. 
+| Option | Description |
+|--------|-------------|
+| `ssl=true` | use SSL encryption |
+| `sslmode=require` | require SSL encryption |
+| `sslfactory=org.postgresql.ssl.NonValidatingFactory` | Do not require validation of Certificate Authority |
 
 The last option is useful as otherwise you will need to import the CA cert into your Java keystone on the docker container.  
 This means updating and rebuilding the XNAT docker image before being deployed to the Kubernetes Pod and this can be impractical.
 
 
 Complete string would look like this ( all on one line):  
-***datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory***
+`datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory`
 
 
 ### Update your Helm Configuration:
 
-Update the following line in ***charts/releases/xnat/charts/xnat-web/templates/secrets.yaml*** from:  
+Update the following line in `charts/releases/xnat/charts/xnat-web/templates/secrets.yaml` from:  
 
-***datasource.url=jdbc:postgresql://{{ template "xnat-web.postgresql.fullname" . }}/{{ template "xnat-web.postgresql.postgresqlDatabase" . }}***  
+`datasource.url=jdbc:postgresql://{{ template "xnat-web.postgresql.fullname" . }}/{{ template "xnat-web.postgresql.postgresqlDatabase" . }}`  
 
 to:
 
-***datasource.url=jdbc:postgresql://{{ template "xnat-web.postgresql.fullname" . }}/{{ template "xnat-web.postgresql.postgresqlDatabase" . }}?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory***
+`datasource.url=jdbc:postgresql://{{ template "xnat-web.postgresql.fullname" . }}/{{ template "xnat-web.postgresql.postgresqlDatabase" . }}?ssl=true&sslmode=require&sslfactory=org.postgresql.ssl.NonValidatingFactory`
 
 
 
