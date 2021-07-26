@@ -17,7 +17,7 @@ spec:
       - name: POSTGRES_DB
         value: {{ template "xnat-web.postgresql.postgresqlDatabase" . }}
     command: ["/bin/sh"]
-    args: ["-c","apt-get update -y && apt-get install postgresql-client -y && echo 'psql postgresql://$(POSTGRES_USER):$(POSTGRES_POSTGRES_PASSWORD)@$(POSTGRESQL_SERVICE_NAME)/$(POSTGRES_DB)' && psql postgresql://$(POSTGRES_USER):$(POSTGRES_POSTGRES_PASSWORD)@$(POSTGRESQL_SERVICE_NAME)/$(POSTGRES_DB)"]
+    args: ["-c","apt-get update -y && apt-get install postgresql-client -y && psql postgresql://$(POSTGRES_USER):$(POSTGRES_POSTGRES_PASSWORD)@$(POSTGRESQL_SERVICE_NAME)/$(POSTGRES_DB)"]
     imagePullPolicy: IfNotPresent
     name: ubuntu
   restartPolicy: Never
