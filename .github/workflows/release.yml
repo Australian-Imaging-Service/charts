@@ -1,9 +1,12 @@
 name: Release Charts
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'releases/**'
 
 jobs:
   release:
