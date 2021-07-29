@@ -113,6 +113,8 @@ volumes:
 
 plugins: {}
   #container-service: []
+  # Uncomment OHIF viewer line below for XNAT 1.8.2 and higher
+  #ohif-viewer: {}
   #ldap-auth-plugin:
   #- name: "Institution Active Directory"
   #  provider:
