@@ -98,7 +98,7 @@ AKS_PERS_LOCATION=<your region>
 AKS_PERS_SHARE_NAME=archive-xnat-xnat-web
 ```
 
-***archive-xnat-xnat-web*** will need to be used or the Helm chart won't be able to find the mount.
+`archive-xnat-xnat-web` will need to be used or the Helm chart won't be able to find the mount.
 
 Create a storage account:  
 ```bash
@@ -130,7 +130,7 @@ Make a note of the Storage account name and key as you will need them.
 
 Now repeat this process but update the Share name to prearchive-xnat-xnat-web. Run this first and then repeat the rest of the commands:  
 ```bash
-AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web***
+AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web
 ```
 
 

@@ -164,6 +164,9 @@ to:
 Then deploy / redeploy.
 
 
-*It should be noted that the Database you are connecting to needs to be encrypted in the first place for this to be successful.*  
-*This is outside the scope of this document.*
+{{% alert %}}
+It should be noted that the Database you are connecting to needs to be encrypted in the first place for this to be successful.
+
+This is outside the scope of this document.
+{{% /alert %}}
 
