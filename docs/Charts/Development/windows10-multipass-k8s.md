@@ -14,7 +14,7 @@ Requirements:
 * Administrative access to Windows 10 workstation. This is required for:
   * Enabling Hyper-V if not already configured, or installing Oracle VirtualBox
   * Installing Multipass
-  * Altering the local DNS override file `c:\Windows\Ssytem32\drivers\etc\hosts`
+  * Altering the local DNS override file `c:\Windows\System32\drivers\etc\hosts`
 
 ### Windows PowerShell console as Administrator
 

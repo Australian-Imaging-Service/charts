@@ -90,7 +90,7 @@ You can read more about what this means here:
 https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/  
 
 From my research with HPA, I discovered a few important facts.  
-1. Horizontal Podautoscaler doesn't care about limits, it bases autoscaling on requests. Requests are meant to be the minimum needed to safely run a pod and limits are the maximum. However, this is completely irrelevant for HPA as it ignores the limits altogether so I specify the same resources for requests and limits. See this issue for more details:  
+1. Horizontal Pod Autoscaler doesn't care about limits, it bases autoscaling on requests. Requests are meant to be the minimum needed to safely run a pod and limits are the maximum. However, this is completely irrelevant for HPA as it ignores the limits altogether so I specify the same resources for requests and limits. See this issue for more details:
 
 https://github.com/kubernetes/kubernetes/issues/72811  
 

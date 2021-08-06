@@ -6,7 +6,7 @@ weight: 10
 ---
 
 ## Requirements
-* An enabled hypervisor, either HyperKit or Virtualbox. HyperKit is the default hypervisor backend on MacOS Yosemite or later installed on a 2010 or newer Mac.
+* An enabled hypervisor, either HyperKit or VirtualBox. HyperKit is the default hypervisor backend on MacOS Yosemite or later installed on a 2010 or newer Mac.
 * Administrative access on Mac.
 
 ## Download, install and setup Multipass

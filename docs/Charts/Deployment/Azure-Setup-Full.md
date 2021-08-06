@@ -216,7 +216,7 @@ We should now have two newly created volumes our Helm chart can mount.
 
 
 ## Update our override values file for our Helm chart.
-Edit your values-aks.yaml file from above and add the following in (postgresl entries already added):  
+Edit your values-aks.yaml file from above and add the following in (postgresql entries already added):
 
 Paste the following:
 
@@ -283,7 +283,7 @@ kubectl -nxnat logs xnat-xnat-web-0 -f
 
 
 
-### Creat a static public IP, an ingress controller, LetsEncrypt certififcates and point it to our Helm chart  
+### Create a static public IP, an ingress controller, LetsEncrypt certificates and point it to our Helm chart
 
 OK so all good so far but we can't actually access our XNAT environment from outside of our cluster so we need to create an Ingress Controller.
 

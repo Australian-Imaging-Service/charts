@@ -35,7 +35,7 @@ If you have an issue with the operation of microk8s `microk8s inspect` command i
 
 ### microk8s notes
 
-To enable a Load Balancer microk8s comes with [metalLB](https://metallb.universe.tf/) and configures [Layer2 mode](https://metallb.universe.tf/configuration/#layer-2-configuration) settings by default. You will be asked for an IPv4 block of addresses, ensure that the address block is in the same Layer 2 as your host, unused and reserved for this pupose (you may need to alter your DHCP service). When you are ready perform the following:
+To enable a Load Balancer microk8s comes with [metalLB](https://metallb.universe.tf/) and configures [Layer2 mode](https://metallb.universe.tf/configuration/#layer-2-configuration) settings by default. You will be asked for an IPv4 block of addresses, ensure that the address block is in the same Layer 2 as your host, unused and reserved for this purpose (you may need to alter your DHCP service). When you are ready perform the following:
 
 ```bash
 $ microk8s enable metallb
