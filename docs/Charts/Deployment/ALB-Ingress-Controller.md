@@ -9,8 +9,9 @@ We will be following this AWS Guide:
 
 https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
  
-Before we begin and incredibly important NB:  
+{{% alert title="Before we begin" %}}
 One thing that you need to know when we want to create new ALB from EKS is service spec type can only support LoadBalancer and NodePort. It won't support ClusterIP.
+{{% /alert %}}
 
 The Charts Repo has the service defined as ClusterIP so some changes need to be made to make this work. We will get to that later after we have created the ALB and policies.
 
@@ -36,7 +37,7 @@ Create the service account using ARN from the previous command (substitute your 
 eksctl create iamserviceaccount --cluster=xnat --namespace=kube-system --name=aws-load-balancer-controller --attach-policy-arn=arn:aws:iam::XXXXXXXXX:policy/AWSLoadBalancerControllerIAMPolicy --override-existing-serviceaccounts --approve
 ```
  
-Install TargetGroupBinding:  
+Install `TargetGroupBinding`:
 ```bash
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 ```
@@ -51,7 +52,7 @@ Confirm it is installed:
 kubectl get deployment -n kube-system aws-load-balancer-controller
 ```
  
-You should see - READY 1/1 if it is installed properly
+You should see - `READY 1/1` if it is installed properly
 
  
 In order to apply this to the XNAT Charts Helm template update the `charts/xnat/values.yaml` file to remove the Nginx ingress parts and add the ALB ingress parts.
@@ -65,7 +66,9 @@ Added to values file:
       alb.ingress.kubernetes.io/target-type: ip
 ```
  
+{{% alert %}}
 NB. Although you can specify ip or instance for the target-type, you need to specify ip or autoscaling won't function correctly. This is because stickiness isn't honoured for target-type instance so you have the known issue where XNAT database thinks you are logged in but instance / pod knows you are not and then it logs you out again.
+{{% /alert %}}
 
 For more ALB annotations / options, please see article at the bottom of the page.
 

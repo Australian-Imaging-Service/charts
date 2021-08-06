@@ -21,8 +21,12 @@ Requirements:
 Right click `Windows PowerShell` and select `Run as Administrator`, enter your Admin credentials. From the `Administrator: Windows PowerShell` console perform the following.
 
 * Open the DNS `hosts` file for editing.
-  * *WARNING* edit this file with care and ensure that you only append entries while leaving the original entries intact.
-  * *WARNING* also be aware that you have started Notepad as an Administrator allowing this application to be able to edit any file on your system. Close the editor and PowerShell console if you intend to leave your workstation!
+
+{{% alert title="Warning" color="warning" %}}
+Edit this file with care and ensure that you only append entries while leaving the original entries intact.
+
+Also be aware that you have started Notepad as an Administrator allowing this application to be able to edit any file on your system. Close the editor and PowerShell console if you intend to leave your workstation!
+{{% /alert %}}
 
 ```powershell
 PS C:\> notepad.exe C:\Windows\System32\drivers\etc\hosts
@@ -83,7 +87,9 @@ So if your VM's IP address is `192.168.11.93` and your service FQDN is `xnat.cmc
 {{</ code >}}
 ## Launch Ubuntu 20.04 LTS (Focal) with AIS development tools
 
+{{% alert %}}
 NB: This may take some time
+{{% /alert %}}
 
 ```powershell
 PS C:\Users\00078081\ais> Invoke-WebRequest https://raw.githubusercontent.com/Australian-Imaging-Service/charts/main/contrib/cloud-init/user-data-dev-microk8s.yaml -OutFile user-data-dev-microk8s.yaml

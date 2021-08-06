@@ -75,9 +75,11 @@ To deploy to XNAT, navigate to the XNAT home/ plugins folder on your XNAT Applic
 wget https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases/download/1.0.2/xnat-openid-auth-plugin-all-1.0.2.jar
 ```
 
+{{% alert %}}
 Please note this was the latest version at the time of writing this document. Please check here to see if there have been updated versions:
 
 https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/releases
+{{% /alert %}}
 
 You now have `xnat-openid-auth-plugin-all-1.0.2.jar` in /data/xnat/home/plugins.  
 You now need the configuration file which will be (assuming previous location for XNAT Home directory): 
@@ -91,7 +93,10 @@ Review this sample file and tailor to your needs:
 https://github.com/Australian-Imaging-Service/xnat-openid-auth-plugin/blob/master/src/main/resources/openid-provider-sample-AAF.properties
 
 I will provide an example filled out properties file with some caveats below. 
-Please note all of the bold italics are case sensitive, incorrectly capitalised entries will result in non-working AAF integration!
+
+{{% alert title="Warning" color="warning" %}}
+All of the keys are case sensitive, incorrectly capitalised entries will result in non-working AAF integration!
+{{% /alert %}}
 
 These need to be left as is  
 ```ini
@@ -156,8 +161,9 @@ openid.aaf.link=<p>To sign-in using your AAF credentials, please click on the bu
 Flag that sets if we should be checking email domains  
 ```ini
 openid.aaf.shouldFilterEmailDomains=false
+```
 
-Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true  
+Domains below are allowed to login, only checked when `shouldFilterEmailDomains` is true
 ```ini
 openid.aaf.allowedEmailDomains=example.com  
 ```
@@ -206,7 +212,10 @@ git clone https://github.com/Australian-Imaging-Service/charts.git
 `charts/releases/xnat/charts/xnat-web/values.yaml`
 
 And update the following entries underneath openid:  
+
+{{% alert %}}
 NB> These entries DO require being placed within “”
+{{% /alert %}}
 
 ```yaml
     preEstablishedRedirUri: "/openid-login"

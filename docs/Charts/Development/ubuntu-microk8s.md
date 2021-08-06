@@ -2,7 +2,10 @@
 title: "microk8s-Ubuntu"
 weight: 10
 ---
+
+{{% alert %}}
 NB: [Ansible playbooks and/or roles](https://github.com/Australian-Imaging-Service/charts/contrib/ansible/) may be helpful.
+{{% /alert %}}
 
 ## [microk8s](https://microk8s.io/)
 

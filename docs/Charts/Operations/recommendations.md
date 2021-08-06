@@ -1,9 +1,8 @@
 ---
-title: "Recommendations"
+linkTitle: "Recommendations"
+title: "Operational recommendations"
 weight: 10
 ---
-
-# Operational recommendations
 
 ## Requirements and rationals
 
@@ -31,4 +30,4 @@ weight: 10
   * Can utilise GnuPG keys for encryption but also has the ability to incorporate more Corporate type Key Management Services (KMS) and role based groups (such as AWS AIM accounts)
 * [git-secrets](https://github.com/awslabs/git-secrets)
   * Git enhancement that utilises pattern matching to help prevent sensitive information being submitted to version control by accident.
-  * NB: Does not replace diligence but can help safe guard against mistakes.
+  {{% alert color="warning" title="Warning" %}}Does not replace diligence but can help safe guard against mistakes.{{% /alert %}}

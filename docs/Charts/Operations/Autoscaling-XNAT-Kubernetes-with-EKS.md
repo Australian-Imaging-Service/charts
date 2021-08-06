@@ -24,11 +24,11 @@ You can't use HPA and VPA together so we will use HPA and Cluster-Autoscaling.
 
 ## Prerequisites  
 
-**Running Kubernetes Cluster and XNAT Helm Chart AIS Deployment**  
-**AWS Application Load Balancer (ALB) as an Ingress Controller with some specific annotations**  
-**Resources (requests and limits) need to specified in your values file**  
-**Metrics Server**  
-**Cluster-Autoscaler**  
+* Running Kubernetes Cluster and XNAT Helm Chart AIS Deployment
+* AWS Application Load Balancer (ALB) as an Ingress Controller with some specific annotations
+* Resources (requests and limits) need to specified in your values file
+* Metrics Server
+* Cluster-Autoscaler
 
 <br />
 <br />
@@ -58,7 +58,7 @@ load_balancing.algorithm.type=least_outstanding_requests
 ```
 
 **Change the Target type:**  
-Not sure why but if target-type is set to ***instance*** and not ***ip***, it disregards the stickiness rules.  
+Not sure why but if target-type is set to `instance` and not `ip`, it disregards the stickiness rules.
 ```yaml
 alb.ingress.kubernetes.io/target-type: ip
 ```
