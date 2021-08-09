@@ -1,4 +1,4 @@
-Below are the list of steps to be followed to deploy XNAT in Linode LKE using Helm charts
+**List of steps to be followed to deploy XNAT in Linode LKE using Helm charts**
 
 
          
