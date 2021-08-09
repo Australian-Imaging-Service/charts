@@ -54,7 +54,7 @@ It may take a few minutes for the LoadBalancer IP to be available.
 
 **7.Domain Mapping:**\
                            Get the External IP address of the Loadbalancer by running the below command and assign it to any domain or subdomain.
-   **Example: cloud.neura.edu.au is the subdomain for which the loadbalancer IP is assigned in my case. Please replace it with your domain in this and all upcoming steps**
+  > **Example: cloud.neura.edu.au is the subdomain for which the loadbalancer IP is assigned in my case. Please replace it with your domain in this and all upcoming steps**
 
             kubectl --namespace default get services -o wide -w ingress-nginx-controller
 
