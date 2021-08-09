@@ -4,7 +4,7 @@ weight: 10
 ---
 
 # Setting up Docker Swarm
-A complete explanation of how to setup Docker Swarm is outside of this document but you can find some useful articles here:  
+A complete explanation of how to setup Docker Swarm is outside the scope of this document but you can find some useful articles here:  
 https://scalified.com/2018/10/08/building-jenkins-pipelines-docker-swarm/  
 https://docs.docker.com/engine/swarm/swarm-tutorial/create-swarm/  
 https://docs.docker.com/engine/swarm/ingress/  
@@ -30,7 +30,7 @@ If you do use self signed certificates, you will need create a folder, add the c
 ```
 Certificate Path: /usr/local/tomcat/certs
 ```
-Access from the Docker Swarm to the XNAT shared filesystem - at a minimum Archive and build. The AIS Helm chart doesn't have /data/xnat/build setup by default but without this Docker Swarm can write the temporaray files it needs and fails.
+Access from the Docker Swarm to the XNAT shared filesystem - at a minimum Archive and build. The AIS Helm chart doesn't have /data/xnat/build setup by default but without this Docker Swarm can't write the temporaray files it needs and fails.
 
 
 ### Setup DNS and external certificates
