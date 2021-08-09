@@ -19,28 +19,33 @@
          Reference Link - https://www.linode.com/docs/guides/how-to-configure-load-balancing-with-tls-encryption-on-a-kubernetes-cluster/
          
 
-1. Set up the Linode LKE cluster using the link https://www.linode.com/docs/guides/how-to-deploy-an-lke-cluster-using-terraform/
+**1.LKE Cluster Setup:**
+                                    Set up the Linode LKE cluster using the link https://www.linode.com/docs/guides/how-to-deploy-an-lke-cluster-using-terraform/ **(Please note that a separate documentation for setting up LKE Cluster using Terraform will be coming up soon)**
 
-2. As we are tweaking XNAT Values related to PV access modes, let us check out the charts repo rather than using the adding
+**2.Preparing for Tweaks pertaining to Linode:**
+                           As we are tweaking XNAT Values related to PV access modes, let us check out the charts repo rather than using the adding
 AIS helm chart repository.
+                          
+         git clone https://github.com/Australian-Imaging-Service/charts.git
 
-git clone https://github.com/Australian-Imaging-Service/charts.git
-
-3. Replace the access modes of all Volumes from "ReadWriteMany" to "ReadWriteOnce" in charts/releases/xnat/charts/xnat-web
+**3.Actual Tweaks:** 
+                           Replace the access modes of all Volumes from "ReadWriteMany" to "ReadWriteOnce" in charts/releases/xnat/charts/xnat-web
 This is because Linode storage only supports "ReadWriteOnce" at this point of time.
 
-4. Update the dependency by switching to charts/releases/xnat and execute the following
-            helm dependency update
+**4.Dependency Update:**  Update the dependency by switching to charts/releases/xnat and execute the following
+            
+         helm dependency update
 
-5. Go to charts/releases and install xnat using helm.
+**5.XNAT Initial Installation:**  Go to charts/releases and install xnat using helm.
+
            kubectl create namespace xnat
 
            helm install xnat-deployment xnat --values YOUR-VALUES-FILE --namespace=xnat
 
-   The xnat & postgres service should be up & running fine. Linode Storage Class "linode-block-storage-retain" should have automatically
-   come in place & PVs will be auto created to be consumed by our mentioned PVCs
+   The XNAT & POSTGRES service should be up & running fine. Linode Storage Class "linode-block-storage-retain" should have automatically
+   come in place & PVs will be auto created to be consumed by our mentioned PVCs.
 
-6. Install Ingress Controller and provision a Load balancer (Nodebalancer in Linode) by executing these commands
+**5.Ingress Controller/Load balancer Installation:** Install Ingress Controller and provision a Load balancer (Nodebalancer in Linode) by executing these commands
 
             helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 
@@ -48,17 +53,17 @@ This is because Linode storage only supports "ReadWriteOnce" at this point of ti
 
             helm install ingress-nginx ingress-nginx/ingress-nginx
 
-            You may see an output like below
+You may see an output like below
 
-            NAME: ingress-nginx
-            LAST DEPLOYED: Mon Aug  2 11:51:32 2021
-            NAMESPACE: default
-            STATUS: deployed
-            REVISION: 1
-            TEST SUITE: None
-            NOTES:
-            The ingress-nginx controller has been installed.
-            It may take a few minutes for the LoadBalancer IP to be available.
+>NAME: ingress-nginx\
+LAST DEPLOYED: Mon Aug  2 11:51:32 2021\
+NAMESPACE: default\
+STATUS: deployed\
+REVISION: 1\
+TEST SUITE: None\
+NOTES:\
+The ingress-nginx controller has been installed.\
+It may take a few minutes for the LoadBalancer IP to be available.
 
 7. Get the External IP address of the Loadbalancer by running the below command and assign it to any domain or subdomain.
    Example: xnat-test.neura.edu.au is the subdomain for which the loadbalancer IP is assigned
