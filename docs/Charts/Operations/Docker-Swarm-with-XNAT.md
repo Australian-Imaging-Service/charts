@@ -79,6 +79,24 @@ Create a volume outside the Helm Chart and then present it in your values file. 
         claimName: "build-xnat-xnat-web"
       size: 10Gi
 ```
+You would need to create the custom-class storageclass and apply it first or the volume won't be created. In this case, create a file - storageclass.yaml and add the followinng contents:  
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: custom-class
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+```
+
+You can then apply it:  
+```
+kubectl apply -f storageclass.yaml
+```
+
+Of course you may want to use an existing Storage Class so this maybe unnecessary, it is just an example.
+
 
 Apply the Kubernetes volume file first and then apply the Helm chart and values file. You should now see something like the following:  
 
