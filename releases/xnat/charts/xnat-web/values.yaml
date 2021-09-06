@@ -109,7 +109,7 @@ volumes:
     accessMode: ReadWriteMany
     #existingClaim: ""
     mountPath: "/data/xnat/prearchive"
-    # storageClass: "-"
+    #storageClass: "-"
     size: 1Ti
 
 plugins: {}
