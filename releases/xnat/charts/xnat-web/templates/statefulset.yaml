@@ -153,7 +153,7 @@ spec:
         {{- range $name, $c := .Values.volumes }}
         - name: {{ $name }}
           persistentVolumeClaim:
-            claimName: {{ default ((include "xnat-web.fullname" $context) +"-"+ $name) $c.existingClaim }}
+            claimName: {{ $c.existingClaim | default (printf "%s-%s" (include "xnat-web.fullname" $context) $name) }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -176,7 +176,7 @@ spec:
       spec:
         accessModes: [ {{ $c.accessMode | quote }} ]
         {{- if (or $c.storageClass $.Values.global.storageClass) }}
-        storageClassName: {{ default $.Values.global.storageClass $c.storageClass | quote }}
+        storageClassName: {{ $c.storageClass | default $.Values.global.storageClass | quote }}
         {{- end }}
         volumeMode: Filesystem
         resources:
