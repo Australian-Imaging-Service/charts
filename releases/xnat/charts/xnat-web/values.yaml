@@ -7,6 +7,7 @@ global:
     # postgresqlDatabase: ""
     # postgresqlUser: ""
     # servicePort: 5432
+  storageClass: ""
 
 replicaCount: 1
 
@@ -94,7 +95,7 @@ persistence:
   cache:
     accessMode: ReadWriteOnce
     mountPath: "/data/xnat/cache"
-    # storageClassName: "-"
+    # storageClass: "-"
     size: 10Gi
 
 volumes:
@@ -102,13 +103,13 @@ volumes:
     accessMode: ReadWriteMany
     #existingClaim: ""
     mountPath: "/data/xnat/archive"
-    #storageClassName: "-"
+    #storageClass: "-"
     size: 1Ti
   prearchive:
     accessMode: ReadWriteMany
     #existingClaim: ""
     mountPath: "/data/xnat/prearchive"
-    # storageClassName: "-"
+    # storageClass: "-"
     size: 1Ti
 
 plugins: {}
