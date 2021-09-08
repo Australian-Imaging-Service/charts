@@ -92,8 +92,6 @@ spec:
             {{- end }}
       initContainers:
         - name: home-init
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
@@ -105,8 +103,10 @@ spec:
               plugins=( {{ join " " (keys .Values.plugins) }} )
               # Copy Tomcat folder
               [ -d /TOMCAT ] && cp -r --preserve=mode,timestamps /usr/local/tomcat/* /TOMCAT
+              chown -R {{ default "1000" .Values.securityContext.runAsUser }} /TOMCAT
               # Copy XNAT_HOME directory excluding the plugins folder
               cp -r --preserve=mode,timestamps ${XNAT_HOME}/!(plugins) /XNAT_HOME
+              chown -R {{ default "1000" .Values.securityContext.runAsUser }} /XNAT_HOME
               # Copy plugins that are configured in values.yml
               for plugin in ${plugins[@]}; do
                 cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
