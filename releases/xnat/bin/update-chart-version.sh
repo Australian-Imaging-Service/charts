@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 semver="$1"
 chart_yml=(
