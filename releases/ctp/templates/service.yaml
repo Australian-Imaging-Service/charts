@@ -1,15 +1,62 @@
+{{- if .Values.services.web.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "ctp.fullname" . }}
+  name: {{ include "ctp.fullname" . }}-web
   labels:
     {{- include "ctp.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.services.web.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: 1080
+    - port: {{ .Values.services.web.port }}
+      targetPort: {{ .Values.services.web.targetPort }}
       protocol: TCP
       name: http
+      {{- if eq .Values.services.web.type "NodePort" }}
+      nodePort: {{ .Values.services.web.nodePort }}
+      {{- end }}
   selector:
     {{- include "ctp.selectorLabels" . | nindent 4 }}
+  sessionAffinity: "ClientIP"
+{{- end }}
+{{- if .Values.services.httpsimport.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ctp.fullname" . }}-httpsimport
+  labels:
+    {{- include "ctp.labels" . | nindent 4 }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  type: {{ .Values.services.httpsimport.type }}
+  ports:
+    - port: {{ .Values.services.httpsimport.port }}
+      targetPort: {{ .Values.services.httpsimport.targetPort }}
+      protocol: TCP
+      name: httpsimport
+  selector:
+    {{- include "ctp.selectorLabels" . | nindent 4 }}
+{{- end }}
+{{- if .Values.services.dicomimport.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ctp.fullname" . }}-dicomimport
+  labels:
+    {{- include "ctp.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.services.dicomimport.type }}
+  ports:
+    - port: {{ .Values.services.dicomimport.port }}
+      targetPort: {{ .Values.services.dicomimport.targetPort }}
+      protocol: TCP
+      name: dicomimport
+      nodePort: {{ .Values.services.dicomimport.nodePort }}
+  selector:
+    {{- include "ctp.selectorLabels" . | nindent 4 }}
+{{- end }}

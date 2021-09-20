@@ -35,9 +35,26 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
-service:
-  type: ClusterIP
-  port: 80
+
+services:
+  web:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    nodePort: 30002
+  httpsimport:
+    enabled: false
+    type: LoadBalancer
+    port: 443
+    targetPort: 443
+    nodePort: 30002
+  dicomimport:
+    enabled: true
+    type: NodePort
+    port: 8104
+    targetPort: 25055
+    nodePort: 30004
 
 ingress:
   enabled: false
@@ -88,7 +105,24 @@ users: {}
   #    - admin
   #    - shutdown
 
-#timezone: "Australia/Perth"
+timezone: Australia/Perth
+
+config: |
+  <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration>
+      <Server
+        port="80"
+        requireAuthentication="yes"
+      />
+    </Configuration>
+
+launcherProperties: |
+  ms=128
+  mx=512
+
+# ports:
+#   web: 24050
+#   dicomImportService: 25055
 
 pipelines: {}
   #Main_Pipeline:
@@ -121,10 +155,22 @@ volumes:
     #existingClaim: ""
     mountPath: "/vol/roots"
     #storageClassName: "-"
-    size: 1Ti
-  quarantines:
-    accessMode: ReadWriteMany
-    #existingClaim: ""
-    mountPath: "/vol/quarantines"
-    #storageClassName: "-"
-    size: 1Ti
+    size: 10Gi
+  # quarantines:
+  #   accessMode: ReadWriteMany
+  #   #existingClaim: ""
+  #   mountPath: "/vol/quarantines"
+  #   #storageClassName: "-"
+  #   size: 1Ti
+  # logs:
+  #   accessMode: ReadWriteMany
+  #   #existingClaim: ""
+  #   mountPath: "/vol/roots"
+  #   #storageClassName: "-"
+  #   size: 1Mi
+  # scripts:
+  #   accessMode: ReadWriteMany
+  #   #existingClaim: ""
+  #   mountPath: "/vol/roots"
+  #   #storageClassName: "-"
+  #   size: 10Gi

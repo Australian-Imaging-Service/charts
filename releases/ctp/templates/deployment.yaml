@@ -33,19 +33,31 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: timezone
+              value: {{ .Values.timezone }}
+          args: ["java", "-jar", "/JavaPrograms/CTP/Runner.jar" ]
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 1080
               protocol: TCP
           volumeMounts:
+            - name: config-java
+              mountPath: /JavaPrograms/CTP/Launcher.properties
+              subPath: Launcher.properties
+              readOnly: true
+            - name: scripts
+              mountPath: /JavaPrograms/CTP/scripts
             - name: config-xml
               mountPath: /JavaPrograms/CTP/config.xml
               subPath: config.xml
               readOnly: true
-            - name: users-xml
+            - name: config-xml
               mountPath: /JavaPrograms/CTP/users.xml
               subPath: users.xml
               readOnly: true
+            - name: logs
+              mountPath: /JavaPrograms/CTP/logs 
             {{- range $volume, $v := .Values.volumes }}
             - mountPath: {{ $v.mountPath | quote }}
               name: {{ $volume | quote }}
@@ -60,6 +72,13 @@ spec:
           #    port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        - name: {{ .Chart.Name }}-logstream
+          image: alpine
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["/bin/sh", "-c", "tail -f /JavaPrograms/CTP/logs/ctp.log"]
+          volumeMounts:
+            - name: logs
+              mountPath: /JavaPrograms/CTP/logs
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -73,12 +92,17 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-        - name: config-xml
+        - name: config-java
           configMap:
             name: {{ include "ctp.fullname" . }}
-        - name: users-xml
+        - name: config-xml
           secret:
             secretName: {{ include "ctp.fullname" . }}
+        - name: scripts
+          configMap:
+            name: {{ include "ctp.fullname" . }}-scripts
+        - name: logs
+          emptyDir: {}    
         {{- $context := . -}}
         {{- range $volume, $v := .Values.volumes }}
         - name: {{ $volume }}
