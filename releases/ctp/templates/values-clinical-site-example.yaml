@@ -1,0 +1,118 @@
+image:
+  # repository: ghcr.io/australian-imaging-service/mirc-ctp
+  repository: fxusyd/mirc-ctp
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "20210919"
+  
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - ctp.local
+
+timezone: Australia/Sydney
+
+users:
+  admin:
+    password: "126680608771750945340162210354335764377"
+    roles:
+      - admin
+  king:
+    password: "126680608771750945340162210354335764377"
+    roles:
+      - admin
+      - shutdown
+  test:
+    password: "126680608771750945340162210354335764377"
+    roles:
+      - import
+
+config: |
+  <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration>
+      <Server
+        port="80"
+        requireAuthentication="yes"
+      />
+      <Pipeline name="Main_Pipeline">
+        <DicomImportService
+          name="DicomImportService"
+          id="DicomImportService"
+          class="org.rsna.ctp.stdstages.DicomImportService"
+          root="roots/DicomImportService"
+          port="25055"
+          calledAETTag="00097770" 
+          callingAETTag="00097772"
+          connectionIPTag="00097774"
+          throttle="0"
+          logConnections="no"
+          logDuplicates="no"
+          suppressDuplicates="no" />
+        <FileStorageService
+          name="FileStorageService"
+          id="FileStorageService"
+          class="org.rsna.ctp.stdstages.FileStorageService"
+          root="roots/FileStorageService"
+          quarantine="roots/FileStorageService/quarantine"
+          returnStoredFile="no"
+          ssl="yes"
+          timeDepth="1"
+          type="day"/>
+        <HttpExportService
+          name="HttpExportService"
+          id="HttpExportService"
+          class="org.rsna.ctp.stdstages.HttpExportService"
+          root="roots/HttpExportService" 
+          quarantine="roots/HttpExportService/quarantine"
+          url="https://institution_ctp:443"
+          zip="yes"
+          sendDigestHeader="yes"
+          username="test"
+          password="password"
+          acceptDicomObjects="yes"
+          acceptXmlObjects="yes"
+          acceptZipObjects="yes"
+          acceptFileObjects="yes"
+          dicomScript="scripts/df.script"
+          xmlScript="scripts/xf.script"
+          zipScript="scripts/zf.script"
+          logDuplicates="yes"
+          auditLogID="0008,0050"
+          auditLogTags="PatientID;SOPInstanceUID;StudyInstanceUID;InstanceNumber"
+          interval="10000" />
+      </Pipeline>
+    </Configuration>
+
+launcherProperties: |
+  ms=128
+  mx=256
+
+volumes:
+  roots:
+    accessMode: ReadWriteMany
+    #existingClaim: ""
+    mountPath: "/JavaPrograms/CTP/roots"
+    #storageClassName: "-"
+    size: 10Gi
+
+services:
+  web:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    nodePort: 30001
+  httpsimport:
+    enabled: false
+    type: LoadBalancer
+    port: 443
+    targetPort: 443
+    nodePort: 30002
+  dicomimport:
+    enabled: true
+    type: NodePort
+    port: 8104
+    targetPort: 25055
+    nodePort: 30004
