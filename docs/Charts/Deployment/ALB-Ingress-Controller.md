@@ -41,6 +41,12 @@ Install `TargetGroupBinding`:
 ```bash
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 ```
+
+Download the EKS Helm Chart and update repo information:    
+```
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+```
  
 Install the AWS Load Balancer Controller:  
 ```bash
