@@ -1,4 +1,4 @@
 [module]
 [[module.mounts]]
-source = ""
+source = "Charts"
 target = "content/docs"
