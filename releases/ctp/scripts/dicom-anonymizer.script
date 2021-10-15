@@ -1,0 +1,16 @@
+<script>
+  <!-- This is just the sample -->
+  <p t="BIPROMS">2018-554</p>
+  <p t="DATEINC">-3210</p>
+  <p t="DINAD">DINAD</p>
+  <p t="FRONTIER">FRONTIER</p>
+  <p t="NOTICE1">IMPORTANT: Be sure to review Series Descriptions for PHI!!</p>
+  <p t="NOTICE2">IMPORTANT: Tags inside of sequences may contain PHI.</p>
+  <p t="PROFILENAME">3T MRI@BMC</p>
+  <p t="PROJECTNAME">Project</p>
+  <p t="SITEID">1</p>
+  <p t="SITENAME">SiteName</p>
+  <p t="SUBJECT">Subject</p>
+  <p t="TRIALNAME">Trial</p>
+  <p t="UIDROOT">1.2.840.113654.2.70.1</p>
+</script>
