@@ -1,12 +1,13 @@
-1. Get the application URL by running these commands:
+{{- .Values.services.web.enabled }}
 {{- if .Values.ingress.enabled }}
+1. CTP Admin Interface URL:
 {{- range $host := .Values.ingress.hosts }}
-  {{/* {{- range .paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ . }}
-  {{- end }} */}}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host }}
 {{- end }}
-{{- else if contains "NodePort" .Values.services.web.type }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ctp.fullname" . }})
+{{else}}
+1. Get CTP Admin Interface URL by running these commands:
+{{- if contains "NodePort" .Values.services.web.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ctp.fullname" . }}-web)
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   echo http://$NODE_IP:$NODE_PORT
 {{- else if contains "LoadBalancer" .Values.services.web.type }}
@@ -17,6 +18,16 @@
 {{- else if contains "ClusterIP" .Values.services.web.type }}
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "ctp.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
   export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
-  echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+  echo Vist http://127.0.0.1:8080
+{{- end }}
+{{- end }}
+
+{{- if .Values.services.dicomimport.enabled }}
+{{- if contains "NodePort" .Values.services.dicomimport.type }}
+2. Get the CTP's DICOM C-STORE Service Class Provider (SCP) recievers details by running these commands:
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ctp.fullname" . }}-dicomimport)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo DICOM SCP endpoint: $NODE_IP:$NODE_PORT
+{{- end }}
 {{- end }}
