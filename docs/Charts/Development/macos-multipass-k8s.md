@@ -1,5 +1,5 @@
 ---
-linktitle: "MacOS+Multipass"
+linktitle: "MacOS: Multipass"
 title: "Development workstation with Multipass on MacOS"
 author: "Fang Xu <xu.fang@sydney.edu.au>"
 weight: 10

@@ -1,5 +1,5 @@
 ---
-title: "NixOS + Minikube"
+title: "NixOS: Minikube"
 author: "Zane Iperen"
 weight: 10
 ---
@@ -22,7 +22,7 @@ pkgs.mkShell {
     . <(minikube completion bash)
     . <(helm completion bash)
 
-    # kubectk and docker completion require the control plane to be running
+    # kubectl and docker completion require the control plane to be running
     if [ $(minikube status -o json | jq -r .Host) = "Running" ]; then
             . <(kubectl completion bash)
             . <(minikube -p minikube docker-env)
