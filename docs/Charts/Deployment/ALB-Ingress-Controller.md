@@ -10,10 +10,10 @@ We will be following this AWS Guide:
 https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
  
 {{% alert title="Before we begin" %}}
-One thing that you need to know when we want to create new ALB from EKS is service spec type can only support LoadBalancer and NodePort. It won't support ClusterIP.
+One thing that you need to know when we want to create new ALB from EKS is service spec type can only support LoadBalancer and NodePort. It won't support `ClusterIP`.
 {{% /alert %}}
 
-The Charts Repo has the service defined as ClusterIP so some changes need to be made to make this work. We will get to that later after we have created the ALB and policies.
+The Charts Repo has the service defined as `ClusterIP` so some changes need to be made to make this work. We will get to that later after we have created the ALB and policies.
 
 In this document we create a Cluster called xnat in ap-southeast-2. Please update these details for your environment.
  
@@ -90,7 +90,7 @@ Commented out / removed:
       nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
 ``` 
  
-As pointed out ClusterIP as service type does not work with ALB. So you will have to make some further changes to `charts/xnat/charts/xnat-web/values.yaml`:
+As pointed out `ClusterIP` as service type does not work with ALB. So you will have to make some further changes to `charts/xnat/charts/xnat-web/values.yaml`:
 
 Change:
 ```yaml
@@ -119,7 +119,7 @@ helm upgrade xnat . -nxnat
 
 It should now create a Target Group and Application Load Balancer in AWS EC2 Services. I had to make a further change to get this to work.
  
-On the Target Group I had to change health check code from 200 to 302 to get a healthy instance because it redirects.
+On the Target Group I had to change health check code from **`200`** to **`302`** to get a healthy instance because it redirects.
  
 You can fix this by adding the following line to values file:  
 ```yaml

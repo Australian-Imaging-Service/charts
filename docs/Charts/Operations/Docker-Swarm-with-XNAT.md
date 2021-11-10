@@ -1,5 +1,5 @@
 ---
-title: "Docker-Swarm-with-XNAT"
+title: "Docker Swarm with XNAT"
 weight: 10
 ---
 

@@ -41,4 +41,4 @@ helm upgrade ctp ais/ctp --install --values ./my-ctp-site-overrides.yaml --names
 watch kubectl -nctp get all
 ```
 
-For more information refer to the [AIS Charts Documentation](https://australian-imaging-service.github.io/charts/)
+For more information refer to the [AIS Dev Documentation](https://australian-imaging-service.github.io/docs/)

@@ -1,5 +1,5 @@
 ---
-title: "External-PGSQL-DB-Connection"
+title: "External PGSQL DB Connection"
 weight: 10
 ---
 
@@ -135,10 +135,10 @@ Usual string:
 `datasource.url=jdbc:postgresql://xnat-postgresql/yourdatabase`
 
 Options:  
-| Option | Description |
-|--------|-------------|
-| `ssl=true` | use SSL encryption |
-| `sslmode=require` | require SSL encryption |
+| Option                                               | Description                                        |
+|------------------------------------------------------|----------------------------------------------------|
+| `ssl=true`                                           | use SSL encryption                                 |
+| `sslmode=require`                                    | require SSL encryption                             |
 | `sslfactory=org.postgresql.ssl.NonValidatingFactory` | Do not require validation of Certificate Authority |
 
 The last option is useful as otherwise you will need to import the CA cert into your Java keystone on the docker container.  

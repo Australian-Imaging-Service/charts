@@ -1,5 +1,5 @@
 ---
-title: "microk8s-Ubuntu"
+title: "Ubuntu: microk8s"
 weight: 10
 ---
 

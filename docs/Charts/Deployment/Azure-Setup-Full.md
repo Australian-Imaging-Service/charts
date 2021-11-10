@@ -15,12 +15,12 @@ Specify your Resource Group, cluster name (in our case xnat but please update if
 
 ```bash
 az aks create \
---resource-group <Resource Group Name> \
---name xnat \
---node-count 3 \
---generate-ssh-keys \
---node-vm-size Standard_B2s \
---enable-managed-identity
+  --resource-group <Resource Group Name> \
+  --name xnat \
+  --node-count 3 \
+  --generate-ssh-keys \
+  --node-vm-size Standard_B2s \
+  --enable-managed-identity
 ```
 
 

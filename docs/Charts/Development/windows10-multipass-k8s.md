@@ -1,5 +1,5 @@
 ---
-title: "Windows 10+Multipass"
+title: "Windows 10: Multipass"
 author: "Dean Taylor <dean.taylor@uwa.edu.au>"
 weight: 10
 ---
