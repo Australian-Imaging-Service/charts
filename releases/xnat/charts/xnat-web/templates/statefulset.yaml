@@ -10,7 +10,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "xnat-web.selectorLabels" . | nindent 6 }}
+      {{- include "xnat-web.statefulsetLabels" . | nindent 6 }}
   serviceName: {{ include "xnat-web.fullname" . }}
   template:
     metadata:
@@ -20,7 +20,7 @@ spec:
         {{- end }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        {{- include "xnat-web.selectorLabels" . | nindent 8 }}
+        {{- include "xnat-web.statefulsetLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
