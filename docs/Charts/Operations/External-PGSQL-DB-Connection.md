@@ -33,16 +33,18 @@ global:
   postgresql:
     postgresqlPassword: "xnat"
 
-postgresqlEnabled: true
+postgresql:
+  enabled: true
 postgresqlExternalName: ""
 postgresqlExternalIPs:
   - 139.95.25.8
   - 130.95.25.9
 ```
 
-this line:  
+these lines:  
 
-`postgresqlEnabled: true`
+`postgresql:
+   enabled: true`
 
 Needs to be changed to `false` to disable creation of the Postgresql pod and create an external database connection.
 
@@ -57,7 +59,8 @@ global:
   postgresql:
     postgresqlPassword: "yourpassword"
 
-postgresqlEnabled: false
+postgresql:
+  enabled: false
 postgresqlExternalName: "xnat.randomstring.ap-southeast-2.rds.amazonaws.com"
 ```
 
@@ -76,7 +79,8 @@ global:
     #postgresqlPassword: ""
     #servicePort: ""
 
-postgresqlEnabled: true
+postgresql:
+  enabled: true
 postgresqlExternalName: ""
 postgresqlExternalIPs: []
 ```
@@ -91,7 +95,8 @@ global:
     postgresqlPassword: "yourpassword"
     
 
-postgresqlEnabled: false
+postgresql:
+  enabled: false
 postgresqlExternalName: "xnat.randomstring.ap-southeast-2.rds.amazonaws.com"
 ```
 

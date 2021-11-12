@@ -57,9 +57,9 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | `global.postgresql.servicePort`             | PostgreSQL port (overrides `postgresql.service.port`)                                | `nil` |
 | For more *PostgreSQL* detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
-| `postgresqlEnabled`                         | Deploy PostgreSQL as part of this Charts deployment, else provide external ref.      | `true` |
-| `postgresqlExternalHostname`                | Hostname of an external database if `postgresqlEnabled`=`false`                      | `nil` |
-| `postgresqlExternalIPs`                     | Hostname of an external database if `postgresqlEnabled`=`false`                      | `nil` |
+| `postgresql.enabled`                         | Deploy PostgreSQL as part of this Charts deployment, else provide external ref.      | `true` |
+| `postgresqlExternalHostname`                | Hostname of an external database if `postgresql.enabled`=`false`                      | `nil` |
+| `postgresqlExternalIPs`                     | Hostname of an external database if `postgresql.enabled`=`false`                      | `nil` |
 | `xnat-web.volumes.archive.existingClaim`    | | |
 | `xnat-web.volumes.prearchive.existingClaim` | | |
 | For more *xnat-web* detail and configuration options please visit the [xnat-web](https://github.com/Australian-Imaging-Service/charts/tree/main/charts/xnat-web#Parameters) sub-chart |||
