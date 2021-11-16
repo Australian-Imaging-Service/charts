@@ -5,6 +5,7 @@ weight: 10
 
 ## Deploying Istio Service Mesh for our XNAT environment
 
+
 ### What is a Service Mesh?
 
 From this article:  
@@ -28,6 +29,9 @@ This catch 22 forces us to use only istio and istiod to perform the service mesh
 
 For more information on how to install and configure the Istio Ingress Gateway please follow this guide:  
 https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/  
+
+
+
 
 
 ### Install Istio
@@ -91,6 +95,8 @@ We solved this by calculating the correct scale out point and setting targetAver
 
 Referenced from this article:  
 https://engineering.hellofresh.com/everything-we-learned-running-istio-in-production-part-2-ff4c26844bfb
+
+
 
 
 
@@ -177,6 +183,8 @@ curl -X GET https://xnat.example.com
 It completes successfully.  
 
 
+
+
 #### Authorization Policy
 You can also specify what commands we can run on our xnat-xnat-web app with Authorization policies and even specify via source from specific namespaces and even apps. This gives you the ability to completely lock down the environment.  
 You can for instance allow a certain source POST access whilst another source only has GET and HEAD access.  
@@ -260,6 +268,11 @@ spec:
            methods: ["GET", "POST", "HEAD"]
 ```
 
+Now re-apply the policy:  
+```
+kubectl apply -f istio-auth-policy.yaml
+```
+
 And curl again:  
 ```
 curl -X POST https://xnat.example.com  
@@ -269,6 +282,8 @@ This time it works. OK so we have a working Istio service mesh with correctly ap
 This is only a tiny fraction of what Istio can do, so please go to their website for more information.  
 
 https://istio.io/latest/docs/
+
+
 
 
 ### Kiali Installation  
@@ -282,6 +297,8 @@ There are several ways of installing it with authentication (which for productio
 
 Once you have installed Istio and Istiod, follow this guide to guide to install via helm:  
 https://kiali.io/docs/installation/installation-guide/example-install/  
+
+
 
 
 #### Install the Operator via Helm and create Namespace:  
@@ -298,6 +315,8 @@ Check everything came up properly:
 ```
 kubectl get -nkiali-operator all
 ```
+
+
 
 #### Install Prometheus and Jaeger into Istio-System namespace to show metrics and tracing. From your Istio installation directory (i.e. istio-1.11.X):
 
@@ -369,10 +388,12 @@ It will then ask you for a Token for the service account to be able to login. Fi
 kubectl get secret -n istio-system $(kubectl get sa kiali-service-account -n istio-system -o jsonpath='{.secrets[0].name}') -o jsonpath='{.data.token}' | base64 -d
 ```
 
-More detauls about accessing Kiali via Ingress:
+More details about accessing Kiali via Ingress:
 https://kiali.io/docs/installation/installation-guide/accessing-kiali/
 
-At this point I tried to set the AWS Elastic Load Balancer to use SSL and a proper certificate but after 4 hours of investigation it turns out that Kiali ingress requires "class_name" and AWS ELB doesn't have one so that doesn't work. Rather frustratingly I ended up manually updating the LoadBalancer lister details to be SSL over TCP and to specify the SSL Cipher policy and Certificate Manager. You should also point your FQDN to this Load Balancer to work with your custom certificate. No doubt an integration of Nginx and AWS ELB would fix this - Nginx being Kiali's default ingres method. 
+At this point I tried to set the AWS Elastic Load Balancer to use SSL and a proper certificate but after 4 hours of investigation it turns out that Kiali ingress requires "class_name" and AWS ELB doesn't have one so that doesn't work. Rather frustratingly I ended up manually updating the LoadBalancer lister details to be SSL over TCP and to specify the SSL Cipher policy and Certificate Manager. You should also point your FQDN to this Load Balancer to work with your custom certificate. No doubt an integration of Nginx and AWS ELB would fix this - Nginx being Kiali's default ingress method. 
+
+
 
 
 ### Troubleshooting Istio 
@@ -389,8 +410,10 @@ kubectl get destinationrule --all-namespaces
 ```
 
 #### More Articles on Troubleshooting Istio:  
-https://www.istioworkshop.io/12-debugging/01-istioctl-debug-command/
+https://www.istioworkshop.io/12-debugging/01-istioctl-debug-command/  
 https://istio.io/latest/docs/ops/common-problems/security-issues/
+
+
 
 
 ### Further Reading
@@ -404,5 +427,5 @@ https://kiali.io/docs/features/security/
 Istio Workshop:  
 https://www.istioworkshop.io  
 
-Istio MTLS Example Setup:  
+Istio mTLS Example Setup:  
 https://istio.io/latest/docs/tasks/security/authentication/mtls-migration/  
