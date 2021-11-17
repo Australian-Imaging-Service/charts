@@ -163,7 +163,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: xnat-xnat-web
+      app: xnat-web
   mtls:
     mode: STRICT
   portLevelMtls:
@@ -200,7 +200,7 @@ metadata:
 spec:
     selector:
       matchLabels:
-           app: xnat-xnat-web
+           app: xnat-web
    rules:
    - to:
      - operation:
@@ -261,7 +261,7 @@ metadata:
 spec:
     selector:
       matchLabels:
-           app: xnat-xnat-web
+           app: xnat-web
    rules:
    - to:
      - operation:
