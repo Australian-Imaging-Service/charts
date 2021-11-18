@@ -3,7 +3,7 @@ title: "Kustomize"
 weight: 10
 ---
 
-# Using Kustomize as a Post renderer for the AIS Helm Chart
+# Using Kustomize as a Post renderer for the AIS XNAT Helm Chart
 
 ## Kustomize
 Using a Helm Chart is a pretty awesome way to deploy Kubernetes infrastructure in a neatly packaged, release versioned way.  
@@ -32,7 +32,7 @@ Direct install:
 ```
 curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
 ```
-This downloads to whatever directory you are in for whatever Operatin System you are using. Copy it to /usr/local/bin to use it system wide:  
+This downloads to whatever directory you are in for whatever Operating System you are using. Copy it to /usr/local/bin to use it system wide:  
 ```
 sudo cp kustomize /usr/local/bin
 ```
@@ -42,7 +42,8 @@ When using Kustomize as a post renderer, Kustomize inputs all of the Helm Charts
 
 Let's break this down.  
 
-### 1. In order to extract all of the Helm chart information, you can use the ***helm template*** command. In the case of our XNAT/AIS Helm chart, to extract all of this data into a file called all.yaml (can be any filename) you would run this command:  
+### 1. 
+In order to extract all of the Helm chart information, you can use the ***helm template*** command. In the case of our XNAT/AIS Helm chart, to extract all of this data into a file called all.yaml (can be any filename) you would run this command:  
 ```
 helm template xnat ais/xnat > all.yaml
 ```
@@ -51,8 +52,9 @@ You now have the complete configuration of your Helm Chart including all templat
 
 
 
-### 2. The next step is a kustomization.yaml file. This file must be called kustomization.yaml or Kustomize doesn't work.  
-You create this and in it you specify your resources (inputs) - in our example, the resource will be all.yaml. The fantastic thing about Kustomize is you can add more inputs in as well which combines with the Helm Chart to streamline deployment. 
+### 2. 
+The next step is a kustomization.yaml file. This file must be called kustomization.yaml or Kustomize doesn't work.  
+You create this and in it you specify your resources (inputs) - in our example, the resource will be all.yaml. The fantastic thing about Kustomize is you can add more resources in as well which combines with the Helm Chart to streamline deployment.  
 
 For instance, in my kustomization.yaml file I also specify a pv.yaml as another resource. This has information about creating Persistent Volumes for the XNAT deployment and creates the volumes with the deployment so I don't have to apply this separately. You can do this for any resources you want to add to your deployment not included in the Helm chart.  
 Example using all.yaml and pv.yaml in the kustomization.yaml file:  
@@ -129,7 +131,8 @@ spec:
 {{- end }}
 ```
 
-### 3. The Patch file.
+### 3. 
+The Patch file.  
 OK, so let's have a look at our patch file and see what it is actually doing. Contents of service-patch.yaml:    
 ```
 - op: remove
@@ -337,7 +340,9 @@ patches:
 
 We are now ready to apply our kustomizations!  
 
-### 4. The script to bring this all together
+### 4. 
+The script to bring this all together  
+
 Create a new fle called whatever you like - and make it executable, in my case we will call it hook.sh.  
 ```
 vi hook.sh
@@ -352,7 +357,7 @@ kustomize build && rm all.yaml
 ```
 
 This takes the contents of all.yaml and kustomizes it using the kustomization.yaml file with the resources and patches I have previously described. Finally, it deletes all.yaml.  
-When you run ***kustomize build*** it will look for a file called kustomization.yaml to apply the transformations. As the kustomization.yaml file is in the same directory as hook.sh only ***kustomize build*** command is needed, no further directive is required.  
+When you run ***kustomize build*** it will look for a file called kustomization.yaml to apply the transformations. As the kustomization.yaml file is in the same directory as hook.sh only the ***kustomize build*** command is needed, no further directive is required.  
 
 
 
@@ -363,13 +368,14 @@ helm template xnat ais/xnat > all.yaml && helm upgrade xnat ais/xnat -i -f value
 ```
 
 In this case, you need to make sure that the following files are in the same directory:  
-values.yaml
-hook.sh
-kustomization.yaml
+```
+values.yaml  
+hook.sh  
+kustomization.yaml  
 ingress-patch.yaml
 service-patch.yaml
 pv.yaml
-
+```
 
 
 ## Further Reading
