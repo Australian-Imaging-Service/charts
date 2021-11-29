@@ -12,7 +12,8 @@ To change the Postgres memory configuration to better match the available
 system memory, add/edit the following settings in
 `/etc/postgresql/10/opex/postgresql.conf`
 
-  ```work_mem = 50MB
+  ```
+  work_mem = 50MB
   maintenance_work_mem = 128MB
   effective_cache_size = 256MB
   ```
