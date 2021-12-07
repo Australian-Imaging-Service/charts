@@ -191,7 +191,7 @@ It completes successfully.
 You can also specify what commands we can run on our `xnat-xnat-web` app with Authorization policies and even specify via source from specific namespaces and even apps. This gives you the ability to completely lock down the environment.  
 You can for instance allow a certain source POST access whilst another source only has GET and HEAD access.  
 
-Let's create the following Authorization policy to allow all GET and HEAD commands to our `xnat-xnat-web` app called `istio-auth-policy.yaml`:  
+Let's create the following Authorization policy to allow all GET, HEAD, PUT, DELETE and OPTIONS commands to our `xnat-web` app called `istio-auth-policy.yaml`:  
 
 {{< code yaml "istio-auth-policy.yaml" >}}
 apiVersion: "security.istio.io/v1beta1"
@@ -206,7 +206,7 @@ spec:
    rules:
    - to:
      - operation:
-           methods: ["GET", "HEAD"]
+           methods: ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"]
 {{</ code >}}
 
 {{< alert >}}
@@ -270,7 +270,7 @@ spec:
    rules:
    - to:
      - operation:
-           methods: ["GET", "POST", "HEAD"]
+           methods: ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"]
 ```
 
 Now re-apply the policy:  
@@ -286,7 +286,7 @@ curl -X POST https://xnat.example.com
 This time it works. OK so we have a working Istio service mesh with correctly applied Mutual TLS and Authorization Policies.  
 
 {{< alert >}}
-This is only a tiny fraction of what Istio can do, so please go to their website for more information.  
+This is only a tiny fraction of what Istio can do, so please go to their website for more information. You should try to lock down permissions further than specified above.  
 
 https://istio.io/latest/docs/
 {{< /alert >}}
