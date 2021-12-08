@@ -95,10 +95,10 @@ Firstly, export some values that will be used to create the Azure files volumes.
 AKS_PERS_STORAGE_ACCOUNT_NAME=<your storage account name>
 AKS_PERS_RESOURCE_GROUP=<your resource group>
 AKS_PERS_LOCATION=<your region>
-AKS_PERS_SHARE_NAME=archive-xnat-xnat-web
+AKS_PERS_SHARE_NAME=xnat-xnat-web-archive
 ```
 
-`archive-xnat-xnat-web` will need to be used or the Helm chart won't be able to find the mount.
+`xnat-xnat-web-archive` will need to be used or the Helm chart won't be able to find the mount.
 
 Create a Resource Group:  
 ```bash
@@ -133,9 +133,9 @@ echo Storage account key: $STORAGE_KEY
 
 Make a note of the Storage account name and key as you will need them.
 
-Now repeat this process but update the Share name to prearchive-xnat-xnat-web. Run this first and then repeat the rest of the commands:  
+Now repeat this process but update the Share name to xnat-xnat-web-prearchive. Run this first and then repeat the rest of the commands:  
 ```bash
-AKS_PERS_SHARE_NAME=prearchive-xnat-xnat-web
+AKS_PERS_SHARE_NAME=xnat-xnat-web-prearchive
 ```
 
 
@@ -159,18 +159,18 @@ Create two files
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: archive-xnat-xnat-web
+  name: xnat-xnat-web-archive
 spec:
   capacity:
     storage: 10Gi
   accessModes:
     - ReadWriteMany
   claimRef:
-    name: archive-xnat-xnat-web
+    name: xnat-xnat-web-archive
     namespace: xnat
   azureFile:
     secretName: azure-secret
-    shareName: archive-xnat-xnat-web
+    shareName: xnat-xnat-web-archive
     readOnly: false
   mountOptions:
   - dir_mode=0755
@@ -185,18 +185,18 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: prearchive-xnat-xnat-web
+  name: xnat-xnat-web-prearchive
 spec:
   capacity:
     storage: 10Gi
   accessModes:
     - ReadWriteMany
   claimRef:
-    name: prearchive-xnat-xnat-web
+    name: xnat-xnat-web-prearchive
     namespace: xnat
   azureFile:
     secretName: azure-secret
-    shareName: prearchive-xnat-xnat-web
+    shareName: xnat-xnat-web-prearchive
     readOnly: false
   mountOptions:
   - dir_mode=0755
