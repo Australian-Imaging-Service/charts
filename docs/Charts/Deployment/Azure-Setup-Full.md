@@ -100,6 +100,11 @@ AKS_PERS_SHARE_NAME=archive-xnat-xnat-web
 
 `archive-xnat-xnat-web` will need to be used or the Helm chart won't be able to find the mount.
 
+Create a Resource Group:  
+```bash
+az group create --name $AKS_PERS_RESOURCE_GROUP --location $AKS_PERS_LOCATION
+```
+
 Create a storage account:  
 ```bash
 az storage account create -n $AKS_PERS_STORAGE_ACCOUNT_NAME -g $AKS_PERS_RESOURCE_GROUP -l $AKS_PERS_LOCATION --sku Standard_LRS
