@@ -56,7 +56,7 @@ helm repo update
 Change to the correct directory and update dependencies. This will download and install the Postgresql Helm Chart. You don't need to do this if you want to connect to an external Postgresql DB.
 
 ```bash
-cd ~/charts/release/xnat
+cd ~/charts/releases/xnat
 helm dependency update
 ```
 
