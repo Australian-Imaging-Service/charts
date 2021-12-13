@@ -24,9 +24,9 @@ Login Successfully with AAF or Google credentials
 Administer OpenID and non OpenID users (as an OpenID Administrator)  
 Access projects and perform all the same procedures as local users - i.e.  
 Delete sessions  
-Create Sessions
+Create Sessions  
 Create Projects  
-Manage Projects (Define Quarantine Settings, specify Anonmyisation Settings, DICOM ocnfiguration etc)
+Manage Projects (Define Quarantine Settings, specify Anonmyisation Settings, DICOM configuration etc)  
 Manage custom variables  
 Send Emails  
 Add Users to a Project (Project > Access)  
@@ -43,7 +43,7 @@ Rotate
 
 
 #### Container Plugin  
-This requires a previously working Docker Swarm or Docker host and both the Kubernetes cluster.  
+This requires a previously working Docker Swarm or Docker host.    
 The Docker Host / Swarm need access to the same shared filesystem (/data/xnat) AND specifically /data/xnat/build to process the images.  
 
 Add Docker Server  
