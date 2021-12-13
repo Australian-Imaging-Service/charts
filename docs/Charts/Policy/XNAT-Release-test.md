@@ -2,6 +2,7 @@
 linkTitle: "XNAT-Release-Testing"
 title: "XNAT Release Testing as a preqrequisite to AIS 1.0"
 weight: 10
+draft: true
 ---
 
 # XNAT Release Testing
