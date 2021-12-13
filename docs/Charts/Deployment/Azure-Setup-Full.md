@@ -133,9 +133,14 @@ echo Storage account key: $STORAGE_KEY
 
 Make a note of the Storage account name and key as you will need them.
 
-Now repeat this process but update the Share name to xnat-xnat-web-prearchive. Run this first and then repeat the rest of the commands:  
+Now repeat this process but update the Share name to xnat-xnat-web-prearchive and then again with xnat-xnat-web-build. Run this first and then repeat the rest of the commands:  
 ```bash
 AKS_PERS_SHARE_NAME=xnat-xnat-web-prearchive
+```
+
+and then update Share name and repeat the process again:  
+```bash
+AKS_PERS_SHARE_NAME=xnat-xnat-web-build
 ```
 
 
@@ -149,13 +154,12 @@ kubectl -nxnat create secret generic azure-secret --from-literal=azurestorageacc
 
 
 ### Create Kubernetes Volumes  
-Now we need to create two persistent volumes outside of the Helm Chart which the Chart can mount - hence requiring the exact name.  
-Create two files
+Now we need to create three persistent volumes outside of the Helm Chart which the Chart can mount - hence requiring the exact name.  
+Create a file
 
-- `pv_archive.yaml`
-- `pv_prearchive.yaml`
+- `pv.yaml`
 
-{{< code yaml "pv_archive.yaml" >}}
+{{< code yaml "pv.yaml" >}}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -179,9 +183,7 @@ spec:
   - gid=1000
   - mfsymlinks
   - nobrl
-{{</ code >}}
-
-{{< code yaml "pv_prearchive.yaml" >}}
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -205,14 +207,37 @@ spec:
   - gid=1000
   - mfsymlinks
   - nobrl
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: xnat-xnat-web-build
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  claimRef:
+    name: xnat-xnat-web-build
+    namespace: xnat
+  azureFile:
+    secretName: azure-secret
+    shareName: xnat-xnat-web-build
+    readOnly: false
+  mountOptions:
+  - dir_mode=0755
+  - file_mode=0755
+  - uid=1000
+  - gid=1000
+  - mfsymlinks
+  - nobrl
 {{</ code >}}
 
 Size doesn't really matter as like EFS, Azure files is completely scaleable. Just make sure it is the same as your values file for those volumes.  
 
 #### Apply the volumes
 ```bash
-kubectl apply -f pv_archive.yaml
-kubectl apply -f pv_prearchive.yaml
+kubectl apply -f pv.yaml
 ```
 
 We should now have two newly created volumes our Helm chart can mount.
@@ -233,20 +258,6 @@ xnat-web:
       mountPath: /data/xnat/cache
       storageClassName: ""
       size: 10Gi
-    work:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/work
-      storageClassName: ""
-      size: 1Gi
-    logs:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/logs
-      storageClassName: ""
-      size: 1Gi
-    plugins:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/plugins
-      storageClassName: ""
       size: 0
   volumes:
     archive:
@@ -257,6 +268,11 @@ xnat-web:
     prearchive:
       accessMode: ReadWriteMany
       mountPath: /data/xnat/prearchive
+      storageClassName: ""
+      size: 10Gi
+    build:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/build
       storageClassName: ""
       size: 10Gi
   postgresql:
@@ -372,7 +388,12 @@ Apply the yaml file:
 kubectl apply -f cluster-issuer.yaml -nxnat
 ```
 
+### NB. To allow large uploads via the Compressed uploader tool you need to specify a value in the Nginx annotations or you get an "413 Request Entity Too Large" error. This needs to go in annotations:  
+```bash
+nginx.ingress.kubernetes.io/proxy-body-size: 1024m
+```
 
+This is included in the example below.  
 
 
 
@@ -386,6 +407,7 @@ xnat-web:
     annotations:
       kubernetes.io/ingress.class: nginx
       cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-body-size: 1024m
     tls:
       - hosts:
           - "yourxnat.example.com"
@@ -406,21 +428,6 @@ xnat-web:
       mountPath: /data/xnat/cache
       storageClassName: ""
       size: 10Gi
-    work:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/work
-      storageClassName: ""
-      size: 1Gi
-    logs:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/logs
-      storageClassName: ""
-      size: 1Gi
-    plugins:
-      accessMode: ReadWriteOnce
-      mountPath: /data/xnat/home/plugins
-      storageClassName: ""
-      size: 0
   volumes:
     archive:
       accessMode: ReadWriteMany
@@ -430,6 +437,11 @@ xnat-web:
     prearchive:
       accessMode: ReadWriteMany
       mountPath: /data/xnat/prearchive
+      storageClassName: ""
+      size: 10Gi
+    build:
+      accessMode: ReadWriteMany
+      mountPath: /data/xnat/build
       storageClassName: ""
       size: 10Gi
   postgresql:
