@@ -53,15 +53,22 @@ Create namespace:
 kubectl create ns istio-system
 ```
 
+Install the Helm repo:  
+```bash
+helm repo add istio https://istio-release.storage.googleapis.com/charts
+helm repo update
+```
+
+
+
 Install Istio base (must be in istio install directory):  
 ```bash
-helm install istio-base manifests/charts/base -n istio-system
+helm install istio-base istio/base -n istio-system
 ```
 
 Install `istiod`:  
 ```bash
-helm install istiod manifests/charts/istio-control/istio-discovery \
-    -n istio-system
+helm install istiod istio/istiod -n istio-system --wait
 ```
 
 Now Istio is installed, we need to apply the configuration to our XNAT namespace to add the Istio sidecars - this is how Istio applies the policies.  
