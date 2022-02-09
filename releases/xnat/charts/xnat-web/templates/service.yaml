@@ -6,9 +6,6 @@ metadata:
     {{- include "xnat-web.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
-  {{ if (eq .Values.service.type "ClusterIP") }}
-  clusterIP: None
-  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 8080
@@ -17,6 +14,26 @@ spec:
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
   sessionAffinity: "ClientIP"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-headless
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "xnat-web.selectorLabels" . | nindent 4 }}
+  sessionAffinity: "ClientIP"
+
 {{- if .Values.dicom_scp.recievers }}
 ---
 apiVersion: v1

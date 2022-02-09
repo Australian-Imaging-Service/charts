@@ -31,11 +31,10 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
+          - path: "/"
+            pathType: Prefix
             backend:
-              serviceName: {{ $fullName }}
+              serviceName: {{ $fullName }}-headless
               servicePort: {{ $svcPort }}
-          {{- end }}
     {{- end }}
   {{- end }}

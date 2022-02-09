@@ -44,7 +44,6 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: ClusterIP
   port: 80
 
 ingress:
@@ -60,7 +59,7 @@ ingress:
     # nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
   hosts:
     - host: "chart-example.local"
-      paths: []
+      paths: [path: "/"]
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
