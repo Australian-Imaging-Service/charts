@@ -186,8 +186,8 @@ openid.aaf.userAutoVerified=false
 Property names to use when creating users  
 ```ini
 openid.aaf.emailProperty=email  
-openid.aaf.givenNameProperty=name  
-openid.aaf.familyNameProperty=deliberately_unknown_property  
+openid.aaf.givenNameProperty=given_name  
+openid.aaf.familyNameProperty=family_name  
 ```
 
 If you create your openid-provider.properties file with the above information, tailored to your environment, along with the plugin:  
