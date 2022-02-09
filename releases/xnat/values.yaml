@@ -18,5 +18,142 @@ postgresqlExternalName: ""
 postgresqlExternalIPs: []
 #  - 130.95.126.8
 
+# For more xnat-web details and values reference
+# <https://github.com/Australian-Imaging-Service/charts/tree/main/releases/xnat/charts/xnat-web>
+#
 xnat-web:
   enabled: true
+ 
+  # https://wiki.xnat.org/documentation/xnat-administration/connecting-xnat-to-dicom-scanners-and-pacs
+  # DICOM C-STORE Service Class Provider (SCP)
+  # DICOM Application Entity (AE)
+  dicom_scp:
+    serviceType: "NodePort"
+    annotations: {}
+    #  metallb.universe.tf/address-pool: production-public-ips
+    #  metallb.universe.tf/allow-shared-ip: true
+    recievers:
+      - ae_title: "XNAT"
+        port: 8104
+        # nodePort: 32514
+        # loadBalancerIp: "130.95.27.91"
+
+  ingress:
+    enabled: false
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+      # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
+      # nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
+      # nginx.ingress.kubernetes.io/proxy-send-timeout: "100"
+      # nginx.ingress.kubernetes.io/proxy-read-timeout: "100"
+      # nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+      # nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
+    hosts:
+      - host: "chart-example.local"
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  # xnat-web plugins must be referenced here to be enabled
+  plugins: {}
+    #container-service: []
+    # Uncomment OHIF viewer line below for XNAT 1.8.2 and higher
+    #ohif-viewer: {}
+    #ldap-auth-plugin:
+    #- name: "Institution Active Directory"
+    #  provider:
+    #    id: ldap1
+    #  auth:
+    #    method: ldap
+    #  auto:
+    #    enabled: false
+    #    verified: false
+    #  visible: true
+    #  address: ""
+    #  userdn: ""
+    #  password: ""
+    #  search:
+    #    base: ""
+    #    filter: "(sAMAccountName={0})"
+    #openid-auth-plugin:
+    #- name: "OpenID Authentication Provider"
+    #  provider:
+    #    id: openid
+    #  auth:
+    #    method: openid
+    #  auto:
+    #    enabled: false
+    #    verified: false
+    #  visible: true
+    #  # https://github.com/NrgXnat/xnat-openid-auth-plugin
+    #  disableUsernamePasswordLogin: true
+    #  enabled: "aaf,google"
+    #  preEstablishedRedirUri: "/openid-login"
+    #  siteUrl: ""
+    #  type: openid
+    #  # List of providers that appear on the login page
+    #  openid:
+    #    aaf:
+    #      # https://support.aaf.edu.au/support/solutions/articles/19000096640-openid-connect-
+    #      accessTokenUri: https://central.aaf.edu.au/providers/op/token
+    #      userAuthUri: https://central.aaf.edu.au/providers/op/authorize
+    #      #accessTokenUri: https://central.test.aaf.edu.au/providers/op/token
+    #      #userAuthUri: https://central.test.aaf.edu.au/providers/op/authorize
+    #      clientId: ""
+    #      clientSecret: ""
+    #      scopes: "openid,profile,email"
+    #      link: '<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>'
+    #      # Flag that sets if we should be checking email domains
+    #      # Domains below are the only ones allowed to login, empty array allows ALL domains
+    #      shouldFilterEmailDomains: false
+    #      allowedEmailDomains: ""
+    #      # Flag to force the user creation process, normally this should be set to true
+    #      forceUserCreate: true
+    #      # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+    #      userAutoEnabled: false
+    #      # Flag to set the verified property of new users
+    #      userAutoVerified: false
+    #      # Property names to use when creating users
+    #      emailProperty: email
+    #      givenNameProperty: name
+    #      familyNameProperty: deliberately_unknown_property
+    #    google:
+    #      accessTokenUri: https://www.googleapis.com/oauth2/v3/token
+    #      userAuthUri: https://accounts.google.com/o/oauth2/auth
+    #      clientId: ""
+    #      clientSecret: ""
+    #      scopes: "openid,profile,email"
+    #      link: '<p>To sign-in using your Google credentials, please click on the button below.</p></p><p><a href="/openid-login?providerId=google"> <img src="/images/btn_google_signin_dark_normal_web.png" /> </a></p>'
+    #      # Flag that sets if we should be checking email domains
+    #      shouldFilterEmailDomains: false
+    #      # Domains below are allowed to login, only checked when 'shouldFilterEmailDomains' is true
+    #      allowedEmailDomains: ""
+    #      # Flag to force the user creation process, normally this should be set to true
+    #      forceUserCreate: true
+    #      # Flag to set the enabled property of new users, set to false to allow admins to manually enable users before allowing logins, set to true to allow access right away
+    #      userAutoEnabled: false
+    #      # Flag to set the verified property of new users
+    #      userAutoVerified: false
+    #      # Property names to use when creating users
+    #      emailProperty: email
+    #      givenNameProperty: given_name
+    #      familyNameProperty: family_name
+
+  # xnat-web persistant volume settings
+  volumes:
+    archive:
+      #existingClaim: ""
+      #storageClass: "-"
+      size: 1Ti
+    prearchive:
+      #existingClaim: ""
+      #storageClass: "-"
+      size: 1Ti
+
+  # xnat-web postgresql client setting overrides
+  # these values can be set in the global section
+  postgresql:
+    postgresqlPassword: "xnat"
+
