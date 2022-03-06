@@ -157,7 +157,15 @@ Change the Load Balancing Algorithm:
 ```yaml
 alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
 ```
-  
+
+Increase the timeout to 5 minutes from 1. When using the Compressed Image Uploader you can sometimes get a 504 Gateway timeout error message. This will fix that issue.  
+You can read more about it here:  
+https://aws.amazon.com/premiumsupport/knowledge-center/eks-http-504-errors/
+
+```yaml
+alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=300"  
+```
+
 
 ## Add SSL encryption to your Application Load Balancer
 
