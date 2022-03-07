@@ -257,6 +257,7 @@ Full `values.yaml` file ingress section:
       alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:XXXXXXX:certificate/XXXXXX"
       alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
       alb.ingress.kubernetes.io/target-group-attributes: "stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=1800,load_balancing.algorithm.type=least_outstanding_requests"
+      alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=300"
 ```
 
 Further Reading:
