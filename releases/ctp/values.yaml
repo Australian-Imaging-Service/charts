@@ -36,23 +36,23 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-services: {}
-  # web:
+services:
+  web:
   #   enabled: true
-  #   type: ClusterIP
-  #   port: 80
+    type: ClusterIP
+    port: 80
   #   targetPort: 80
   #   nodePort: 30001
-  # httpsimport:
-  #   enabled: false
+  httpsimport:
+    enabled: false
   #   type: LoadBalancer
   #   port: 443
   #   targetPort: 443
   #   nodePort: 30002
-  # dicomimport:
-  #   enabled: true
-  #   type: NodePort
-  #   port: 8104
+  dicomimport:
+    enabled: true
+    type: NodePort
+    port: 8104
   #   targetPort: 25055
   #   nodePort: 30004
 
