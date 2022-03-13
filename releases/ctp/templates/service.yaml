@@ -27,13 +27,6 @@ metadata:
   name: {{ include "ctp.fullname" . }}-httpsimport
   labels:
     {{- include "ctp.labels" . | nindent 4 }}
-  {{- /* annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:ap-southeast-2:078690265916:certificate/661ff0de-361d-48da-9424-bb274dc172c2"
-    service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-2016-08"
-  */}}
 spec:
   type: {{ .Values.services.httpsimport.type }}
   ports:
