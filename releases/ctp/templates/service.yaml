@@ -27,10 +27,6 @@ metadata:
   name: {{ include "ctp.fullname" . }}-httpsimport
   labels:
     {{- include "ctp.labels" . | nindent 4 }}
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   type: {{ .Values.services.httpsimport.type }}
   ports:
@@ -38,6 +34,9 @@ spec:
       targetPort: {{ .Values.services.httpsimport.targetPort }}
       protocol: TCP
       name: httpsimport
+      {{- if  or (eq .Values.services.httpsimport.type "NodePort") (eq .Values.services.httpsimport.type "LoadBalancer") }}
+      nodePort: {{ .Values.services.httpsimport.nodePort }}
+      {{- end }}
   selector:
     {{- include "ctp.selectorLabels" . | nindent 4 }}
 {{- end }}

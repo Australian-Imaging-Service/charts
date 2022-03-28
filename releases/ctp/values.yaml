@@ -36,25 +36,30 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-services: {}
-  # web:
-  #   enabled: true
-  #   type: ClusterIP
-  #   port: 80
-  #   targetPort: 80
-  #   nodePort: 30001
-  # httpsimport:
-  #   enabled: false
-  #   type: LoadBalancer
-  #   port: 443
-  #   targetPort: 443
-  #   nodePort: 30002
-  # dicomimport:
-  #   enabled: true
-  #   type: NodePort
-  #   port: 8104
-  #   targetPort: 25055
-  #   nodePort: 30004
+services:
+  web:
+    # Enable when a web management console is needed
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 1080
+    # may need to use NodePort for your cloud provider's ingress plugin
+    # type: NodePort
+    # nodePort: 30001
+  httpsimport:
+    # Typically for institutional site CTP
+    enabled: true
+    type: LoadBalancer
+    port: 443
+    targetPort: 443
+    nodePort: 30002
+  dicomimport:
+    # Typically for clinical site CTP 
+    enabled: true
+    type: NodePort
+    port: 8104
+    targetPort: 8104
+    nodePort: 30003
 
 ingress:
   enabled: false
@@ -94,54 +99,119 @@ tolerations: []
 
 affinity: {}
 
-users: {}
-  #admin:
-  #  password: "126680608771750945340162210354335764377"
-  #  roles:
-  #    - admin
-  #king:
-  #  password: "126680608771750945340162210354335764377"
-  #  roles:
-  #    - admin
-  #    - shutdown
+users:
+  # Specify users of different roles, use custom values to increase security
+  admin:
+   password: "126680608771750945340162210354335764377"
+   roles:
+     - admin
+  import:
+   password: "126680608771750945340162210354335764377"
+   roles:
+     - import
 
 timezone: Australia/Perth
 
 config: |
   <?xml version="1.0" encoding="UTF-8"?>
-    <Configuration>
-      <Server
-        port="80"
+  <Configuration>
+    <Server
+      port="1080"
+      requireAuthentication="yes"
+    />
+    <Pipeline name="Main_Pipeline">
+      <DicomImportService
+        name="DicomImportService"
+        id="DicomImportService"
+        class="org.rsna.ctp.stdstages.DicomImportService"
+        root="roots/DicomImportService"
+        port="8104"
+        calledAETTag="00097770" 
+        callingAETTag="00097772"
+        connectionIPTag="00097774"
+        throttle="0"
+        logConnections="no"
+        logDuplicates="no"
+        suppressDuplicates="no" />
+      <HttpImportService
+        name="HttpImportService"
+        id="HttpImportService"
+        class="org.rsna.ctp.stdstages.HttpImportService"
+        root="roots/HttpImportService"
+        quarantine="roots/HttpImportService/quarantine"
+        port="443"
+        ssl="yes"
+        zip="yes"
         requireAuthentication="yes"
-      />
-    </Configuration>
+        acceptDicomObjects="yes"
+        acceptXmlObjects="yes"
+        acceptZipObjects="yes"
+        acceptFileObjects="yes"
+        logConnections="no"
+        logDuplicates="no" />
+      <FileStorageService
+        name="FileStorageService"
+        id="FileStorageService"
+        class="org.rsna.ctp.stdstages.FileStorageService"
+        root="roots/FileStorageService"
+        quarantine="roots/FileStorageService/quarantine"
+        returnStoredFile="no"
+        ssl="yes"
+        timeDepth="1"
+        type="day"/>
+      <!-- Send to XNAT directly
+      <HttpExportService
+        name="HttpExportService"
+        id="HttpExportService"
+        username="XnatUser"
+        password="XnatUserPassword"
+        acceptXmlObjects="no"
+        acceptZipObjects="no"
+        class="org.rsna.ctp.stdstages.HttpExportService"
+        url="https://YourXnatUrl:443/data/services/import?import-handler=DICOM-zip&amp;inbody=true"
+        root="roots/HttpExportService"
+        quarantine="roots/HttpExportService/quarantine"
+        sendDigestHeader="yes"
+        interval="5000">
+        <compressor
+          cacheSize="100"
+          defaultString="unknown"
+          structure="(0010,0020).(0010,0010)"/>
+        <xnat
+          cookieName="JSESSIONID"
+          url="https://YourXnatUrl:443/data/JSESSION"/>        
+      </HttpExportService>
+      -->
+      <!-- Send to the other CTP endpoint
+      <HttpExportService
+        name="HttpExportService"
+        id="HttpExportService"
+        class="org.rsna.ctp.stdstages.HttpExportService"
+        root="roots/HttpExportService" 
+        quarantine="roots/HttpExportService/quarantine"
+        url="https://TheOtherCtp:443"
+        zip="yes"
+        sendDigestHeader="yes"
+        username="CtpImportUserName"
+        password="CtpImportUserPassword"
+        acceptDicomObjects="yes"
+        acceptXmlObjects="yes"
+        acceptZipObjects="yes"
+        acceptFileObjects="yes"
+        dicomScript="scripts/df.script"
+        xmlScript="scripts/xf.script"
+        zipScript="scripts/zf.script"
+        logDuplicates="yes"
+        auditLogID="0008,0050"
+        auditLogTags="PatientID;SOPInstanceUID;StudyInstanceUID;InstanceNumber"
+        interval="10000" />
+      -->
+    </Pipeline>
+  </Configuration>
 
 launcherProperties: |
   ms=128
   mx=512
-
-# ports:
-#   web: 24050
-#   dicomImportService: 25055
-
-pipelines: {}
-  #Main_Pipeline:
-  #  desc: "Main Pipeline"
-  #  stages:
-  #    - name: "DicomImportService"
-  #      root: "roots/dicom-import"
-  #      port: 1104
-  #    - name: "FileStorageService"
-  #      root: "storage"
-  #      returnStoredFile: false
-  #      quarantine: "quarantines/storage"
-  #    - name: "DicomAnonymizer"
-  #      root: "roots/anonymizer"
-  #      script: "scripts/da.script"
-  #      quarantine: "quarantines/anonymizer"
-  #    - name: "HttpExportService"
-  #      root: "roots/http-export"
-  #      url: "https://university.edu:1443"
 
 proxyServer:
   ipAddress: ""
@@ -156,21 +226,4 @@ volumes:
     mountPath: "/vol/roots"
     #storageClassName: "-"
     size: 10Gi
-  # quarantines:
-  #   accessMode: ReadWriteMany
-  #   #existingClaim: ""
-  #   mountPath: "/vol/quarantines"
-  #   #storageClassName: "-"
-  #   size: 1Ti
-  # logs:
-  #   accessMode: ReadWriteMany
-  #   #existingClaim: ""
-  #   mountPath: "/vol/roots"
-  #   #storageClassName: "-"
-  #   size: 1Mi
-  # scripts:
-  #   accessMode: ReadWriteMany
-  #   #existingClaim: ""
-  #   mountPath: "/vol/roots"
-  #   #storageClassName: "-"
-  #   size: 10Gi
+
