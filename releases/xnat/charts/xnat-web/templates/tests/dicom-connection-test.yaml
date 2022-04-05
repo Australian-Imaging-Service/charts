@@ -1,0 +1,23 @@
+{{- $context := . -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-dicom-test-connection
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    {{- range $key, $value := .Values.dicom_scp.recievers }}
+    - name: {{ lower $value.ae_title }}
+      image: busybox
+      env:
+        - name: XNAT_DICOM_SERVICE
+          value: {{ include "xnat-web.fullname" $context }}-dicom-scp
+        - name: XNAT_DICOM_PORT
+          value: "{{ $value.port }}"
+      command: ["/bin/sh"]
+      args: ["-c", "nc -z -w 5 $XNAT_DICOM_SERVICE $XNAT_DICOM_PORT"]
+    {{- end }}
+  restartPolicy: Never
