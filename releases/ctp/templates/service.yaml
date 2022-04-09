@@ -38,6 +38,7 @@ spec:
       targetPort: {{ .Values.services.httpsimport.targetPort }}
       protocol: TCP
       name: httpsimport
+      nodePort: {{ .Values.services.httpsimport.nodePort }}
   selector:
     {{- include "ctp.selectorLabels" . | nindent 4 }}
 {{- end }}
