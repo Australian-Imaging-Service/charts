@@ -51,7 +51,8 @@ spec:
   ports:
     {{- $serviceType := .Values.dicom_scp.serviceType }}
     {{- range .Values.dicom_scp.recievers }}
-    - port: {{ .port }}
+    - name: {{ lower .ae_title }}-dicom
+      port: {{ .port }}
       targetPort: {{ .port }}
       {{- if and (eq $serviceType "NodePort") .nodePort }}
       nodePort: {{ .nodePort }}
