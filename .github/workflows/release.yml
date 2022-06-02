@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'releases/**'
+  
+  workflow_dispatch:
 
 jobs:
   release:
