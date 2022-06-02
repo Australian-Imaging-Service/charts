@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<IssueList generator="FireEye Agent" generatorVersion="34.28.1" itemSchemaLocation="http://schemas.mandiant.com/2013/11/issuelist.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://schemas.mandiant.com/2013/11/issues.xsd">
+ <Issue context="ProRemSvc" level="Info" number="0" summary="Plugin uninstalled successfully" />
+</IssueList>

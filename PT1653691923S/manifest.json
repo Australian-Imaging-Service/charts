@@ -1,0 +1,17 @@
+{
+	"type": "audit_manifest",
+	"version": "1.0",
+	"audits": [
+		{
+			"id": "",
+			"generator": "plugin-uninstall",
+			"generatorVersion": "34.28.1",
+			"results": [
+				{
+					"payload": "plugin-uninstall_issues.xml",
+					"type": "application/vnd.mandiant.issues+xml"
+				}
+			]
+		}
+	]
+}
