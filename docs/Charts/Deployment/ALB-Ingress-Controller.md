@@ -221,7 +221,7 @@ Add the following annotation to your values file below the ports to listen on (s
      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
 ```
  
-You must then update the Rules section of `ingress.yaml` found within the `releases/xnat/charts/xnat-web/templates` directory to look like this:
+You must then update the Rules section of `ingress.yaml` found within the `releases/xnat/charts/xnat-web/templates` directory to look like this when using Ingress apiVersion of networking.k8s.io/v1beta1 on Kuberbetes version prior to v1.22:
 
 ```yaml
   rules:
@@ -234,6 +234,25 @@ You must then update the Rules section of `ingress.yaml` found within the `relea
             backend:
               serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+  
+```
+
+For Ingress apiVersion of networking.k8s.io/v1 on Kubernetes version >= v1.22:
+
+```yaml
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port: 
+                  number: {{ $svcPort }}
           {{- end }}
     {{- end }}
   
