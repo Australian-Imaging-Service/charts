@@ -120,6 +120,9 @@ spec:
               for plugin in ${plugins[@]}; do
                 cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
               done
+              {{- $request := trimSuffix "Mi" .Values.resources.requests.memory }}
+              {{- $limit := trimSuffix "Mi" .Values.resources.limits.memory }}
+              sed -i -e 's/Xms512m/Xms{{ sub $request 200 }}m/' -e 's/Xmx4g/Xmx{{ sub $request 200 }}m/' /TOMCAT/bin/setenv.sh
           volumeMounts:
             - name: tomcat
               mountPath: /TOMCAT
