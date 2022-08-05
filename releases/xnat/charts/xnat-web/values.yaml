@@ -210,7 +210,7 @@ dicom_scp:
       # loadBalancerIp: "130.95.27.91"
 
 postgresql:
-  postgresqlDatabase: "xnat"
-  postgresqlUsername: "xnat"
-  postgresqlPassword: "xnat"
+  postgresqlDatabase: "xnat_web"
+  postgresqlUsername: "xnat_web"
+  #postgresqlPassword: ""
 

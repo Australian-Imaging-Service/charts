@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 
 global:
-  postgresql:
-    postgresqlDatabase: "xnat"
-    postgresqlUsername: "xnat"
+  postgresql: {}
+    #postgresqlDatabase: ""
+    #postgresqlUsername: ""
     #postgresqlPassword: ""
     #servicePort: ""
 
@@ -13,6 +13,10 @@ global:
 # WARNING: Only change this post deployment if you know what you are doing
 postgresql:
   enabled: true
+  postgresqlDatabase: "xnat"
+  postgresqlPassword: "xnat"
+  postgresqlUsername: "xnat"
+
 # External Database service endpoint, ensure `postgresql.enabled: false`
 postgresqlExternalName: ""
 postgresqlExternalIPs: []
@@ -146,14 +150,16 @@ xnat-web:
     archive:
       #existingClaim: ""
       #storageClass: "-"
-      size: 1Ti
+      size: 1Gi
     prearchive:
       #existingClaim: ""
       #storageClass: "-"
-      size: 1Ti
+      size: 1Gi
 
   # xnat-web postgresql client setting overrides
   # these values can be set in the global section
   postgresql:
+    postgresqlDatabase: "xnat"
     postgresqlPassword: "xnat"
+    postgresqlUsername: "xnat"
 
