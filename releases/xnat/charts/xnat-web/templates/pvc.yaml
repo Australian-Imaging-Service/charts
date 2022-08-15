@@ -1,7 +1,7 @@
 {{- $context := . -}}
 {{- range $name, $c := .Values.volumes }}
 {{- if .existingClaim }}
-{{- else }}
+{{- else if .size }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

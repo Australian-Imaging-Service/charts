@@ -24,6 +24,8 @@ appVersion: 1.8.4.1
 
 dependencies:
 - name: postgresql
-  version: "~10.9.4"
+  version: "~10.16.2"
   repository: "https://charts.bitnami.com/bitnami"
   condition: postgresql.enabled
+- name: xnat-web
+  condition: xnat-web.enabled

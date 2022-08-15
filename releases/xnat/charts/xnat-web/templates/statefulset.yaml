@@ -87,8 +87,13 @@ spec:
             {{- end }}
             {{- end }}
             {{- range $name, $c := .Values.volumes }}
+            {{- if $c.size }}
             - mountPath: {{ $c.mountPath | quote }}
               name: {{ $name | quote }}
+              {{- if $c.mountPropagation }}
+              mountPropagation: {{$c.mountPropagation|default "None"|quote}}
+              {{- end }}
+            {{- end }}
             {{- end }}
       initContainers:
         - name: home-init
@@ -151,9 +156,11 @@ spec:
             secretName: {{ include "xnat-web.fullname" . }}
         {{- $context := . -}}
         {{- range $name, $c := .Values.volumes }}
+        {{- if $c.size }}
         - name: {{ $name }}
           persistentVolumeClaim:
             claimName: {{ $c.existingClaim | default (printf "%s-%s" (include "xnat-web.fullname" $context) $name) }}
+        {{- end }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
