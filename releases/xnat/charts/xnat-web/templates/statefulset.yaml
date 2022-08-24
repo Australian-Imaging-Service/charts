@@ -39,18 +39,22 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          #livenessProbe:
-          #  httpGet:
-          #    path: /
-          #    port: http
+          livenessProbe:
+            httpGet:
+              path: /app/template/Login.vm#!
+              port: http
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
           readinessProbe:
             httpGet:
               path: /app/template/Login.vm#!
               port: http
-          #startupProbe:
-          #  httpGet:
-          #    path: /
-          #    port: http
+          startupProbe:
+            httpGet:
+              path: /app/template/Login.vm#!
+              port: http
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

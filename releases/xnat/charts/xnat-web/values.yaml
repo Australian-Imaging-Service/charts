@@ -214,3 +214,11 @@ postgresql:
   postgresqlUsername: "xnat_web"
   #postgresqlPassword: ""
 
+probes:
+  startup:
+    # adjust below values to suit the startup time. Below startup time is 15*10=150s
+    failureThreshold: 15
+    periodSeconds: 10
+  liveness:
+    failureThreshold: 1
+    periodSeconds: 10
