@@ -30,6 +30,6 @@ subsets:
       - ip: {{ . | quote }}
       {{- end }}
     ports:
-      - port: 5432
+      - port: {{ .Values.global.postgresql.postgresqlExternalPort | default 5432 }}
 {{- end }}
 {{- end }}
