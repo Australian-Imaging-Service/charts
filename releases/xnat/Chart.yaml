@@ -28,4 +28,5 @@ dependencies:
   repository: "https://charts.bitnami.com/bitnami"
   condition: postgresql.enabled
 - name: xnat-web
+  version: 1.1.5
   condition: xnat-web.enabled
