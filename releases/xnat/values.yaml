@@ -8,6 +8,7 @@ global:
     #postgresqlUsername: ""
     #postgresqlPassword: ""
     #servicePort: ""
+    #postgresqlExternalName: ""
     #postgresqlExternalPort: ""
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
@@ -19,7 +20,6 @@ postgresql:
   postgresqlUsername: "xnat"
 
 # External Database service endpoint, ensure `postgresql.enabled: false`
-postgresqlExternalName: ""
 postgresqlExternalIPs: []
 #  - 130.95.126.8
 

@@ -7,9 +7,9 @@ metadata:
   labels:
     {{- include "xnat.labels" . | nindent 4 }}
 spec:
-{{- if .Values.postgresqlExternalName }}
+{{- if .Values.global.postgresql.postgresqlExternalName }}
   type: ExternalName
-  externalName: {{ .Values.postgresqlExternalName }}
+  externalName: {{ .Values.global.postgresql.postgresqlExternalName }}
 {{- else }}
   type: ClusterIP
   ports:
