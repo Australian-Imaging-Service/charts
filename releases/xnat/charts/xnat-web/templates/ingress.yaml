@@ -13,6 +13,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
+  {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
@@ -31,7 +34,7 @@ spec:
           - path: "/"
             pathType: Prefix
             backend:
-              serviceName: {{ $fullName }}-headless
+              serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
     {{- end }}
 {{- else if semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -46,6 +49,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if .Values.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
+  {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
@@ -65,7 +71,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ $fullName }}-headless
+                name: {{ $fullName }}
                 port: 
                   number: {{ $svcPort }}
     {{- end }}
