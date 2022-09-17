@@ -14,7 +14,6 @@ spec:
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
   sessionAffinity: "ClientIP"
-{{ if (eq .Values.service.type "ClusterIP") }}
 ---
 apiVersion: v1
 kind: Service
@@ -23,7 +22,7 @@ metadata:
   labels:
     {{- include "xnat-web.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP
   clusterIP: None
   ports:
     - port: {{ .Values.service.port }}
@@ -33,7 +32,6 @@ spec:
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
   sessionAffinity: "ClientIP"
-{{- end }}
 {{- if .Values.dicom_scp.recievers }}
 ---
 apiVersion: v1

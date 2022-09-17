@@ -50,6 +50,7 @@ service:
 ingress:
   enabled: false
   annotations: {}
+  ingressClassName: ""
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
     # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
