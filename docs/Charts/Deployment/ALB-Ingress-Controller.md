@@ -221,7 +221,13 @@ Add the following annotation to your values file below the ports to listen on (s
      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
 ```
  
-You must then update the Rules section of `ingress.yaml` found within the `releases/xnat/charts/xnat-web/templates` directory to look like this when using Ingress apiVersion of networking.k8s.io/v1beta1 on Kuberbetes version prior to v1.22:
+You must then update the Rules section of `ingress.yaml` found within the 
+`releases/xnat/charts/xnat-web/templates` directory to look like this:
+
+{{< tabpane text=true right=false >}}
+  {{% tab header="**K8s version**:" disabled=true /%}}
+  {{% tab header="&lt; v1.22" %}}
+Ingress `apiVersion` of `networking.k8s.io/v1beta1`
 
 ```yaml
   rules:
@@ -236,10 +242,10 @@ You must then update the Rules section of `ingress.yaml` found within the `relea
               servicePort: {{ $svcPort }}
           {{- end }}
     {{- end }}
-  
 ```
-
-For Ingress apiVersion of networking.k8s.io/v1 on Kubernetes version >= v1.22:
+  {{% /tab %}}
+  {{% tab header="&GreaterEqual; v1.22" highlight="en" %}}
+Ingress `apiVersion` of `networking.k8s.io/v1`
 
 ```yaml
   rules:
@@ -255,8 +261,9 @@ For Ingress apiVersion of networking.k8s.io/v1 on Kubernetes version >= v1.22:
                   number: {{ $svcPort }}
           {{- end }}
     {{- end }}
-  
 ```
+  {{% /tab %}}
+{{% /tabpane %}}
 
 This will redirect HTTP to HTTPS on Kubernetes 1.18 and below.
 
