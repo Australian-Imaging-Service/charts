@@ -50,6 +50,9 @@ spec:
             httpGet:
               path: /app/template/Login.vm#!
               port: http
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
           startupProbe:
             httpGet:
               path: /app/template/Login.vm#!
