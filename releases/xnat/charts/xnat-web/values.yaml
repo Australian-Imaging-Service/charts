@@ -72,10 +72,13 @@ resources:
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'
   requests:
     cpu: 250m
-    memory: 512Mi
+    memory: 4000Mi
   limits:
     cpu: 250m
-    memory: 512Mi
+    memory: 4000Mi
+
+# nonheapmem is recommended to be set at 40-50% of the request/limit memory for XNAT
+nonheapmem: 2000Mi
 
 autoscaling:
   enabled: false
@@ -222,3 +225,5 @@ probes:
   liveness:
     failureThreshold: 1
     periodSeconds: 10
+
+timezone: ""
