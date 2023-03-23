@@ -225,5 +225,10 @@ probes:
   liveness:
     failureThreshold: 1
     periodSeconds: 10
+    timeoutSeconds: 5
+  readiness:
+    failureThreshold: 1
+    periodSeconds: 10
+    timeoutSeconds: 3
 
 timezone: ""
