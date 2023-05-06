@@ -131,6 +131,7 @@ spec:
               for plugin in ${plugins[@]}; do
                 cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
               done
+              echo "node.id=$HOSTNAME" > /XNAT_HOME/config/node-conf.properties
           volumeMounts:
             - name: tomcat
               mountPath: /TOMCAT
