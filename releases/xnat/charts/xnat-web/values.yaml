@@ -65,17 +65,20 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'
+  requests:
+    cpu: 250m
+    memory: 4000Mi
+  limits:
+    cpu: 250m
+    memory: 4000Mi
+
+# nonheapmem is recommended to be set at 40-50% of the request/limit memory for XNAT
+nonheapmem: 2000Mi
 
 autoscaling:
   enabled: false
@@ -222,3 +225,10 @@ probes:
   liveness:
     failureThreshold: 1
     periodSeconds: 10
+    timeoutSeconds: 5
+  readiness:
+    failureThreshold: 1
+    periodSeconds: 10
+    timeoutSeconds: 3
+
+timezone: ""
