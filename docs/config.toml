@@ -1,4 +1,0 @@
-[module]
-[[module.mounts]]
-source = "Charts"
-target = "content/docs"

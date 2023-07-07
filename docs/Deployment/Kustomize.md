@@ -135,10 +135,11 @@ spec:
 ### 3. The Patch file
 
 OK, so let's have a look at our patch file and see what it is actually doing.
-{{< code yaml "service-patch.yaml" >}}
+
+```yaml
 - op: remove
   path: "/spec/sessionAffinity"
-{{</ code >}}
+```
 
 Pretty simple really. `- op: remove` just removes whatever we tell it to in our service.yaml file. If we look through our file, we find `spec` and then under that we find `sessionAffinity` and then remove that.  
 In this case if we remove all the other code to simplify things you get this:  
@@ -239,7 +240,9 @@ In `kustomization.yaml` add the following:
     version: v1beta1
 ```
 
-{{< code yaml "ingress-patch.yaml" >}}
+```yaml
+# ingress-patch.yaml
+#
 - op: replace
   path: /spec/rules/0/http/paths/0/backend/serviceName
   value: 'ssl-redirect'
@@ -253,7 +256,7 @@ In `kustomization.yaml` add the following:
     backend: 
       serviceName: 'xnat-xnat-web'
       servicePort: 80
-{{</ code >}}
+```
 
 OK, so let's break this down. The top command replaces this:  
 ```yaml
@@ -350,11 +353,13 @@ vi hook.sh
 chmod 755 hook.sh
 ```
 
-{{< code bash "hook.sh" >}}
+```bash
 #!/bin/bash
+# hook.sh
+#
 cat <&0 > all.yaml
 kustomize build && rm all.yaml
-{{</ code >}}
+```
 
 This takes the contents of `all.yaml` and kustomizes it using the `kustomization.yaml` file with the resources and patches I have previously described. Finally, it deletes `all.yaml`.  
 When you run `kustomize build` it will look for a file called `kustomization.yaml` to apply the transformations. As the `kustomization.yaml` file is in the same directory as hook.sh only the `kustomize build` command is needed, no further directive is required.  

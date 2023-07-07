@@ -115,7 +115,9 @@ https://engineering.hellofresh.com/everything-we-learned-running-istio-in-produc
 We are going to enable Mutual TLS for the entire mesh.  
 This policy will do that - call it `istio-mtls.yaml`:  
 
-{{< code yaml "istio-mtls.yaml" >}}
+```yaml
+# istio-mtls.yaml
+#
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -124,7 +126,7 @@ metadata:
 spec:
   mtls:
     mode: STRICT
-{{</ code >}}
+```
 
 Now apply the policy:  
 ```bash
@@ -200,7 +202,9 @@ You can for instance allow a certain source POST access whilst another source on
 
 Let's create the following Authorization policy to allow all GET, HEAD, PUT, DELETE and OPTIONS commands to our `xnat-web` app called `istio-auth-policy.yaml`:  
 
-{{< code yaml "istio-auth-policy.yaml" >}}
+```yaml
+# istio-auth-policy.yaml
+#
 apiVersion: "security.istio.io/v1beta1"
 kind: "AuthorizationPolicy"
 metadata:
@@ -214,7 +218,7 @@ spec:
    - to:
      - operation:
            methods: ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"]
-{{</ code >}}
+```
 
 {{< alert >}}
 If you wanted to specify a source you would add a from value under rules and source.  
@@ -225,7 +229,9 @@ https://istio.io/latest/docs/tasks/security/authorization/authz-http/
 
 Before you apply the policy, we need to add a destination rule to allow the traffic out. Create a file called `istio-destination.yaml`:  
 
-{{< code yaml "istio-destination.yaml" >}}
+```yaml
+# istio-destination.yaml
+#
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -240,7 +246,7 @@ spec:
         number: 8080
       tls:
         mode: DISABLE
-{{</ code >}}
+```
 
 Apply both policies:  
 
@@ -349,7 +355,9 @@ kubectl get -nistio-system all
 
 #### Create Kiali-CR with authentication strategy token and set to service type LoadBalancer to be able to access outside of the cluster:  
 
-{{< code yaml "kiali_cr.yaml" >}}
+```yaml
+# kiali_cr.yaml
+#
 apiVersion: kiali.io/v1alpha1
 kind: Kiali
 metadata:
@@ -363,7 +371,7 @@ spec:
     view_only_mode: false
   server:
      web_root: "/kiali"
-{{</ code >}}
+```
 
 {{< alert >}}
 Read more about Token authentication here:  

@@ -26,10 +26,11 @@ For 1. This is extremely important and based on two options in the `openid-provi
 
 We will use this example below (this is the correct syntax):
 
-{{< code "ini" "openid-provider.properties" >}}
+openid-provider.properties
+```ini
 siteUrl=https://xnat.example.com  
 preEstablishedRedirUri=/openid-login
-{{</ code >}}
+```
 
 In this case, the answer to 1 should be https://xnat.example.com/openid-login
 Submitting https://xnat.example.com will lead to a non functional AAF setup.

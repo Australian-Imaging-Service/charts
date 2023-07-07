@@ -159,7 +159,7 @@ Create a file
 
 - `pv.yaml`
 
-{{< code yaml "pv.yaml" >}}
+```yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -231,7 +231,7 @@ spec:
   - gid=1000
   - mfsymlinks
   - nobrl
-{{</ code >}}
+```
 
 Size doesn't really matter as like EFS, Azure files is completely scaleable. Just make sure it is the same as your values file for those volumes.  
 
@@ -359,7 +359,8 @@ You can find a write up of these commands and what they do in the Microsoft arti
 
 
 #### Create a cluster-issuer.yaml to issue the Letsencrypt certificates  
-{{< code "yaml" "cluster-issuer.yaml" >}}
+
+```yaml
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
@@ -378,7 +379,7 @@ spec:
             spec:
               nodeSelector:
                 "kubernetes.io/os": linux
-{{</ code >}}
+```
 
 In our case, we want production Letsencrypt certificates hence letsencrypt-prod (mentioned twice here and in values-aks.yaml). If you are doing testing you can use letsencrypt-staging. See Microsoft article for more details.  
 Please do not forget to use your email address here.
@@ -400,7 +401,7 @@ This is included in the example below.
 ### Update your override values file to point to your ingress controller and Letsencrypt Cluster issuer  
 Add the following to your `values-aks.yaml` file (I have added the volume and postgresql details as well for the complete values file):
 
-{{< code "yaml" "values-aks.yaml" >}}
+```yaml
 xnat-web:
   ingress:
     enabled: true
@@ -448,7 +449,7 @@ xnat-web:
     postgresqlDatabase: <your database>
     postgresqlUsername: <your username>
     postgresqlPassword: <your password>
-{{</ code >}}
+```
 
 Change `yourxnat.example.com` to whatever you want your XNAT FQDN to be.  
 If you are using Letsencrypt-staging, update the cert-manager.io annotation accordingly.

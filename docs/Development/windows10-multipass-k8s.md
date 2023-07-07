@@ -70,9 +70,10 @@ This is required to direct your workstations browser and other clients to the de
 
 For each service requiring a DNS entry you will need to add an entry into your `hosts` file. From your Notepad application opened as an Administrator you will need to enter the following.
 
-{{< code "bash" "C:\Windows\System32\drivers\etc\hosts" >}}
+C:\Windows\System32\drivers\etc\hosts
+```bash
 IP_Address_of_the_VM	fqdn.service.name fqdn2.service.name
-{{</ code >}}
+```
 
 Get the IP address of your VM
 
@@ -82,9 +83,11 @@ PS C:\> multipass exec vm-name -- ip addr
 
 So if your VM's IP address is `192.168.11.93` and your service FQDN is `xnat.cmca.dev.local` add the following entry into `C:\Windows\System32\drivers\etc\hosts` file and save.
 
-{{< code "bash" "C:\Windows\System32\drivers\etc\hosts" >}}
+C:\Windows\System32\drivers\etc\hosts
+```bash
 192.168.11.93	xnat.cmca.dev.local
-{{</ code >}}
+```
+
 ## Launch Ubuntu 20.04 LTS (Focal) with AIS development tools
 
 {{% alert %}}
