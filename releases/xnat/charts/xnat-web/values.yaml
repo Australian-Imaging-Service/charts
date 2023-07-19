@@ -12,7 +12,7 @@ global:
 replicaCount: 1
 
 image:
-  repository: ghcr.io/australian-imaging-service/xnat-web
+  repository: ghcr.io/australian-imaging-service/xnat
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
