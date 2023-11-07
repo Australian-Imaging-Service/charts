@@ -48,6 +48,9 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.dicom_scp.serviceType | quote }}
+  {{- if and (eq .Values.dicom_scp.serviceType "LoadBalancer") .Values.dicom_scp.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{- .Values.dicom_scp.loadBalancerSourceRanges|toYaml|trim|nindent 4 }}
+  {{- end }}
   ports:
     {{- $serviceType := .Values.dicom_scp.serviceType }}
     {{- range .Values.dicom_scp.recievers }}

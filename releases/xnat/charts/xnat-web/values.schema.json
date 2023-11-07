@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "image": {
+      "description": "Container Image",
+      "properties": {
+        "pullPolicy": {"type": "string"},
+        "repository": {"type": "string"},
+        "tag": {"type": "string"}
+      },
+      "required": ["pullPolicy","repository"],
+      "type": "object"
+    }
+  },
+  "title": "Values",
+  "type": "object"
+}

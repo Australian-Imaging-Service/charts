@@ -3,11 +3,25 @@
 # Declare variables to be passed into your templates.
 
 global:
-  postgresql: {}
+  postgresql:
+    auth:
+      postgresPassword: ""
+      username: ""
+      password: ""
+      database: ""
+      existingSecret: ""
+      secretKeys:
+        adminPasswordKey: ""
+        userPasswordKey: ""
+        replicationPasswordKey: ""
+    service:
+      ports:
+        postgresql: ""
     #postgresqlDatabase: ""
     #postgresqlUsername: ""
     #postgresqlPassword: ""
     #servicePort: ""
+  storageClass: ""
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing

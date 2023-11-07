@@ -28,3 +28,16 @@ Create the name of the PostgreSQL service account to use
 {{- .Values.postgresql.postgresqlPassword }}
 {{- end }}
 {{- end -}}
+
+{{- define "xnat-web.postgresql.jdbc" -}}
+{{- printf "jdbc:postgresql://%s/%s" (include "xnat.postgresql.fullname" .) (include "xnat.postgresql.database" .) -}}
+{{- if .Values.postgresql.ssl.enabled -}}
+{{- printf "?ssl=true" -}}
+{{- if .Values.postgresql.ssl.mode -}}
+{{- printf "&sslmode=%s" .Values.postgresql.ssl.mode -}}
+{{- end -}}
+{{- if .Values.postgresql.ssl.factory -}}
+{{- printf "&sslfactory=%s" .Values.postgresql.ssl.factory -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

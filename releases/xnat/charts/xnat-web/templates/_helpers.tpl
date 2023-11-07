@@ -71,7 +71,7 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Converty yaml to xnat configuration syntax
+Convert yaml to xnat configuration syntax
 */}}
 {{- define "xnat-web.envify" -}}
 {{- $prefix := index . 0 -}}

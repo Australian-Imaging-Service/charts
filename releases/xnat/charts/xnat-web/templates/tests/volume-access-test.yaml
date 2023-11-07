@@ -1,0 +1,36 @@
+---
+# https://www.postgresql.org/docs/current/libpq-envars.html
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-test-volumes
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+  - image: postgres
+    command: ["/bin/sh","-c"]
+    args:
+      - |
+        ERRCODE=0
+        test -w {{ .Values.volumes.archive.mountPath }} || { echo ERROR {{ .Values.volumes.archive.mountPath }}; ERRCODE=1; }
+        test -w {{ .Values.volumes.prearchive.mountPath }} || { echo ERROR {{ .Values.volumes.prearchive.mountPath }}; ERRCODE=1; }
+        exit $ERRCODE
+    imagePullPolicy: IfNotPresent
+    name: volume-tests
+    securityContext:
+      {{- toYaml .Values.securityContext | nindent 6 }}
+    volumeMounts:
+    {{- range $volumeName,$volume := .Values.volumes }}
+    - mountPath: {{$volume.mountPath|quote}}
+      name: {{$volumeName|quote}}
+    {{- end }}
+  restartPolicy: Never
+  volumes:
+  {{- range $volumeName,$volume := .Values.volumes }}
+  - name: {{$volumeName|quote}}
+    persistentVolumeClaim:
+      claimName: {{$volume.existingClaim|default (printf "%s-%s" (include "xnat-web.fullname" $) $volumeName)}}
+  {{- end }}

@@ -19,6 +19,7 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "xnat-web.statefulsetLabels" . | nindent 8 }}
     spec:
@@ -69,10 +70,19 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            # WORKAROUND
+            - name: catalina-base-logs
+              mountPath: /usr/local/tomcat/logs
+            - name: xnat-logs
+              mountPath: /data/xnat/home/logs
             - name: passwd
               mountPath: /etc/passwd
               readOnly: true
               subPath: passwd
+            - name: logback-xml
+              mountPath: /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/logback.xml
+              readOnly: true
+              subPath: logback.xml
             - name: tomcat
               mountPath: /usr/local/tomcat
             - name: conf-catalina
@@ -140,12 +150,23 @@ spec:
             - name: home-plugins
               mountPath: /HOME-PLUGINS
       volumes:
+        # WORKAROUND
+        - name: catalina-base-logs
+          emptyDir: {}
+        - name: xnat-logs
+          emptyDir: {}
         - name: passwd
           configMap:
             name: {{ include "xnat-web.fullname" . }}
             items:
               - key: passwd
                 path: passwd
+        - name: logback-xml
+          configMap:
+            name: {{ .Values.logging.existingConfigMap.name|default (include "xnat-web.fullname" .) }}
+            items:
+              - key: logback.xml
+                path: logback.xml
         - name: tomcat
           emptyDir: {}
         # SEVERE: Unable to create directory for deployment: [/usr/local/tomcat/conf/Catalina/localhost]
@@ -157,13 +178,14 @@ spec:
           emptyDir: {}
         {{- range $plugin, $p := .Values.plugins }}
         {{- range $p }}
-        {{- if .auth }}
-        - name: auth-{{ .provider.id }}
+        {{- $plugin_values := include "xnat-web.plugin.values" (list $ . $plugin)|fromJson }}
+        {{- if hasKey $plugin_values "auth" }}
+        - name: auth-{{ $plugin_values.provider.id }}
           secret:
             secretName: {{ include "xnat-web.fullname" $ }}-plugin-{{ $plugin }}
             items:
-              - key: {{ .provider.id }}-provider.properties
-                path: {{ .provider.id }}-provider.properties
+              - key: {{ $plugin_values.provider.id }}-provider.properties
+                path: {{ $plugin_values.provider.id }}-provider.properties
         {{- end }}
         {{- end }}
         {{- end }}

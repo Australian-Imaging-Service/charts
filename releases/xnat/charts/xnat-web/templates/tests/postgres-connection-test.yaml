@@ -1,24 +1,30 @@
+---
+# https://www.postgresql.org/docs/current/libpq-envars.html
+#
 apiVersion: v1
 kind: Pod
 metadata:
   name: {{ template "xnat-web.postgresql.fullname" . }}-test-connection
   annotations:
     "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   containers:
-  - image: ubuntu
+  - image: postgres
     env:
-      - name: POSTGRESQL_SERVICE_NAME
-        value: {{ template "xnat-web.postgresql.fullname" . }}
-      - name: POSTGRES_POSTGRES_PASSWORD
-        value: {{ template "xnat-web.postgresql.postgresqlPassword" . }}
-      - name: POSTGRES_USER
-        value: {{ template "xnat-web.postgresql.postgresqlUsername" . }}
-      - name: POSTGRES_DB
-        value: {{ template "xnat-web.postgresql.postgresqlDatabase" . }}
+      - name: PGHOST
+        value: {{ template "xnat.postgresql.fullname" . }}
+      - name: PGPASSWORD
+        {{- include "xnat.postgresql.PGPASSWORD" . |nindent 8 }}
+      - name: PGUSER
+        value: {{ template "xnat.postgresql.username" . }}
+      - name: PGDATABASE
+        value: {{ template "xnat.postgresql.database" . }}
     command: ["/bin/sh"]
-    args: ["-c","apt-get update -y && apt-get install postgresql-client -y && psql postgresql://$(POSTGRES_USER):$(POSTGRES_POSTGRES_PASSWORD)@$(POSTGRESQL_SERVICE_NAME)/$(POSTGRES_DB)"]
+    args:
+      - "-c"
+      - |
+        /usr/bin/pg_isready
     imagePullPolicy: IfNotPresent
-    name: ubuntu
+    name: pg-isready
   restartPolicy: Never
----
