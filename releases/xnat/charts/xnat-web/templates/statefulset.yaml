@@ -110,6 +110,13 @@ spec:
               {{- end }}
             {{- end }}
             {{- end }}
+        - name: {{ .Chart.Name }}-pluginlogs
+          image: debian:bullseye-slim
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["/bin/bash", "-c", "sleep 60 && tail -f /data/xnat/home/logs/*.log"]
+          volumeMounts:
+            - name: xnat-home
+              mountPath: /data/xnat/home
       initContainers:
         - name: home-init
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
