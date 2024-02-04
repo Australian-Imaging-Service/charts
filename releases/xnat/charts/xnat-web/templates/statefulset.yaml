@@ -113,7 +113,7 @@ spec:
         - name: {{ .Chart.Name }}-pluginlogs
           image: debian:bullseye-slim
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["/bin/bash", "-c", "sleep 60 && tail -f /data/xnat/home/logs/*.log"]
+          args: ["/bin/bash", "-c", "while [ ! -f /data/xnat/home/logs/*.log ]; do sleep 15; done; tail -f /data/xnat/home/logs/*.log;"]
           volumeMounts:
             - name: xnat-home
               mountPath: /data/xnat/home
