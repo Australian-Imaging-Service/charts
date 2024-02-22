@@ -22,30 +22,49 @@ postgresqlExternalName: ""
 postgresqlExternalIPs: []
 #  - 130.95.126.8
 
-# For more xnat-web details and values reference
-# <https://github.com/Australian-Imaging-Service/charts/tree/main/releases/xnat/charts/xnat-web>
-#
 xnat-web:
   enabled: true
- 
-  # https://wiki.xnat.org/documentation/xnat-administration/connecting-xnat-to-dicom-scanners-and-pacs
-  # DICOM C-STORE Service Class Provider (SCP)
-  # DICOM Application Entity (AE)
-  dicom_scp:
-    serviceType: "NodePort"
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/australian-imaging-service/xnat
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
     annotations: {}
-    #  metallb.universe.tf/address-pool: production-public-ips
-    #  metallb.universe.tf/allow-shared-ip: true
-    recievers:
-      - ae_title: "XNAT"
-        port: 8104
-        # nodePort: 32514
-        # loadBalancerIp: "130.95.27.91"
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+
+  podAnnotations: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  service:
+    port: 80
+    type: ClusterIP
 
   ingress:
     enabled: false
     annotations: {}
-      # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
       # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
       # nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
@@ -53,6 +72,7 @@ xnat-web:
       # nginx.ingress.kubernetes.io/proxy-read-timeout: "100"
       # nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
       # nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
+    # ingressClassName: nginx
     hosts:
       - host: "chart-example.local"
     tls: []
@@ -60,7 +80,55 @@ xnat-web:
     #    hosts:
     #      - chart-example.local
 
-  # xnat-web plugins must be referenced here to be enabled
+  resources:
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'
+    requests:
+      cpu: 250m
+      memory: 4000Mi
+    limits:
+      cpu: 250m
+      memory: 4000Mi
+
+  # nonheapmem is recommended to be set at 40-50% of the request/limit memory for XNAT
+  nonheapmem: 2000Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  persistence:
+    cache:
+      accessMode: ReadWriteOnce
+      mountPath: "/data/xnat/cache"
+      # storageClass: "-"
+      size: 10Gi
+
+  volumes:
+    archive:
+      accessMode: ReadWriteMany
+      #existingClaim: ""
+      mountPath: "/data/xnat/archive"
+      #storageClass: "-"
+      size: 1Ti
+    prearchive:
+      accessMode: ReadWriteMany
+      #existingClaim: ""
+      mountPath: "/data/xnat/prearchive"
+      #storageClass: "-"
+      size: 1Ti
+
   plugins: {}
     #container-service: []
     # Uncomment OHIF viewer line below for XNAT 1.8.2 and higher
@@ -145,21 +213,38 @@ xnat-web:
     #      givenNameProperty: given_name
     #      familyNameProperty: family_name
 
-  # xnat-web persistant volume settings
-  volumes:
-    archive:
-      #existingClaim: ""
-      #storageClass: "-"
-      size: 1Gi
-    prearchive:
-      #existingClaim: ""
-      #storageClass: "-"
-      size: 1Gi
+  # https://wiki.xnat.org/documentation/xnat-administration/connecting-xnat-to-dicom-scanners-and-pacs
+  # DICOM C-STORE Service Class Provider (SCP)
+  # DICOM Application Entity (AE)
+  dicom_scp:
+    serviceType: "NodePort"
+    annotations: {}
+    #  metallb.universe.tf/address-pool: production-public-ips
+    #  metallb.universe.tf/allow-shared-ip: true
+    recievers:
+      - ae_title: "XNAT"
+        port: 8104
+        # nodePort: 32514
+        # loadBalancerIp: "130.95.27.91"
 
-  # xnat-web postgresql client setting overrides
-  # these values can be set in the global section
   postgresql:
-    postgresqlDatabase: "xnat"
-    postgresqlPassword: "xnat"
-    postgresqlUsername: "xnat"
+    postgresqlDatabase: "xnat_web"
+    postgresqlUsername: "xnat_web"
+    #postgresqlPassword: ""
+
+  probes:
+    startup:
+      # adjust below values to suit the startup time. Below startup time is 15*10=150s
+      failureThreshold: 15
+      periodSeconds: 10
+    liveness:
+      failureThreshold: 1
+      periodSeconds: 10
+      timeoutSeconds: 5
+    readiness:
+      failureThreshold: 1
+      periodSeconds: 10
+      timeoutSeconds: 3
+
+  timezone: ""
 
