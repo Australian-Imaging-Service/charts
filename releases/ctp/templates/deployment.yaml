@@ -34,9 +34,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: timezone
+            - name: TZ
               value: {{ .Values.timezone }}
-          args: ["java", "-jar", "/JavaPrograms/CTP/Runner.jar" ]
           ports:
             - name: http
               containerPort: 1080
