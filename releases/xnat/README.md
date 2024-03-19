@@ -3,7 +3,7 @@
 [XNAT](https://www.xnat.org/) is an open source imaging informatics platform developed by the Neuroinformatics Research Group at Washington University. XNAT was originally developed at Washington University in the Buckner Lab, which is now located at Harvard University. It facilitates common management, productivity, and quality assurance tasks for imaging and associated data.
 
 ```bash
-$ helm repo add ais https://TODO/charts
+$ helm repo add ais https://australian-imaging-service.github.io/charts
 $ helm upgrade xnat ais/xnat --install
 ```
 
