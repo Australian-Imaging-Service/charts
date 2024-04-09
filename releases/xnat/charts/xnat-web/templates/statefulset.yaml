@@ -36,11 +36,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- $request := trimSuffix "Mi" .Values.resources.requests.memory }}
-          {{- $nonheap := trimSuffix "Mi" .Values.nonheapmem }}
           env:
+          {{- if .Values.nonheapmem }}
+          {{- $nonheap := trimSuffix "Mi" .Values.nonheapmem }}
             - name: CATALINA_OPTS
               value: -Xms{{ sub $request $nonheap }}m -Xmx{{ sub $request $nonheap }}m -Dxnat.home=/data/xnat/home
-            - name: timezone
+          {{- end }}
+            - name: TZ
               value: {{ .Values.timezone }}
           ports:
             - name: http

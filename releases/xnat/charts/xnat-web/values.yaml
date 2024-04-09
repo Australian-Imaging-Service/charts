@@ -77,8 +77,9 @@ resources:
     cpu: 250m
     memory: 4000Mi
 
-# nonheapmem is recommended to be set at 40-50% of the request/limit memory for XNAT
-nonheapmem: 2000Mi
+# nonheapmem can be manually set here. It's recommended to be set at 40-50% of the request/limit memory for XNAT
+# When it's empty, it uses the default configuration in XNAT image
+nonheapmem: ""
 
 autoscaling:
   enabled: false
