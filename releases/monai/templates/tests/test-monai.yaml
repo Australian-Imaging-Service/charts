@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "monai.fullname" . }}-test-monai"
+  labels:
+    {{- include "monai.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      args:
+        - sh
+        - -c
+        - |
+          python -c "import monai; monai.config.print_config()"
+  restartPolicy: Never

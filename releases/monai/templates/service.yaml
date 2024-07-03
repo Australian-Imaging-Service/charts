@@ -1,0 +1,21 @@
+{{ $fullname := (include "monai.fullname" .) }}
+{{ $labels := (include "monai.labels" .) }}
+{{ $selectorLabels := (include "monai.selectorLabels" .) }}
+{{- range $n, $v := .Values.services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ $n }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  type: {{ $v.type }}
+  ports:
+    - port: {{ $v.port }}
+      targetPort: {{ $n }}
+      protocol: TCP
+      name: {{ $n }}
+  selector:
+    {{- $selectorLabels | nindent 4 }}
+{{- end }}
