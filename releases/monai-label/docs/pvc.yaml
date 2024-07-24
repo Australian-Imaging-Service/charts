@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monailabel-apps
+  namespace: monai
+spec:
+  accessModes: [ReadWriteMany]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: ssd-hostpath
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monailabel-datasets
+  namespace: monai
+spec:
+  accessModes: [ReadWriteMany]
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: ssd-hostpath
