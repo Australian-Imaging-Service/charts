@@ -13,8 +13,9 @@ spec:
       {{- include "monai-label.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
@@ -38,20 +39,23 @@ spec:
           - -c
           - |
             cd $HOME
+            cat /conf/.env
+            source /conf/.env
             set -x
-            [[ -d ./apps/{{ .Values.apps }} ]] \
-             || monailabel apps --download --name {{ .Values.apps }} --output apps
-            [[ -d ./datasets/{{ .Values.datasets }} ]] \
-             || monailabel datasets --download --name {{ .Values.datasets }} --output datasets
-            monailabel start_server --app apps/{{ .Values.apps }} --studies {{ .Values.studies }} --host 0.0.0.0 --port 8000 --conf {{ .Values.conf }} --dryrun
-            source .env
-            #exec tail -f /dev/null
-            exec uvicorn monailabel.app:app --host=0.0.0.0 --port=8000 --log-level=info --no-access-log --workers=4 --forwarded-allow-ips='*' --proxy-headers
-            #exec uvicorn monailabel.app:app --host='0.0.0.0' --port=8000 --log-level=info \
-            #--no-access-log \
-            #--workers=4 \
-            #{{ .Values.ingress.enabled | ternary "--forwarded-allow-ips='*'" "--forwarded-allow-ips='127.0.0.1'" }} \
-            #{{ .Values.ingress.enabled | ternary "--proxy-headers" "--no-proxy-headers" }}
+            monailabel apps --name radiology --download --output {{ .Values.appDir }}
+            monailabel apps
+            monailabel datasets
+            monailabel plugins
+            exec uvicorn monailabel.app:app --host=0.0.0.0 \
+            --port={{ .Values.service.port }} \
+            --log-config=/conf/logging_config.json \
+            --log-level={{ .Values.logging.logLevel }}{{- if not .Values.logging.accessLog }} --no-access-log{{ end }} \
+            --workers=4 \
+            {{- if .Values.ingress.enabled -}}
+            --forwarded-allow-ips='*' --proxy-headers
+            {{- else -}}
+            --forwarded-allow-ips='127.0.0.1' --no-proxy-headers
+            {{- end }}
           env:
           - {name: HOME, value: /home/user}
           securityContext:
@@ -66,6 +70,8 @@ spec:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -73,15 +79,35 @@ spec:
               mountPath: /dev/shm
             - name: user-home
               mountPath: /home/user
+            - name: conf
+              mountPath: /conf
+            - name: appdir
+              mountPath: {{ .Values.appDir }}
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      init-containers:
+        - name: init-appdir
+          image: busybox
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              #cp -nr /usr/local/monailabel/sample-apps/* {{ .Values.appDir }}
+              cp -nr /usr/local/monailabel/sample-apps/* /dev/null
+          volumeMounts:
+            - name: appdir
+              mountPath: {{ .Values.appDir }}
       volumes:
         - name: shm-device
           emptyDir:
             medium: Memory
             sizeLimit: {{ .Values.shmSize }}
         - name: user-home
+          emptyDir: {}
+        - name: conf
+          configMap:
+            name: {{ include "monai-label.fullname" . }}
+        - name: appdir
           emptyDir: {}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}

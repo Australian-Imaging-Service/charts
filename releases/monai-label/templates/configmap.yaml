@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "monai-label.fullname" . }}
+  labels:
+    {{- include "monai-label.labels" . | nindent 4 }}
+data:
+  .env: |-
+    {{- tpl ($.Files.Get "conf/env.tmpl") . | nindent 4 }}
+  logging_config.json: |-
+    {{- tpl ($.Files.Get "conf/logging_config.json") . | nindent 4 }}

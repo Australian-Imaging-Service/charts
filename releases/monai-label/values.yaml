@@ -5,8 +5,19 @@
 apps: radiology
 datasets: Task09_Spleen
 studies: datasets/Task09_Spleen/imagesTr
-conf: models deepedit
+#studies: http://127.0.0.1:8042/dicom-web
+#studies: https://d28o5kq0jsoob5.cloudfront.net/dicomweb
+conf:
+  models: all
 
+appDir: /usr/local/monailabel/apps
+logging:
+  # critical, error, warning, info, debug, trace
+  logLevel: debug
+  accessLog: true
+
+# cmd: monailabel apps --download --name radiology --output apps
+# cmd: monailabel datasets --download --name Task09_Spleen --output datasets
 cmd: monailabel start_server --apps apps/radiology --studies datasets/Task09_Spleen/imagesTr --conf models deepedit
 shmSize: 64Mi
 
@@ -37,7 +48,7 @@ podAnnotations: {}
 podLabels: {}
 
 podSecurityContext:
-  fsGroup: 1000
+  fsGroup: 10000
 
 securityContext:
   capabilities:
@@ -45,7 +56,7 @@ securityContext:
     - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
-  runAsUser: 1000
+  runAsUser: 10000
 
 service:
   type: ClusterIP
@@ -75,6 +86,7 @@ resources: {}
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
+  #   nvidia.com/gpu: 1
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
@@ -87,6 +99,12 @@ readinessProbe:
   httpGet:
     path: /
     port: http
+startupProbe:
+  httpGet:
+    path: /
+    port: http
+  periodSeconds: 5
+  failureThreshold: 60
 
 autoscaling:
   enabled: false
@@ -111,5 +129,8 @@ volumeMounts: []
 nodeSelector: {}
 
 tolerations: []
+# - key: nvidia.com/gpu
+#   operator: Exists
+#   effect: NoSchedule
 
 affinity: {}
