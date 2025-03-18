@@ -5,3 +5,4 @@ Chart.lock
 /tmp
 .vagrant/
 *.log
+/releases/*/charts/*.tgz

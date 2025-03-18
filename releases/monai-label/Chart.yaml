@@ -23,3 +23,9 @@ version: 0.1.0
 # It is recommended to use it with quotes.
 appVersion: "0.8.3"
 #appVersion: "sha256:f067de68f2f0e663c136d41dafcd92c0afa6f4930ed96238563f837449697ffe"
+
+dependencies:
+  - name: oauth2-proxy
+    version: ">=6.23.1"
+    condition: oauth2-proxy.enabled
+    repository: https://oauth2-proxy.github.io/manifests

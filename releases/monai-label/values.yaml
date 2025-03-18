@@ -1,25 +1,89 @@
 # Default values for monai-label.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+global:
+  storageClassName: ""
 
-apps: radiology
-datasets: Task09_Spleen
-studies: datasets/Task09_Spleen/imagesTr
+app: /home/user/apps/radiology
+studies: /home/user/datasets/Task09_Spleen/imagesTr
+#studies: ""
 #studies: http://127.0.0.1:8042/dicom-web
 #studies: https://d28o5kq0jsoob5.cloudfront.net/dicomweb
 conf:
   models: all
 
-appDir: /usr/local/monailabel/apps
+datasets: Task09_Spleen
+
+appDir: /home/user/apps
+#appDir: /usr/local/monailabel/apps
+datasetDir: /home/user/datasets
+
+auth:
+  enabled: false
+  realmUri: http://localhost:8080/realms/monailabel
+  timeout: 10
+  token:
+    username: preferred_username
+    email: email
+    name: name
+    roles: realm_access#roles
+  clientId: monailabel-app
+  role:
+    admin: monailabel-admin
+    reviewer: monailabel-reviewer
+    annotator: monailabel-annotator
+    user: monailabel-user
+
+extraCerts: ""
+
 logging:
   # critical, error, warning, info, debug, trace
-  logLevel: debug
-  accessLog: true
+  logLevel: info
+  accessLog: false
 
 # cmd: monailabel apps --download --name radiology --output apps
 # cmd: monailabel datasets --download --name Task09_Spleen --output datasets
 cmd: monailabel start_server --apps apps/radiology --studies datasets/Task09_Spleen/imagesTr --conf models deepedit
 shmSize: 64Mi
+
+# OAuth2 Proxy as a standalone reverse-proxy
+# Upstream https://github.com/oauth2-proxy/oauth2-proxy
+# For more information and settings visit
+# https://github.com/oauth2-proxy/manifests/tree/main/helm/oauth2-proxy
+oauth2-proxy:
+  enabled: false
+  config:
+    clientID: ""
+    clientSecret: ""
+    cookieSecret: ""
+    configFile: |-
+      provider = "keycloak-oidc"
+      provider_display_name = "keycloak@fake.sydney.edu.au"
+      oidc_issuer_url = "https://keycloak.fake.sydney.edu.au/realms/fake"
+      redirect_url = "https://monai-label.fake.sydney.edu.au/oauth2/callback"
+      email_domains = [
+        "*"
+      ]
+      code_challenge_method = "S256"
+      ssl_insecure_skip_verify = true
+      insecure_oidc_allow_unverified_email = true
+      request_logging = true
+  service:
+    portNumber: 4180
+  ingress:
+    enabled: true
+    className: nginx
+    path: /oauth2
+    pathType: Prefix
+    annotations:
+      # ISSUE upstream sent too big header
+      nginx.ingress.kubernetes.io/proxy-buffer-size: "256k"
+    hosts:
+      - monai-label.fake.sydney.edu.au
+    tls:
+    - hosts:
+        - monai-label.fake.sydney.edu.au
+      secretName: monai-label-tls
 
 replicaCount: 1
 
@@ -119,12 +183,18 @@ volumes: []
 #   secret:
 #     secretName: mysecret
 #     optional: false
+# - name: cacerts
+#   secret:
+#     optional: true
+#     secretName: ca-cert
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts: []
 # - name: foo
 #   mountPath: "/etc/foo"
 #   readOnly: true
+# - mountPath: /etc/ssl/certs/
+#   name: cacerts
 
 nodeSelector: {}
 

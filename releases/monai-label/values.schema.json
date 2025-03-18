@@ -1,0 +1,52 @@
+{ "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "auth": {
+      "properties": {
+        "clientId": {"type": "string"},
+        "enabled": {"type": "boolean"},
+        "realmUri": {"type": "string", "format": "uri"},
+        "timeout": {"type": "number", "minimum": 0},
+        "token": {
+          "properties": {
+            "username": {"type": "string"},
+            "email": {"type": "string"},
+            "name": {"type": "string"},
+            "roles": {"type": "string"}
+          },
+          "type": "object"
+        },
+        "role": {
+          "properties": {
+            "admin": {"type": "string"},
+            "annotator": {"type": "string"},
+            "reviewer": {"type": "string"},
+            "user": {"type": "string"}
+          },
+          "type": "object"
+        }
+      }
+    },
+    "conf" : {
+      "properties": {
+        "models": {"enum": ["deepedit","deepgrow","segmentation","segmentation_speen","all"]}
+      },
+      "required": ["models"],
+      "title": "Configuration",
+      "type": "object"
+    },
+    "extraCerts": {"type": "string"},
+    "logging": {
+      "properties": {
+        "logLevel": {"enum": ["critical","error","warning","info","debug","trace"]},
+        "accessLog": {"type": "boolean"}
+      },
+      "required": ["accessLog","logLevel"],
+      "title": "Logging",
+      "type": "object"
+    },
+    "shmSize": {"type": "string", "pattern": "^[0-9]+Mi$"}
+  },
+  "required": [],
+  "title": "Values",
+  "type": "object"
+}

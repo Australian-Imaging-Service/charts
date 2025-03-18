@@ -35,29 +35,28 @@ spec:
         - name: {{ .Chart.Name }}
           # https://www.uvicorn.org/#command-line-options
           args:
-          - bash
-          - -c
-          - |
-            cd $HOME
-            cat /conf/.env
-            source /conf/.env
-            set -x
-            monailabel apps --name radiology --download --output {{ .Values.appDir }}
-            monailabel apps
-            monailabel datasets
-            monailabel plugins
-            exec uvicorn monailabel.app:app --host=0.0.0.0 \
-            --port={{ .Values.service.port }} \
-            --log-config=/conf/logging_config.json \
-            --log-level={{ .Values.logging.logLevel }}{{- if not .Values.logging.accessLog }} --no-access-log{{ end }} \
-            --workers=4 \
-            {{- if .Values.ingress.enabled -}}
-            --forwarded-allow-ips='*' --proxy-headers
-            {{- else -}}
-            --forwarded-allow-ips='127.0.0.1' --no-proxy-headers
+            - uvicorn
+            - monailabel.app:app
+            - --host=0.0.0.0
+            - --port={{ .Values.service.port }}
+            - --log-config=/conf/logging_config.json
+            - --log-level={{ .Values.logging.logLevel }}
+            {{- if not .Values.logging.accessLog }}
+            - --no-access-log
+            {{ end }}
+            - --workers=2
+            {{- if .Values.ingress.enabled }}
+            - --forwarded-allow-ips='*'
+            - --proxy-headers
+            {{- else }}
+            - --forwarded-allow-ips='127.0.0.1'
+            - --no-proxy-headers
             {{- end }}
           env:
-          - {name: HOME, value: /home/user}
+            - {name: HOME, value: /home/user}
+          {{- if .Values.extraCerts }}
+            - {name: REQUESTS_CA_BUNDLE, value: /home/user/ca-certificates.crt}
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: {{ include "monai-label.image" . }}
@@ -77,38 +76,84 @@ spec:
           volumeMounts:
             - name: shm-device
               mountPath: /dev/shm
+            - name: tmpd
+              mountPath: /tmp
             - name: user-home
               mountPath: /home/user
-            - name: conf
+            - name: entrypoint
+              mountPath: /opt/nvidia/entrypoint.d/90-monailabel.sh
+              readOnly: true
+              subPath: 90-monailabel.sh
+            - name: config
               mountPath: /conf
-            - name: appdir
-              mountPath: {{ .Values.appDir }}
+              readOnly: true
+            - name: conf-ohifv3
+              mountPath: /usr/local/monailabel/plugins/ohifv3/config/nginx.conf
+              readOnly: true
+              subPath: nginx.conf
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      init-containers:
-        - name: init-appdir
-          image: busybox
+      initContainers:
+        - name: init
+          image: ghcr.io/sydneyresearchtech/debian:1.1.0
           command: ["/bin/bash", "-c"]
           args:
             - |
-              #cp -nr /usr/local/monailabel/sample-apps/* {{ .Values.appDir }}
-              cp -nr /usr/local/monailabel/sample-apps/* /dev/null
+              CRT='/home/user/ca-certificates.crt'
+              set -x
+              {{- if .Values.extraCerts }}
+              cp /conf/ca-certificates.crt $CRT
+              cat /etc/ssl/certs/ca-certificates.crt >>$CRT
+              {{- end }}
           volumeMounts:
-            - name: appdir
-              mountPath: {{ .Values.appDir }}
+            - mountPath: /conf
+              name: config
+              readOnly: true
+            - name: user-home
+              mountPath: /home/user
+        {{- if .Values.datasets }}
+        - name: init-datasets
+          image: ghcr.io/sydneyresearchtech/debian:1.1.0
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -x
+              # monailabel datasets --download --name Task09_Spleen --output datasets
+              mkdir -p /home/user/datasets
+              [[ -f /home/user/${DATASETS}.tar ]] || \
+                curl -sSL https://msd-for-monai.s3-us-west-2.amazonaws.com/${DATASETS}.tar -o /home/user/${DATASETS}.tar
+              [[ -d /home/user/datasets/${DATASETS} ]] || \
+                tar -xf "/home/user/${DATASETS}.tar" -C /home/user/datasets
+          env:
+            - {name: "DATASETS", value: "{{ .Values.datasets }}"}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: user-home
+              mountPath: /home/user
+        {{- end }}
       volumes:
         - name: shm-device
           emptyDir:
             medium: Memory
             sizeLimit: {{ .Values.shmSize }}
-        - name: user-home
+        - name: tmpd
           emptyDir: {}
-        - name: conf
+        - name: user-home
+          persistentVolumeClaim:
+            claimName: {{ include "monai-label.fullname" . }}
+        - name: entrypoint
+          configMap:
+            name: {{ include "monai-label.fullname" . }}-entrypoint
+            items:
+              - {key: "monailabel.sh", path: "90-monailabel.sh"}
+        - name: config
           configMap:
             name: {{ include "monai-label.fullname" . }}
-        - name: appdir
-          emptyDir: {}
+        - name: conf-ohifv3
+          configMap:
+            name: {{ include "monai-label.fullname" . }}-ohifv3
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
