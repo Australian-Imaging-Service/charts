@@ -43,7 +43,7 @@ logging:
 
 # cmd: monailabel apps --download --name radiology --output apps
 # cmd: monailabel datasets --download --name Task09_Spleen --output datasets
-cmd: monailabel start_server --apps apps/radiology --studies datasets/Task09_Spleen/imagesTr --conf models deepedit
+# cmd: monailabel start_server --apps apps/radiology --studies datasets/Task09_Spleen/imagesTr --conf models deepedit
 shmSize: 64Mi
 
 # OAuth2 Proxy as a standalone reverse-proxy

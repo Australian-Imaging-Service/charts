@@ -7,8 +7,8 @@ metadata:
 data:
   .env: |-
     {{- tpl ($.Files.Get "conf/env.tmpl") . | nindent 4 }}
-  logging_config.json: |-
-    {{- tpl ($.Files.Get "conf/logging_config.json") . | nindent 4 }}
+  logging.json: |-
+    {{- tpl ($.Files.Get "conf/logging.json") . | nindent 4 }}
 {{- if .Values.extraCerts }}
   ca-certificates.crt: |
     {{- .Values.extraCerts | nindent 4 }}

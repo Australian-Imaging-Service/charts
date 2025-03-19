@@ -1,18 +1,15 @@
 #!/bin/bash
-APPS=( endoscopy monaibundle pathology radiology )
-
 # https://www.uvicorn.org/#command-line-options
 export WEB_CONCURRENCY=2
 
-[[ -f /conf/.env ]] && { source /conf/.env; cat /conf/.env; echo; }
+source /conf/.env
+APP_PATH="$(dirname $MONAI_LABEL_APP_DIR)"
+APP_NAME="$(basename $MONAI_LABEL_APP_DIR)"
 
-#cd $HOME
-mkdir -p {{ .Values.appDir }}
-for APP in "${APPS[@]}"; do
-	[[ -d {{ .Values.appDir }}/$APP ]] || \
-		echo "monailabel apps --name $APP --download --output {{ .Values.appDir }}"
-		monailabel apps --name $APP --download --output {{ .Values.appDir }}
-done
+echo
+echo "MONAI label environment settings"
+cat /conf/.env
+echo
 
 echo "monailabel apps"
 monailabel apps
@@ -20,3 +17,9 @@ echo "monailabel datasets"
 monailabel datasets
 echo "monailabel plugins"
 monailabel plugins
+
+[[ -d $APP_PATH ]] || mkdir -p "${APP_PATH}"
+if [[ ! -d $MONAI_LABEL_APP_DIR ]]; then
+	echo "monailabel apps --name ${APP_NAME} --download --output ${APP_PATH}"
+	monailabel apps --name $APP_NAME --download --output ${APP_PATH}
+fi
