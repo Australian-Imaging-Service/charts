@@ -23,3 +23,4 @@ if [[ ! -d $MONAI_LABEL_APP_DIR ]]; then
 	echo "monailabel apps --name ${APP_NAME} --download --output ${APP_PATH}"
 	monailabel apps --name $APP_NAME --download --output ${APP_PATH}
 fi
+[[ -d $MONAI_LABEL_STUDIES ]] || mkdir -p "${MONAI_LABEL_STUDIES}"

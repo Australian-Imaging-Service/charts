@@ -52,6 +52,7 @@ spec:
             - --forwarded-allow-ips='127.0.0.1'
             - --no-proxy-headers
             {{- end }}
+          workingDir: /home/user
           env:
             - {name: HOME, value: /home/user}
           {{- if .Values.extraCerts }}
