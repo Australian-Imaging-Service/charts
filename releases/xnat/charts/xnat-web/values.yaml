@@ -4,10 +4,16 @@
 
 global:
   postgresql: {}
-    # postgresqlDatabase: ""
-    # postgresqlUser: ""
-    # servicePort: 5432
+    # auth: 
+    #   database: xnat_web
+    #   username: xnat_web
+    #   password: xnat_web
   storageClass: ""
+
+postgresql: {}
+  # postgresqlDatabase: "xnat_web"
+  # postgresqlUsername: "xnat_web"
+  # postgresqlPassword: "xnat_web"
 
 replicaCount: 1
 
@@ -212,11 +218,6 @@ dicom_scp:
       port: 8104
       # nodePort: 32514
       # loadBalancerIp: "130.95.27.91"
-
-postgresql:
-  postgresqlDatabase: "xnat_web"
-  postgresqlUsername: "xnat_web"
-  #postgresqlPassword: ""
 
 probes:
   startup:

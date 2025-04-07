@@ -25,6 +25,8 @@ $ helm upgrade my-xnat ais/xnat --install
 
 The command deploys XNAT on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
 
+Note: From chart 1.1.16, dependent Bitnami PostgreSQL engine is upgraded to 16.4.0 from 11.14.0. If you use internal PostgreSQL, you need to create a full backup of your existing database before upgrade, afterwards restore it to the upgraded database. If your chart is configured to connect to an external PostgreSQL database (not managed by the Bitnami subchart), this message is less directly relevant to your database upgrade process.
+
 ## Uninstalling the chart
 
 To uninstall/delete the my-xnat deployment
