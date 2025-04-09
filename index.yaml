@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   ctp:
   - apiVersion: v2
+    appVersion: v2025.03.26
+    created: "2025-04-09T02:52:26.750612663Z"
+    description: Clinical Trial Processor (CTP), provides all the processing features
+      of a MIRC site.
+    digest: 3ddd4ec3ac4957769be4eed2de46b9bb43a5b7cd7de832dec5c5b340c2fa839a
+    name: ctp
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/ctp-1.0.3/ctp-1.0.3.tgz
+    version: 1.0.3
+  - apiVersion: v2
     appVersion: "20231104"
     created: "2024-04-09T00:42:35.610207373Z"
     description: Clinical Trial Processor (CTP), provides all the processing features
@@ -528,4 +539,4 @@ entries:
     urls:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-0.3.0/xnat-0.3.0.tgz
     version: 0.3.0
-generated: "2025-04-06T05:20:08.447657165Z"
+generated: "2025-04-09T02:52:26.750853754Z"
