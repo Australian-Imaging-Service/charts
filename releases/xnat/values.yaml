@@ -3,19 +3,28 @@
 # Declare variables to be passed into your templates.
 
 global:
-  postgresql: {}
-    #postgresqlDatabase: ""
-    #postgresqlUsername: ""
-    #postgresqlPassword: ""
-    #servicePort: ""
+  postgresql:
+    auth: 
+      database: xnat_web
+      username: xnat_web
+      password: xnat_web
+    # # For old postgresql chart version 10.16.2
+    # postgresqlDatabase: xnat_web
+    # postgresqlPassword: xnat_web
+    # postgresqlUsername: xnat_web
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing
 postgresql:
   enabled: true
-  postgresqlDatabase: "xnat"
-  postgresqlPassword: "xnat"
-  postgresqlUsername: "xnat"
+  primary:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1024Mi
 
 # External Database service endpoint, ensure `postgresql.enabled: false`
 postgresqlExternalName: ""
@@ -23,6 +32,12 @@ postgresqlExternalIPs: []
 #  - 130.95.126.8
 
 xnat-web:
+  postgresql:
+    enabled: true
+    postgresqlDatabase: "xnat_web"
+    postgresqlPassword: "xnat_web"
+    postgresqlUsername: "xnat_web"
+
   enabled: true
   replicaCount: 1
 
@@ -227,11 +242,6 @@ xnat-web:
         port: 8104
         # nodePort: 32514
         # loadBalancerIp: "130.95.27.91"
-
-  postgresql:
-    postgresqlDatabase: "xnat_web"
-    postgresqlUsername: "xnat_web"
-    #postgresqlPassword: ""
 
   probes:
     startup:
