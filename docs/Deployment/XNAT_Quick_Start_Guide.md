@@ -15,6 +15,14 @@ Please be aware that this is a guide and not considered a production ready servi
 * Kubectl client installed and configured to access your Kubernetes service
 * Helm client installed
 
+## Microk8s minimal enabled plugins
+
+```bash
+microk8s enable dns
+microk8s enable rbac
+microk8s enable storage
+```
+
 ## What settings can be modified and where?
 
 ```bash
@@ -23,13 +31,26 @@ helm show values ais/xnat
 
 ## Just XNAT
 
-Create minimal helm values file `~/values.yaml`
+Create minimal helm values file `~/values.yaml`.
+
+XNAT requires a minimum of 4GiB of RAM and 4x vCPUs. If your system is close to or smaller than these resources
+then XNAT could take several minutes to start. If so, it is recommended that you add something similar to the settings
+bellow for your deployment.
+
+As an example, a test conducted (27/5/2025) on a VM with 4GiB of RAM and 4x vCPUs, took just over 6.5 minutes
+for XNAT to start and present a healthy system.
 
 ```yaml
 ---
-global:
-  postgresql:
-    postgresqlPassword: "xnat"
+xnat-web:
+  resources:
+    requests:
+      memory: 500Mi
+    limits:
+      memory: 3000Mi # 1 GiB lower than your system.
+  probes:
+    startup:
+      failureThreshold: 120 # Disables the process watchdog for an extended period of time.
 ```
 
 ```bash
@@ -67,8 +88,6 @@ You can see that Microk8s has a default storage class. However if this was not t
 ```yaml
 ---
 global:
-  postgresql:
-    postgresqlPassword: "xnat"
   storageClass: "microk8s-hostpath"
 ```
 
