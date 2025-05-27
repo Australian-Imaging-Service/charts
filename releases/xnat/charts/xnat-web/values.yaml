@@ -221,14 +221,23 @@ dicom_scp:
 
 probes:
   startup:
+    httpGet:
+      path: /app/template/Login.vm#!
+      port: http
     # adjust below values to suit the startup time. Below startup time is 15*10=150s
     failureThreshold: 15
     periodSeconds: 10
   liveness:
+    httpGet:
+      path: /app/template/Login.vm#!
+      port: http
     failureThreshold: 1
     periodSeconds: 10
     timeoutSeconds: 5
   readiness:
+    httpGet:
+      path: /app/template/Login.vm#!
+      port: http
     failureThreshold: 1
     periodSeconds: 10
     timeoutSeconds: 3
