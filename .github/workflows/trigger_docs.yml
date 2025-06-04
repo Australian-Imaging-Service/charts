@@ -7,15 +7,14 @@ on:
       - main
     paths:
       - 'docs/**'
-  workflow_dispatch:  # Allow manual triggering by a user with write access to this repo
 
 jobs:
   deploy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUBPAGES_KEY }}
-          repository: Australian-Imaging-Service/Australian-Imaging-Service.github.io
-          event-type: Rebuild docs
+        run: |
+          gh workflow run 'Deploy Hugo site to Pages'
+        env:
+          GH_REPO: Australian-Imaging-Service/Australian-Imaging-Service.github.io
+          GH_TOKEN: ${{ secrets.GITHUBPAGES_KEY }}

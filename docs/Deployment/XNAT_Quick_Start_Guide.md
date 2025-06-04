@@ -1,6 +1,6 @@
 ---
-title: XNAT Quick Start Guide
-description: Getting started with an XNAT deployment step-by-step
+title: Quick Start Guide
+description: Getting started with a minimal AIS XNAT deployment step-by-step
 draft: false
 ---
 
@@ -26,7 +26,17 @@ microk8s enable storage
 ## What settings can be modified and where?
 
 ```bash
+# Add the AIS helm chart if not already available.
+helm repo add ais https://australian-imaging-service.github.io/charts
+
+# Update your local helm chart cache
+helm repo update
+
+# View all available configuration options
 helm show values ais/xnat
+
+# NB Most settings already have a sensible default value, you only override if required.
+# Your deployment values.yaml file should start out quite small.
 ```
 
 ## Just XNAT
