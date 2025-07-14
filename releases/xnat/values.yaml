@@ -259,3 +259,13 @@ xnat-web:
 
   timezone: ""
 
+smarter-device-manager: 
+  image:
+    repository: ghcr.io/smarter-project/smarter-device-manager
+    tag: "v1.20.12"
+    pullPolicy: IfNotPresent
+  enabled: false
+  # config:
+  # - devicematch: ^fuse$
+  #   nummaxdevices: 10
+

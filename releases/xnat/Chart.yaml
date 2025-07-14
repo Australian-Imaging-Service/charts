@@ -30,3 +30,7 @@ dependencies:
 - name: xnat-web
   condition: xnat-web.enabled
   version: "1.1.19"
+- name: smarter-device-manager
+  condition: smarter-device-manager.enabled
+  repository: "https://smarter-project.github.io/smarter-device-manager"
+  version: "0.0.10"
