@@ -3,17 +3,30 @@
 # Declare variables to be passed into your templates.
 
 global:
-  postgresql: {}
-    # auth: 
-    #   database: xnat_web
-    #   username: xnat_web
-    #   password: xnat_web
   storageClass: ""
 
-postgresql: {}
-  # postgresqlDatabase: "xnat_web"
-  # postgresqlUsername: "xnat_web"
-  # postgresqlPassword: "xnat_web"
+postgresql:
+  auth:
+    existingSecret:
+      secretName: ""
+      database: ""
+      host: ""
+      password: ""
+      port: ""
+      username: ""
+    database: ""
+    host: ""
+    password: ""
+    username: ""
+# CloudNativePG example
+# auth:
+#   existingSecret:
+#     secretName: xnat-example-app
+#     database: dbname
+#     host: host
+#     password: password
+#     port: port
+#     username: username
 
 replicaCount: 1
 
@@ -38,16 +51,18 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
 
 service:
   port: 80
@@ -242,4 +257,4 @@ probes:
     periodSeconds: 10
     timeoutSeconds: 3
 
-timezone: ""
+timezone: "Australia/Sydney"

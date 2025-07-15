@@ -1,5 +1,4 @@
-{{- if .Values.postgresql.enabled }}
-{{- else }}
+{{- if or .Values.postgresqlExternalName .Values.postgresqlExternalIPs -}}
 apiVersion: v1
 kind: Service
 metadata:

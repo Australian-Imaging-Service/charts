@@ -6,19 +6,22 @@ metadata:
     "helm.sh/hook": test
 spec:
   containers:
-  - image: ubuntu
-    env:
-      - name: POSTGRESQL_SERVICE_NAME
-        value: {{ template "xnat-web.postgresql.fullname" . }}
-      - name: POSTGRES_POSTGRES_PASSWORD
-        value: {{ template "xnat-web.postgresql.postgresqlPassword" . }}
-      - name: POSTGRES_USER
-        value: {{ template "xnat-web.postgresql.postgresqlUsername" . }}
-      - name: POSTGRES_DB
-        value: {{ template "xnat-web.postgresql.postgresqlDatabase" . }}
-    command: ["/bin/sh"]
-    args: ["-c","apt-get update -y && apt-get install postgresql-client -y && psql postgresql://$(POSTGRES_USER):$(POSTGRES_POSTGRES_PASSWORD)@$(POSTGRESQL_SERVICE_NAME)/$(POSTGRES_DB)"]
-    imagePullPolicy: IfNotPresent
-    name: ubuntu
+    - name: postgres
+      image: postgres
+      command: [bash, -c]
+      args:
+        - |
+          pg_isready
+      env:
+        - name: PGDATABASE
+          {{- (include "xnat-web.postgresql.database" .) | nindent 10 }}
+        - name: PGHOST
+          {{- (include "xnat-web.postgresql.host" .) | nindent 10 }}
+        - name: PGPASSWORD
+          {{- (include "xnat-web.postgresql.password" .) | nindent 10 }}
+        - name: PGPORT
+          {{- (include "xnat-web.postgresql.port" .) | nindent 10 }}
+        - name: PGUSER
+          {{- (include "xnat-web.postgresql.user" .) | nindent 10 }}
+      imagePullPolicy: IfNotPresent
   restartPolicy: Never
----

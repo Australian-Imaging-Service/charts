@@ -6,12 +6,8 @@ global:
   postgresql:
     auth: 
       database: xnat_web
+      password: ""
       username: xnat_web
-      password: xnat_web
-    # # For old postgresql chart version 10.16.2
-    # postgresqlDatabase: xnat_web
-    # postgresqlPassword: xnat_web
-    # postgresqlUsername: xnat_web
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing
@@ -32,13 +28,32 @@ postgresqlExternalIPs: []
 #  - 130.95.126.8
 
 xnat-web:
-  postgresql:
-    enabled: true
-    postgresqlDatabase: "xnat_web"
-    postgresqlPassword: "xnat_web"
-    postgresqlUsername: "xnat_web"
-
   enabled: true
+
+  postgresql:
+    auth:
+      existingSecret:
+        secretName: ""
+        # Secret key names
+        database: ""
+        host: ""
+        password: ""
+        port: ""
+        username: ""
+      database: ""
+      host: ""
+      password: ""
+      username: ""
+  # CloudNativePG example
+  # auth:
+  #   existingSecret:
+  #     secretName: XNAT-EXAMPLE-APP
+  #     database: dbname
+  #     host: host
+  #     password: password
+  #     port: port
+  #     username: username
+
   replicaCount: 1
 
   image:

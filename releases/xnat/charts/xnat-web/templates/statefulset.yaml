@@ -18,6 +18,7 @@ spec:
         {{- with .Values.podAnnotations }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
         {{- include "xnat-web.statefulsetLabels" . | nindent 8 }}
@@ -69,10 +70,9 @@ spec:
               mountPath: /data/xnat/home
             - name: home-plugins
               mountPath: /data/xnat/home/plugins
-            - name: xnat-config
-              mountPath: "/data/xnat/home/config/xnat-conf.properties"
+            - name: xnat-config-d
+              mountPath: "/data/xnat/home/config"
               readOnly: true
-              subPath: "xnat-conf.properties"
             {{- range $plugin, $p := .Values.plugins }}
             {{- range $p }}
             {{- if .auth }}
@@ -106,12 +106,43 @@ spec:
             - name: xnat-home
               mountPath: /data/xnat/home
       initContainers:
+        - name: config
+          image: ghcr.io/sydneyresearchtech/debian
+          command: [bash, -c]
+          args:
+            - |
+              set -x
+              PGJDBCURI="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}"
+              export PGJDBCURI
+              mkdir -p /data/xnat/home/config/auth
+              for f in /k8s_config/*; do
+                file="$(basename ${f})"
+                envsubst < /k8s_config/${file} > /data/xnat/home/config/${file}
+              done
+          env:
+            - name: PGDATABASE
+              {{- (include "xnat-web.postgresql.database" .) | nindent 14 }}
+            - name: PGHOST
+              {{- (include "xnat-web.postgresql.host" .) | nindent 14 }}
+            - name: PGPASSWORD
+              {{- (include "xnat-web.postgresql.password" .) | nindent 14 }}
+            - name: PGPORT
+              {{- (include "xnat-web.postgresql.port" .) | nindent 14 }}
+            - name: PGUSER
+              {{- (include "xnat-web.postgresql.user" .) | nindent 14 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: xnat-config-d
+              mountPath: /data/xnat/home/config
+            - name: xnat-config
+              mountPath: /k8s_config
+              readOnly: true
         - name: home-init
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - 'bash'
-            - '-c'
+          command: [bash, -c]
+          args:
             - |
               set -x
               shopt -s extglob
@@ -121,12 +152,13 @@ spec:
               chown -R {{ default "1000" .Values.securityContext.runAsUser }} /TOMCAT
               # Copy XNAT_HOME directory excluding the plugins folder
               cp -r --preserve=mode,timestamps ${XNAT_HOME}/!(plugins) /XNAT_HOME
-              chown -R {{ default "1000" .Values.securityContext.runAsUser }} /XNAT_HOME
+              #chown -R {{ default "1000" .Values.securityContext.runAsUser }} /XNAT_HOME
               # Copy plugins that are configured in values.yml
               for plugin in ${plugins[@]}; do
                 cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
               done
-              echo "node.id=$HOSTNAME" > /XNAT_HOME/config/node-conf.properties
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
             - name: tomcat
               mountPath: /TOMCAT
@@ -135,6 +167,8 @@ spec:
             - name: home-plugins
               mountPath: /HOME-PLUGINS
       volumes:
+        - name: xnat-config-d
+          emptyDir: {}
         - name: passwd
           configMap:
             name: {{ include "xnat-web.fullname" . }}
@@ -163,8 +197,8 @@ spec:
         {{- end }}
         {{- end }}
         - name: xnat-config
-          secret:
-            secretName: {{ include "xnat-web.fullname" . }}
+          configMap:
+            name: {{ include "xnat-web.fullname" . }}-config
         {{- $context := . -}}
         {{- range $name, $c := .Values.volumes }}
         {{- if $c.size }}
