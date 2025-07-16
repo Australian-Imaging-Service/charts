@@ -4,6 +4,7 @@ metadata:
   name: {{ template "xnat-web.postgresql.fullname" . }}-test-connection
   annotations:
     "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   containers:
     - name: postgres
