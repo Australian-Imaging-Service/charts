@@ -3,6 +3,19 @@
 # Declare variables to be passed into your templates.
 
 global:
+  postgresql:
+    auth:
+      existingSecret:
+        secretName: ""
+        database: ""
+        host: ""
+        password: ""
+        port: ""
+        username: ""
+      database: ""
+      host: ""
+      password: ""
+      username: ""
   storageClass: ""
 
 postgresql:
