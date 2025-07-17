@@ -72,6 +72,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         - name: {{ .Chart.Name }}-logstream
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           image: alpine
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["/bin/sh", "-c", "tail -f /JavaPrograms/CTP/logs/ctp.log"]

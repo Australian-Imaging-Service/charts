@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+SRCD=( )
+until [[ "$1" == "-"* ]]; do
+	[[ $# -le 0 ]] && break
+	SRCD+=("$1")
+	shift
+done
+
+TMPD=$(mktemp -d)
+trap "rm -rf $TMPD" EXIT
+
+# Sanity checks
+[[ ${#SRCD[@]} -eq 0 ]] && SRCD+=(".")
+
+[[ -f .snyk ]] && cp .snyk "$TMPD"
+
+CHARTS=()
+TMP_P=''
+while IFS= read -r -d '' line; do
+	CHART_PATH="$(dirname "$line")"
+	if [[ -z $TMP_P ]]; then
+		TMP_P="$CHART_PATH"
+	elif [[ $CHART_PATH == $TMP_P* ]]; then
+	       continue
+	fi
+	CHARTS+=($CHART_PATH)
+done < <(find "${SRCD[@]}" -name Chart.yaml -print0)
+#printf "%s\n" "${CHARTS[@]}"
+
+for CHART_PATH in "${CHARTS[@]}"; do
+	CHART_NAME="$(basename "$CHART_PATH")"
+	CHART_VALUES=".snyk.d/${CHART_PATH}/values.yaml"
+
+	HELM_TEMPLATE_OPTS=""
+	[[ -f $CHART_VALUES ]] && HELM_TEMPLATE_OPTS="${HELM_TEMPLATE_OPTS} --values=$CHART_VALUES"
+
+	helm dependency list "$CHART_PATH" |grep -q 'missing$' && \
+		helm dependency build "$CHART_PATH" --skip-refresh >/dev/null
+	helm template "$CHART_PATH"${HELM_TEMPLATE_OPTS} --output-dir "$TMPD"
+done
+
+SNYK_CMD=''
+if [[ "$@" != *"--target-name="* ]]; then
+	TARGET_NAME=''
+	which git &>/dev/null && \
+		GIT_REMOTE_URL=$(git -C "${SRCD[0]}" config --get remote.origin.url) && \
+			TARGET_NAME=$(echo "$GIT_REMOTE_URL" |sed 's/^.*:\(.*\).git$/\1/')
+	[[ -z $TARGET_NAME ]] || \
+		SNYK_CMD="$SNYK_CMD --target-name=$TARGET_NAME"
+fi
+
+cd "$TMPD"
+snyk iac test "$@"$SNYK_CMD

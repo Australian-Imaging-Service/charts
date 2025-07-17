@@ -99,6 +99,8 @@ spec:
             {{- end }}
             {{- end }}
         - name: {{ .Chart.Name }}-pluginlogs
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           image: debian:bullseye-slim
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["/bin/bash", "-c", "while [ ! -f /data/xnat/home/logs/*.log ]; do sleep 15; done; tail -f /data/xnat/home/logs/*.log;"]

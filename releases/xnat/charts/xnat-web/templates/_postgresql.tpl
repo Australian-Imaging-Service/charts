@@ -30,12 +30,12 @@ Create the name of the PostgreSQL service account to use
 {{- end -}}
 
 {{- define "xnat-web.postgresql.database" -}}
-{{- if and (.Values.postgresql.auth.existingSecret.secretName)
-           (.Values.postgresql.auth.existingSecret.database) -}}
+{{- if and (.Values.postgresql.auth.existingSecret)
+           (.Values.postgresql.auth.secretKeys.database) -}}
 valueFrom:
   secretKeyRef:
-    name: "{{ .Values.postgresql.auth.existingSecret.secretName }}"
-    key: "{{ .Values.postgresql.auth.existingSecret.database }}"
+    name: "{{ .Values.postgresql.auth.existingSecret }}"
+    key: "{{ .Values.postgresql.auth.secretKeys.database }}"
 {{- else if .Values.postgresql.auth.database -}}
 value: "{{ .Values.postgresql.auth.database }}"
 {{- else -}}
@@ -44,28 +44,26 @@ value: {{ required "A valid postgresql.auth.database is required!" .Values.globa
 {{- end -}}
 
 {{- define "xnat-web.postgresql.host" -}}
-{{- if and (.Values.postgresql.auth.existingSecret.secretName)
-           (.Values.postgresql.auth.existingSecret.host) -}}
+{{- if and (.Values.postgresql.auth.existingSecret)
+           (.Values.postgresql.auth.secretKeys.host) -}}
 valueFrom:
   secretKeyRef:
-    name: "{{ .Values.postgresql.auth.existingSecret.secretName }}"
-    key: "{{ .Values.postgresql.auth.existingSecret.host }}"
+    name: "{{ .Values.postgresql.auth.existingSecret }}"
+    key: "{{ .Values.postgresql.auth.secretKeys.host }}"
 {{- else if .Values.postgresql.auth.host }}
 value: "{{ .Values.postgresql.auth.host }}"
-{{- else if .Values.global.postgresql.host }}
-value: "{{ .Values.global.postgresql.host }}"
 {{- else }}
 value: {{ include "xnat-web.postgresql.fullname" . | quote }}
 {{- end }}
 {{- end -}}
 
 {{- define "xnat-web.postgresql.password" -}}
-{{- if and (.Values.postgresql.auth.existingSecret.secretName)
-           (.Values.postgresql.auth.existingSecret.password) -}}
+{{- if and (.Values.postgresql.auth.existingSecret)
+           (.Values.postgresql.auth.secretKeys.password) -}}
 valueFrom:
   secretKeyRef:
-    name: "{{ .Values.postgresql.auth.existingSecret.secretName }}"
-    key: "{{ .Values.postgresql.auth.existingSecret.password }}"
+    name: "{{ .Values.postgresql.auth.existingSecret }}"
+    key: "{{ .Values.postgresql.auth.secretKeys.password }}"
 {{- else if .Values.postgresql.auth.password -}}
 value: "{{ .Values.postgresql.auth.password }}"
 {{- else -}}
@@ -74,24 +72,24 @@ value: {{ required "A valid postgresql.auth.password is required!" .Values.globa
 {{- end -}}
 
 {{- define "xnat-web.postgresql.port" -}}
-{{- if and (.Values.postgresql.auth.existingSecret.secretName)
-           (.Values.postgresql.auth.existingSecret.port) -}}
+{{- if and (.Values.postgresql.auth.existingSecret)
+           (.Values.postgresql.auth.secretKeys.port) -}}
 valueFrom:
   secretKeyRef:
-    name: "{{ .Values.postgresql.auth.existingSecret.secretName }}"
-    key: "{{ .Values.postgresql.auth.existingSecret.port }}"
+    name: "{{ .Values.postgresql.auth.existingSecret }}"
+    key: "{{ .Values.postgresql.auth.secretKeys.port }}"
 {{- else -}}
 value: "5432"
 {{- end }}
 {{- end -}}
 
 {{- define "xnat-web.postgresql.user" -}}
-{{- if and (.Values.postgresql.auth.existingSecret.secretName)
-           (.Values.postgresql.auth.existingSecret.username) -}}
+{{- if and (.Values.postgresql.auth.existingSecret)
+           (.Values.postgresql.auth.secretKeys.username) -}}
 valueFrom:
   secretKeyRef:
-    name: "{{ .Values.postgresql.auth.existingSecret.secretName }}"
-    key: "{{ .Values.postgresql.auth.existingSecret.username }}"
+    name: "{{ .Values.postgresql.auth.existingSecret }}"
+    key: "{{ .Values.postgresql.auth.secretKeys.username }}"
 {{- else if .Values.postgresql.auth.username -}}
 value: {{ .Values.postgresql.auth.username }}
 {{- else -}}

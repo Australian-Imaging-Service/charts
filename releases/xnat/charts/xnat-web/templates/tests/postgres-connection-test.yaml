@@ -6,8 +6,12 @@ metadata:
     "helm.sh/hook": test
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
   containers:
     - name: postgres
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       image: postgres
       command: [bash, -c]
       args:

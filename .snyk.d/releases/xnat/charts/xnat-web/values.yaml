@@ -1,0 +1,4 @@
+postgresql:
+  auth:
+    database: xnat
+    password: xnat
