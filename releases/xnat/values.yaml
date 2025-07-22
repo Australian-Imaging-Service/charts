@@ -7,6 +7,7 @@ global:
     auth:
       username: "xnat_web"
       database: "xnat_web"
+      password: ""
       existingSecret: ""
       secretKeys:
         adminPasswordKey: ""
@@ -44,10 +45,10 @@ xnat-web:
         password: ""
         port: ""
         username: ""
-      database: ""
+      database: "xnat_web"
       host: ""
       password: ""
-      username: ""
+      username: "xnat_web"
   # Example CloudNativePG configuration
   # auth:
   #   existingSecret: example-xnat-app
