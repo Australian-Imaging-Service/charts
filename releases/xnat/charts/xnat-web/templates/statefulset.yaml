@@ -98,12 +98,16 @@ spec:
               {{- end }}
             {{- end }}
             {{- end }}
-        - name: {{ .Chart.Name }}-pluginlogs
+        - name: plugin-logs
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: debian:bullseye-slim
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["/bin/bash", "-c", "while [ ! -f /data/xnat/home/logs/*.log ]; do sleep 15; done; tail -f /data/xnat/home/logs/*.log;"]
+          command: [bash, -c]
+          args:
+            - |
+              until [ -f /data/xnat/home/logs/*.log ]; do sleep 5; done
+              exec tail -F /data/xnat/home/logs/*.log
           volumeMounts:
             - name: xnat-home
               mountPath: /data/xnat/home
@@ -119,8 +123,11 @@ spec:
               mkdir -p /data/xnat/home/config/auth
               for f in /k8s_config/*; do
                 file="$(basename ${f})"
-                envsubst < /k8s_config/${file} > /data/xnat/home/config/${file}
+                envsubst < "${f}" > "/data/xnat/home/config/${file}"
               done
+              # Wait for the postgresql database to be ready
+              which pg_isready &>/dev/null && \
+                until pg_isready --quiet; do sleep 5; done
           env:
             - name: PGDATABASE
               {{- (include "xnat-web.postgresql.database" .) | nindent 14 }}
@@ -132,6 +139,11 @@ spec:
               {{- (include "xnat-web.postgresql.port" .) | nindent 14 }}
             - name: PGUSER
               {{- (include "xnat-web.postgresql.user" .) | nindent 14 }}
+            - name: XNAT_ADMIN_CREDS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnat-web.fullname" . }}-admin
+                  key: password
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
@@ -140,7 +152,7 @@ spec:
             - name: xnat-config
               mountPath: /k8s_config
               readOnly: true
-        - name: home-init
+        - name: home
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: [bash, -c]
@@ -150,14 +162,13 @@ spec:
               shopt -s extglob
               plugins=( {{ join " " (keys .Values.plugins) }} )
               # Copy Tomcat folder
-              [ -d /TOMCAT ] && cp -r --preserve=mode,timestamps /usr/local/tomcat/* /TOMCAT
-              chown -R {{ default "1000" .Values.securityContext.runAsUser }} /TOMCAT
+              [ -d /TOMCAT ] && \
+                cp -r --preserve=mode,timestamps --update=none /usr/local/tomcat/* /TOMCAT
               # Copy XNAT_HOME directory excluding the plugins folder
-              cp -r --preserve=mode,timestamps ${XNAT_HOME}/!(plugins) /XNAT_HOME
-              #chown -R {{ default "1000" .Values.securityContext.runAsUser }} /XNAT_HOME
+              cp -r --preserve=mode,timestamps --update=none ${XNAT_HOME}/!(plugins) /XNAT_HOME
               # Copy plugins that are configured in values.yml
               for plugin in ${plugins[@]}; do
-                cp -r --preserve=mode,timestamps ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
+                cp -r --preserve=mode,timestamps --update=none ${XNAT_HOME}/plugins/${plugin}-* /HOME-PLUGINS || true
               done
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
