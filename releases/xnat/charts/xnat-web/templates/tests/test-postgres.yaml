@@ -1,7 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "xnat-web.postgresql.fullname" . }}-test-connection
+  name: {{ template "xnat-web.fullname" . }}-test-database
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
@@ -13,10 +15,7 @@ spec:
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
       image: postgres
-      command: [bash, -c]
-      args:
-        - |
-          pg_isready
+      command: [pg_isready]
       env:
         - name: PGDATABASE
           {{- (include "xnat-web.postgresql.database" .) | nindent 10 }}

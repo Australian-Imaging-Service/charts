@@ -36,3 +36,21 @@ data:
     nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     _apt:x:100:65534::/nonexistent:/usr/sbin/nologin
     tomcat:x:{{ default "1000" .Values.securityContext.runAsUser }}:{{ default "1000" .Values.securityContext.runAsUser }}::/data/xnat/home:/usr/sbin/nologin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-plugins
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+data:
+  {{- if .Values.plugins }}
+  {{- range $plugin, $p := .Values.plugins }}
+  {{- range $p }}
+  {{ .provider.id }}-provider.properties: |
+    {{- include "xnat-web.envify" (list "" .) | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- else }}
+  {}
+  {{- end }}

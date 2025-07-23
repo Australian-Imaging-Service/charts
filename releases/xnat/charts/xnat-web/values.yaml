@@ -13,6 +13,9 @@ global:
         userPasswordKey: ""
   storageClass: ""
 
+archivePath: /data/xnat/archive
+prearchivePath: /data/xnat/prearchive
+
 postgresql:
   auth:
     existingSecret: ""
@@ -144,6 +147,12 @@ volumes:
     mountPath: "/data/xnat/prearchive"
     # storageClass: "-"
     size: 1Ti
+
+pluginSecrets: []
+#  - existingSecret: ""
+#    secretKeys:
+#      - name: ""
+#        key: ""
 
 plugins: {}
 #  container-service: []
