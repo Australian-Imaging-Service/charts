@@ -38,8 +38,12 @@ valueFrom:
     key: "{{ .Values.postgresql.auth.secretKeys.database }}"
 {{- else if .Values.postgresql.auth.database -}}
 value: "{{ .Values.postgresql.auth.database }}"
+{{- else if .Values.global.postgresql.auth.database -}}
+value: {{ .Values.global.postgresql.auth.database }}
+{{- else if (get .Values.postgresql "postgresqlDatabase") -}}
+value: {{ get .Values.postgresql "postgresqlDatabase" }}
 {{- else -}}
-value: {{ required "A valid postgresql.auth.database is required!" .Values.global.postgresql.auth.database }}
+value: {{ required "A valid postgresql.auth.database is required!" (get .Values.global.postgresql "postgresqlDatabase") }}
 {{- end }}
 {{- end -}}
 
@@ -66,8 +70,12 @@ valueFrom:
     key: "{{ .Values.postgresql.auth.secretKeys.password }}"
 {{- else if .Values.postgresql.auth.password -}}
 value: "{{ .Values.postgresql.auth.password }}"
+{{- else if .Values.global.postgresql.auth.password -}}
+value: {{ .Values.global.postgresql.auth.password }}
+{{- else if (get .Values.postgresql "postgresqlPassword") -}}
+value: {{ get .Values.postgresql "postgresqlPassword" }}
 {{- else -}}
-value: {{ required "A valid postgresql.auth.password is required!" .Values.global.postgresql.auth.password }}
+value: {{ required "A valid postgresql.auth.password is required!" (get .Values.global.postgresql "postgresqlPassword") }}
 {{- end }}
 {{- end -}}
 
@@ -92,7 +100,11 @@ valueFrom:
     key: "{{ .Values.postgresql.auth.secretKeys.username }}"
 {{- else if .Values.postgresql.auth.username -}}
 value: {{ .Values.postgresql.auth.username }}
+{{- else if .Values.global.postgresql.auth.username -}}
+value: {{ .Values.global.postgresql.auth.username }}
+{{- else if (get .Values.postgresql "postgresqlUsername") -}}
+value: {{ get .Values.postgresql "postgresqlUsername" }}
 {{- else -}}
-value: {{ required "A valid postgresql.auth.username is required!" .Values.global.postgresql.auth.username }}
+value: {{ required "A valid postgresql.auth.username is required!" (get .Values.global.postgresql "postgresqlUsername") }}
 {{- end }}
 {{- end -}}
