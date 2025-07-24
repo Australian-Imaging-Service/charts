@@ -30,3 +30,18 @@
   {{- end }}
 {{- end }}
 {{- end }}
+{{- if or (hasKey .Values.global.postgresql "postgresqlDatabase")
+          (hasKey .Values.global.postgresql "postgresqlPassword")
+          (hasKey .Values.global.postgresql "postgresqlUsername")
+          (hasKey .Values.postgresql "postgresqlDatabase")
+          (hasKey .Values.postgresql "postgresqlPassword")
+          (hasKey .Values.postgresql "postgresqlUsername") }}
+DEPRECATION WARNING: The following values are deprecated.
+  global.postgresql.postgresqlDatabase
+  global.postgresql.postgresqlPassword
+  global.postgresql.postgresqlUsername
+  xnat-web.postgresql.postgresqlDatabase
+  xnat-web.postgresql.postgresqlPassword
+  xnat-web.postgresql.postgresqlUsername
+Run `helm show values ais/xnat` to discover appropriate settings.
+{{- end }}
