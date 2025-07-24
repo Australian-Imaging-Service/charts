@@ -96,8 +96,15 @@ spec:
           command: [bash, -c]
           args:
             - |
-              until [ -f /data/xnat/home/logs/*.log ]; do sleep 5; done
-              exec tail -F /data/xnat/home/logs/*.log
+              # wait for logs to appear
+              until [[ -d /data/xnat/home/logs && $(ls -A /data/xnat/home/logs) ]]; do
+                sleep 5
+              done
+              sleep 30
+              # Display logs to stdout
+              for f in /data/xnat/home/logs/*.log; do
+                tail -F "${f}"
+              done
           volumeMounts:
             - name: xnat-home
               mountPath: /data/xnat/home
