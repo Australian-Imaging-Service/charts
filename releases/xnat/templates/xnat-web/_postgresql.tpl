@@ -43,7 +43,7 @@ value: "{{ .postgresql.auth.database }}"
 value: {{ required "A valid postgresql.auth.database is required!" $.Values.global.postgresql.auth.database }}
 {{- end }}
 {{- end }}
-{{- end -}}
+{{- end }}
 
 {{- define "xnat-web.postgresql.host" -}}
 {{- with (index .Values "xnat-web") -}}
@@ -53,13 +53,13 @@ valueFrom:
   secretKeyRef:
     name: "{{ .postgresql.auth.existingSecret }}"
     key: "{{ .postgresql.auth.secretKeys.host }}"
-{{- else if .postgresql.auth.host }}
+{{- else if .postgresql.auth.host -}}
 value: "{{ .postgresql.auth.host }}"
-{{- else }}
+{{- else -}}
 value: {{ include "xnat-web.postgresql.fullname" $ | quote }}
 {{- end }}
 {{- end }}
-{{- end -}}
+{{- end }}
 
 {{- define "xnat-web.postgresql.password" -}}
 {{- with (index .Values "xnat-web") -}}

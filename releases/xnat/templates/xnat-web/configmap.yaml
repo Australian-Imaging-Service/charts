@@ -6,7 +6,7 @@ metadata:
     {{- include "xnat-web.labels" . | nindent 4 }}
 data:
   {{- tpl ((.Files.Glob "config/*").AsConfig) . | nindent 2 }}
-{{- with (index .Values "xnat-web") -}}
+{{- with (index .Values "xnat-web") }}
 ---
 apiVersion: v1
 kind: ConfigMap
