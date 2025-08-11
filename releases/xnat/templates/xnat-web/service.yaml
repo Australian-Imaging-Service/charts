@@ -1,0 +1,69 @@
+{{- with (index .Values "xnat-web") -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  type: {{ .service.type }}
+  ports:
+    - port: {{ .service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+  sessionAffinity: "ClientIP"
+{{ if (eq .service.type "ClusterIP") }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-headless
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  type: {{ .service.type }}
+  clusterIP: None
+  ports:
+    - port: {{ .service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+  sessionAffinity: "ClientIP"
+{{- end }}
+{{- if .dicom_scp.recievers }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-dicom-scp
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  {{- with .dicom_scp.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .dicom_scp.serviceType | quote }}
+  ports:
+    {{- $serviceType := .dicom_scp.serviceType }}
+    {{- range .dicom_scp.recievers }}
+    - name: {{ lower .ae_title }}-dicom
+      port: {{ .port }}
+      targetPort: {{ .port }}
+      {{- if and (eq $serviceType "NodePort") .nodePort }}
+      nodePort: {{ .nodePort }}
+      {{- end }}
+      {{- if and (eq $serviceType "LoadBalancer") .loadBalancerIP }}
+      loadBalancerIP: {{ .loadBalancerIP }}
+      {{- end }}
+    {{- end }}
+  selector:
+    {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+  sessionAffinity: "ClientIP"
+{{- end }}
+{{- end }}

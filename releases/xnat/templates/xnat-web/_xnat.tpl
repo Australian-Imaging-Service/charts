@@ -1,14 +1,14 @@
 {{- define "xnat-web.xnat.archivePath" -}}
-{{- if .Values.volumes.archive.mountPath -}}
-{{ .Values.volumes.archive.mountPath }}
+{{- if (index .Values "xnat-web" "volumes" "archive" "mountPath") -}}
+{{ index .Values "xnat-web" "volumes" "archive" "mountPath" }}
 {{- else -}}
 /data/xnat/archive
 {{- end -}}
 {{- end -}}
 
 {{- define "xnat-web.xnat.prearchivePath" -}}
-{{- if .Values.volumes.prearchive.mountPath -}}
-{{ .Values.volumes.prearchive.mountPath }}
+{{- if (index .Values "xnat-web" "volumes" "prearchive" "mountPath") -}}
+{{ index .Values "xnat-web" "volumes" "prearchive" "mountPath" }}
 {{- else -}}
 /data/xnat/prearchive
 {{- end -}}

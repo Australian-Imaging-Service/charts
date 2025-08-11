@@ -35,6 +35,9 @@ postgresqlExternalIPs: []
 xnat-web:
   enabled: true
 
+  archivePath: /data/xnat/archive
+  prearchivePath: /data/xnat/prearchive
+
   postgresql:
     auth:
       existingSecret: ""
@@ -81,16 +84,18 @@ xnat-web:
 
   podAnnotations: {}
 
-  podSecurityContext: {}
-    # fsGroup: 2000
+  podSecurityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
 
-  securityContext: {}
-    # capabilities:
-    #   drop:
-    #   - ALL
-    # readOnlyRootFilesystem: true
-    # runAsNonRoot: true
-    # runAsUser: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
 
   service:
     port: 80
@@ -114,17 +119,17 @@ xnat-web:
     #    hosts:
     #      - chart-example.local
 
-  resources:
+  resources: {}
     # We usually recommend not to specify default resources and to leave this as a conscious
     # choice for the user. This also increases chances charts run on environments with little
     # resources, such as Minikube. If you do want to specify resources, uncomment the following
     # lines, adjust them as necessary, and remove the curly braces after 'resources:'
-    requests:
-      cpu: 250m
-      memory: 4000Mi
-    limits:
-      cpu: 250m
-      memory: 4000Mi
+    # requests:
+    #   cpu: 2
+    #   memory: 4000Mi
+    # limits:
+    #   cpu: 4
+    #   memory: 4000Mi
 
   # nonheapmem can be manually set here. It's recommended to be set at 40-50% of the request/limit memory for XNAT
   # When it's empty, it uses the default configuration in XNAT image
@@ -163,6 +168,12 @@ xnat-web:
       mountPath: "/data/xnat/prearchive"
       # storageClass: "-"
       size: 1Ti
+
+  pluginSecrets: []
+  #  - existingSecret: ""
+  #    secretKeys:
+  #      - name: ""
+  #        key: ""
 
   plugins: {}
   #  container-service: []
@@ -264,16 +275,25 @@ xnat-web:
 
   probes:
     startup:
+      httpGet:
+        path: /app/template/Login.vm#!
+        port: http
       # adjust below values to suit the startup time. Below startup time is 15*10=150s
-      failureThreshold: 15
+      failureThreshold: 60
       periodSeconds: 10
     liveness:
+      httpGet:
+        path: /app/template/Login.vm#!
+        port: http
       failureThreshold: 1
       periodSeconds: 10
       timeoutSeconds: 5
     readiness:
+      httpGet:
+        path: /app/template/Login.vm#!
+        port: http
       failureThreshold: 1
       periodSeconds: 10
       timeoutSeconds: 3
 
-  timezone: ""
+  timezone: "UTC"

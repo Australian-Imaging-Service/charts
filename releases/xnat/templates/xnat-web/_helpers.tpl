@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "xnat-web.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name (index .Values "xnat-web" "nameOverride") | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -11,10 +11,10 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "xnat-web.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- if (index .Values "xnat-web" "fullnameOverride") }}
+{{- (index .Values "xnat-web" "fullnameOverride") | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- $name := default .Chart.Name (index .Values "xnat-web" "nameOverride") }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -63,10 +63,10 @@ app: {{ include "xnat-web.name" . }}
 Create the name of the service account to use
 */}}
 {{- define "xnat-web.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "xnat-web.fullname" .) .Values.serviceAccount.name }}
+{{- if (index .Values "xnat-web" "serviceAccount" "create") }}
+{{- default (include "xnat-web.fullname" .) (index .Values "xnat-web" "serviceAccount" "name") }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" (index .Values "xnat-web" "serviceAccount" "name") }}
 {{- end }}
 {{- end }}
 

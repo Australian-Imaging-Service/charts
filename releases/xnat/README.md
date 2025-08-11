@@ -64,6 +64,3 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | `postgresqlExternalIPs`                     | Hostname of an external database if `postgresql.enabled`=`false`                      | `nil` |
 | `xnat-web.volumes.archive.existingClaim`    | | |
 | `xnat-web.volumes.prearchive.existingClaim` | | |
-| For more *xnat-web* detail and configuration options please visit the [xnat-web](https://github.com/Australian-Imaging-Service/charts/tree/main/charts/xnat-web#Parameters) sub-chart |||
-
-

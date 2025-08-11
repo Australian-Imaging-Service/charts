@@ -1,21 +1,21 @@
-{{- if .Values.ingress.enabled -}}
-{{- $fullName := include "xnat-web.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- if semverCompare ">=1.14-0 <=1.21-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- with (index .Values "xnat-web") -}}
+{{- if .ingress.enabled -}}
+{{- $svcPort := .service.port -}}
+{{- if semverCompare ">=1.14-0 <=1.21-0" $.Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "xnat-web.fullname" $ }}
   labels:
-    {{- include "xnat-web.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  {{- with .ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.ingress.tls }}
+  {{- if .ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -24,34 +24,34 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
           - path: "/"
             pathType: Prefix
             backend:
-              serviceName: {{ $fullName }}-headless
+              serviceName: {{ include "xnat-web.fullname" $ }}-headless
               servicePort: {{ $svcPort }}
     {{- end }}
-{{- else if semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- else if semverCompare ">=1.22-0" $.Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "xnat-web.fullname" $ }}
   labels:
-    {{- include "xnat-web.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  {{- with .ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.ingress.ingressClassName }}
+  {{- if .ingress.ingressClassName }}
+  ingressClassName: {{ .ingress.ingressClassName }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if .ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -60,7 +60,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -68,10 +68,11 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ $fullName }}-headless
-                port: 
+                name: {{ include "xnat-web.fullname" $ }}-headless
+                port:
                   number: {{ $svcPort }}
     {{- end }}
 {{- else }}
+{{- end }}
 {{- end }}
 {{- end }}
