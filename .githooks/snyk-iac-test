@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -x
 SRCD=( )
 until [[ "$1" == "-"* ]]; do
 	[[ $# -le 0 ]] && break
