@@ -36,6 +36,7 @@ for CHART_PATH in "${CHARTS[@]}"; do
 
 	helm dependency list "$CHART_PATH" |grep -q 'missing$' && \
 		helm dependency build "$CHART_PATH" --skip-refresh >/dev/null
+	echo "helm template ${CHART_PATH}${HELM_TEMPLATE_OPTS} --output-dir $TMPD"
 	helm template "$CHART_PATH"${HELM_TEMPLATE_OPTS} --output-dir "$TMPD"
 done
 

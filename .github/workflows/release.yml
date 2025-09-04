@@ -1,13 +1,11 @@
 name: Release Charts
-# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-
 on:
   push:
     branches:
       - main
+      - rc
     paths:
       - 'releases/**'
-  
   workflow_dispatch:
 
 jobs:
@@ -16,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -26,13 +24,12 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Install Helm
-        uses: azure/setup-helm@v1
-        with:
-          version: v3.4.0
+        uses: azure/setup-helm@v4.3.0
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.4.0
+        uses: helm/chart-releaser-action@v1.7.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           charts_dir: releases
+          skip_existing: true

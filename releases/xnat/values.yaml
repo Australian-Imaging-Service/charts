@@ -12,12 +12,34 @@ global:
         adminPasswordKey: ""
         userPasswordKey: ""
         replicationPasswordKey: ""
-  storageClass: ""
+  # storageClass: ""
+  # storageClassName: ""
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing
 postgresql:
   enabled: true
+  auth:
+    existingSecret: ""
+    secretKeys:
+      database: ""
+      host: ""
+      password: ""
+      port: ""
+      username: ""
+    database: ""
+    host: ""
+    password: ""
+    username: ""
+# Example CloudNativePG configuration
+# auth:
+#   existingSecret: example-xnat-app
+#   secretKeys:
+#     database: dbname
+#     host: host
+#     password: password
+#     port: port
+#     username: username
   primary:
     resources:
       requests:
@@ -34,32 +56,6 @@ postgresqlExternalIPs: []
 
 xnat-web:
   enabled: true
-
-  archivePath: /data/xnat/archive
-  prearchivePath: /data/xnat/prearchive
-
-  postgresql:
-    auth:
-      existingSecret: ""
-      secretKeys:
-        database: ""
-        host: ""
-        password: ""
-        port: ""
-        username: ""
-      database: ""
-      host: ""
-      password: ""
-      username: ""
-  # Example CloudNativePG configuration
-  # auth:
-  #   existingSecret: example-xnat-app
-  #   secretKeys:
-  #     database: dbname
-  #     host: host
-  #     password: password
-  #     port: port
-  #     username: username
 
   replicaCount: 1
 
@@ -148,26 +144,54 @@ xnat-web:
 
   affinity: {}
 
+  fileStorePath: /data/xnat
+  archivePath: /data/xnat/archive
+  buildPath: /data/xnat/build
+  cachePath: /data/xnat/cache
+  inboxPath: /data/xnat/inbox
+  pipelinePath: /data/xnat/pipeline
+  prearchivePath: /data/xnat/prearchive
+  triagePath: /data/xnat/triage
+
   persistence:
     cache:
       accessMode: ReadWriteOnce
       mountPath: "/data/xnat/cache"
-      # storageClass: "-"
+      # storageClass: ""
       size: 10Gi
+
+  volumeMounts:
+    - mountPath: /data/xnat
+      name: fileStore
+    - mountPath: /data/xnat/build
+      name: build
+    - mountPath: /data/xnat/cache/DELETED
+      name: deleted
 
   volumes:
     archive:
       accessMode: ReadWriteMany
-      # existingClaim: ""
+      existingClaim: ""
       mountPath: "/data/xnat/archive"
-      # storageClass: "-"
-      size: 1Ti
+      # storageClass: ""
+      size: 0
+    deleted:
+      storeageClass: efs
     prearchive:
       accessMode: ReadWriteMany
-      # existingClaim: ""
+      existingClaim: ""
       mountPath: "/data/xnat/prearchive"
-      # storageClass: "-"
-      size: 1Ti
+      # storageClass: ""
+      size: 0
+    fileStore:
+      accessModes: [ReadWriteMany]
+      accessMode: ReadWriteMany
+      existingClaim: ""
+      mountPath: "/data/xnat/vol"
+      size: 8Gi
+      # storageClass: ""
+      volumeMode: Filesystem
+      selector: {}
 
   pluginSecrets: []
   #  - existingSecret: ""

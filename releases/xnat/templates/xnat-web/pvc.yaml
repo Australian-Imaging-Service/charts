@@ -11,13 +11,17 @@ metadata:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
   accessModes: [ {{ $c.accessMode | quote }} ]
-  volumeMode: Filesystem
+  volumeMode: {{ $c.volumeMode | default "Filesystem" }}
   resources:
     requests:
       storage: {{ $c.size | quote }}
-  {{- if $c.storageClass }}
+{{- if $c.storageClass }}
   storageClassName: {{ $c.storageClass }}
-  {{- end }}
+{{- end }}
+{{- if $c.selector }}
+  selector:
+    {{- $c.selector | toYaml | nindent 4 }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

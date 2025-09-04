@@ -76,12 +76,13 @@ spec:
               name: {{ $name | quote }}
             {{- end }}
             {{- end }}
+            {{- $fileStorePath := .fileStorePath -}}
             {{- range $name, $c := .volumes }}
             {{- if $c.size }}
-            - mountPath: {{ $c.mountPath | quote }}
-              name: {{ $name | quote }}
+            - mountPath: {{ $c.mountPath | default $fileStorePath | quote }}
+              name: {{ $name }}
               {{- if $c.mountPropagation }}
-              mountPropagation: {{$c.mountPropagation|default "None"|quote}}
+              mountPropagation: {{ $c.mountPropagation | default "None" | quote }}
               {{- end }}
             {{- end }}
             {{- end }}
