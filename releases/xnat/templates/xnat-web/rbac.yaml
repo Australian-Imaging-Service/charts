@@ -1,9 +1,7 @@
-{{- $context := . -}}
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "xnat-web.fullname" $context }}-role
+  name: {{ include "xnat-web.fullname" . }}-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -18,12 +16,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "xnat-web.fullname" $context }}-bind
+  name: {{ include "xnat-web.fullname" . }}-bind
 subjects:
 - kind: ServiceAccount
-  name: {{ include "xnat-web.serviceAccountName" $context }}
+  name: {{ include "xnat-web.serviceAccountName" . }}
 roleRef:
   kind: Role
-  name: {{ include "xnat-web.fullname" $context }}-role
+  name: {{ include "xnat-web.fullname" . }}-role
   apiGroup: rbac.authorization.k8s.io
----

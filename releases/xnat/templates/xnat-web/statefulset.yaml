@@ -1,0 +1,261 @@
+{{- $checksumConfigmap := (include (print .Template.BasePath "/xnat-web/configmap.yaml") . | sha256sum) -}}
+{{- $checksumSecret := (include (print .Template.BasePath "/xnat-web/secret.yaml") . | sha256sum) -}}
+{{- with (index .Values "xnat-web") -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  {{- if not .autoscaling.enabled }}
+  replicas: {{ .replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "xnat-web.statefulsetLabels" $ | nindent 6 }}
+  serviceName: {{ include "xnat-web.fullname" $ }}
+  template:
+    metadata:
+      annotations:
+        {{- with .podAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        checksum/configmap: {{ $checksumConfigmap }}
+        checksum/secret: {{ $checksumSecret }}
+      labels:
+        {{- include "xnat-web.statefulsetLabels" $ | nindent 8 }}
+    spec:
+      {{- with .imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "xnat-web.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml .podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ $.Chart.Name }}
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          image: "{{ .image.repository }}:{{ .image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ .image.pullPolicy }}
+          env:
+            - name: TZ
+              value: {{ .timezone }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .probes.liveness | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .probes.readiness | nindent 12 }}
+          startupProbe:
+            {{- toYaml .probes.startup | nindent 12 }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /etc/passwd
+              name: passwd
+              readOnly: true
+              subPath: passwd
+            - mountPath: /usr/local/tomcat
+              name: tomcat
+            - mountPath: /usr/local/tomcat/conf/Catalina
+              name: conf-catalina
+            - mountPath: /data/xnat/home
+              name: xnat-home
+            - mountPath: /data/xnat/home/config
+              name: xnat-home-config
+              readOnly: true
+            - mountPath: /data/xnat/home/plugins
+              name: xnat-home-plugins
+            {{- range $name, $c := .persistence }}
+            {{- if $c.size }}
+            - mountPath: {{ $c.mountPath | quote }}
+              name: {{ $name | quote }}
+            {{- end }}
+            {{- end }}
+            {{- range $name, $c := .volumes }}
+            {{- if $c.size }}
+            - mountPath: {{ $c.mountPath | quote }}
+              name: {{ $name | quote }}
+              {{- if $c.mountPropagation }}
+              mountPropagation: {{$c.mountPropagation|default "None"|quote}}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+        - name: plugin-logs
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          image: debian:bullseye-slim
+          imagePullPolicy: {{ .image.pullPolicy }}
+          command: [bash, -c]
+          args:
+            - |
+              # wait for logs to appear
+              until [[ -d /data/xnat/home/logs && $(ls -A /data/xnat/home/logs) ]]; do
+                sleep 5
+              done
+              sleep 30
+              # Display logs to stdout
+              for f in /data/xnat/home/logs/*.log; do
+                tail -F "${f}"
+              done
+          volumeMounts:
+            - name: xnat-home
+              mountPath: /data/xnat/home
+              readOnly: true
+      initContainers:
+        - name: config
+          image: ghcr.io/sydneyresearchtech/debian
+          command: [bash, -c]
+          args:
+            - |
+              set -x
+              PGJDBCURI="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}"
+              export PGJDBCURI
+              # Popluate and merge Secrets for config
+              for f in /k8s_config/*; do
+                file="$(basename ${f})"
+                envsubst < "${f}" > "/data/xnat/home/config/${file}"
+              done
+              # Popluate and merge Secrets for plugins and auth plugins
+              mkdir -p /data/xnat/home/config/auth
+              for f in /k8s_plugins/*; do
+                file="$(basename ${f})"
+                DEST="/data/xnat/home/plugins"
+                grep -q '^auth.method=' "${f}" && \
+                  DEST="/data/xnat/home/config/auth"
+                envsubst < "${f}" > "${DEST}/${file}"
+              done
+              # Wait for the postgresql database to be ready
+              which pg_isready &>/dev/null && \
+                until pg_isready --quiet; do sleep 5; done
+          env:
+            - name: PGDATABASE
+              {{- (include "xnat-web.postgresql.database" $) | nindent 14 }}
+            - name: PGHOST
+              {{- (include "xnat-web.postgresql.host" $) | nindent 14 }}
+            - name: PGPASSWORD
+              {{- (include "xnat-web.postgresql.password" $) | nindent 14 }}
+            - name: PGPORT
+              {{- (include "xnat-web.postgresql.port" $) | nindent 14 }}
+            - name: PGUSER
+              {{- (include "xnat-web.postgresql.user" $) | nindent 14 }}
+            - name: XNAT_ADMIN_CREDS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xnat-web.fullname" $ }}-admin
+                  key: password
+            {{- range .pluginSecrets }}
+            {{- $name := .existingSecret -}}
+            {{- range .secretKeys }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $name }}
+                  key: {{ .key }}
+            {{- end }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          volumeMounts:
+            - mountPath: /data/xnat/home/config
+              name: xnat-home-config
+            - mountPath: /data/xnat/home/plugins
+              name: xnat-home-plugins
+            - mountPath: /k8s_config
+              name: conf-xnat
+              readOnly: true
+            - mountPath: /k8s_plugins
+              name: conf-plugins
+              readOnly: true
+        - name: home
+          image: "{{ .image.repository }}:{{ .image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ .image.pullPolicy }}
+          command: [bash, -c]
+          args:
+            - |
+              set -x
+              shopt -s extglob
+              plugins=( {{ join " " (keys .plugins) }} )
+              # Copy Tomcat folder
+              cp -r --preserve=mode,timestamps --update=none /usr/local/tomcat/* /TOMCAT
+              # Copy XNAT_HOME directory excluding the plugins folder
+              cp -r --preserve=mode,timestamps --update=none ${XNAT_HOME}/!(plugins) /XNAT_HOME
+              # Copy plugins that are configured in values.yml
+              for plugin in ${plugins[@]}; do
+                cp -r --preserve=mode,timestamps --update=none ${XNAT_HOME}/plugins/${plugin}-* /XNAT_HOME_PLUGINS || true
+              done
+          securityContext:
+            {{- toYaml .securityContext | nindent 12 }}
+          volumeMounts:
+            - mountPath: /TOMCAT
+              name: tomcat
+            - mountPath: /XNAT_HOME
+              name: xnat-home
+            - mountPath: /XNAT_HOME_PLUGINS
+              name: xnat-home-plugins
+      volumes:
+        - name: passwd
+          configMap:
+            name: {{ include "xnat-web.fullname" $ }}
+            items:
+              - key: passwd
+                path: passwd
+        - name: tomcat
+          emptyDir: {}
+        # SEVERE: Unable to create directory for deployment: [/usr/local/tomcat/conf/Catalina/localhost]
+        - name: conf-catalina
+          emptyDir: {}
+        - name: xnat-home
+          emptyDir: {}
+        - name: xnat-home-config
+          emptyDir: {}
+        - name: xnat-home-plugins
+          emptyDir: {}
+        - name: conf-plugins
+          configMap:
+            name: {{ include "xnat-web.fullname" $ }}-plugins
+        - name: conf-xnat
+          configMap:
+            name: {{ include "xnat-web.fullname" $ }}-config
+        {{- range $name, $c := .volumes }}
+        {{- if $c.size }}
+        - name: {{ $name }}
+          persistentVolumeClaim:
+            claimName: {{ $c.existingClaim | default (printf "%s-%s" (include "xnat-web.fullname" $) $name) }}
+        {{- end }}
+        {{- end }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    {{- range $name, $c := .persistence }}
+    {{- if not $c.existingClaim }}
+    {{- if $c.size }}
+    - metadata:
+        name: {{ $name | quote }}
+      spec:
+        accessModes: [ {{ $c.accessMode | quote }} ]
+        {{- if (or $c.storageClass $.Values.global.storageClass) }}
+        storageClassName: {{ $c.storageClass | default $.Values.global.storageClass | quote }}
+        {{- end }}
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: {{ $c.size }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+{{- end }}

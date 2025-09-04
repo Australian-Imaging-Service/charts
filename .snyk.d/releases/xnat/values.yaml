@@ -1,0 +1,8 @@
+postgresql:
+  enabled: false
+
+xnat-web:
+  postgresql:
+    auth:
+      database: xnat
+      password: password

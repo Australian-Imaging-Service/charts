@@ -1,10 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-config
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+data:
+  {{- tpl ((.Files.Glob "config/*").AsConfig) . | nindent 2 }}
+{{- with (index .Values "xnat-web") }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "xnat-web.fullname" . }}
+  name: {{ include "xnat-web.fullname" $ }}
   labels:
-    {{- include "xnat-web.labels" . | nindent 4 }}
+    {{- include "xnat-web.labels" $ | nindent 4 }}
 data:
   passwd: |
     root:x:0:0:root:/root:/bin/bash
@@ -26,4 +35,23 @@ data:
     gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
     nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     _apt:x:100:65534::/nonexistent:/usr/sbin/nologin
-    tomcat:x:{{ default "1000" .Values.securityContext.runAsUser }}:{{ default "1000" .Values.securityContext.runAsUser }}::/data/xnat/home:/usr/sbin/nologin
+    tomcat:x:{{ default "1000" .securityContext.runAsUser }}:{{ default "1000" .securityContext.runAsUser }}::/data/xnat/home:/usr/sbin/nologin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-plugins
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+data:
+  {{- if .plugins }}
+  {{- range $plugin, $p := .plugins }}
+  {{- range $p }}
+  {{ .provider.id }}-provider.properties: |
+    {{- include "xnat-web.envify" (list "" .) | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- else }}
+  {}
+  {{- end }}
+{{- end }}

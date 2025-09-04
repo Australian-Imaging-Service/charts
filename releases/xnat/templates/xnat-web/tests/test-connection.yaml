@@ -1,0 +1,26 @@
+{{- with (index .Values "xnat-web") -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-test-xnat-web
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  securityContext:
+    {{- toYaml .podSecurityContext | nindent 4 }}
+  containers:
+    - name: wget
+      securityContext:
+        {{- toYaml .securityContext | nindent 8 }}
+      image: busybox
+      command: [sh, -c]
+      args:
+        - |
+          set -x
+          wget -O - \
+            http://{{ include "xnat-web.fullname" $ }}:{{ .service.port }}
+  restartPolicy: Never
+{{- end }}
