@@ -3,6 +3,21 @@ entries:
   ctp:
   - apiVersion: v2
     appVersion: v2025.03.26
+    created: "2025-09-04T04:28:23.100569084Z"
+    description: Clinical Trial Processor (CTP), provides all the processing features
+      of a MIRC site.
+    digest: 86b13c48d210d782635ce1c9cf86eeda2a71296f05952bf4fa322c2aa61dc926
+    maintainers:
+    - email: dean.taylor@sydney.edu.au
+      name: dean-taylor
+      url: https://au.linkedin.com/in/dean-taylor-a8699238
+    name: ctp
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/ctp-1.1.0/ctp-1.1.0.tgz
+    version: 1.1.0
+  - apiVersion: v2
+    appVersion: v2025.03.26
     created: "2025-04-09T02:52:26.750612663Z"
     description: Clinical Trial Processor (CTP), provides all the processing features
       of a MIRC site.
@@ -90,6 +105,25 @@ entries:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/ctp-0.1.0/ctp-0.1.0.tgz
     version: 0.1.0
   xnat:
+  - apiVersion: v2
+    appVersion: 1.9.2
+    created: "2025-09-04T04:28:23.300827697Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+      version: 15.5.38
+    description: XNAT imaging informatics platform
+    digest: 713f29613e003c85f7b3904b5a663942d880218fdb64d3042bf57256f070a912
+    maintainers:
+    - email: dean.taylor@sydney.edu.au
+      name: dean-taylor
+      url: https://au.linkedin.com/in/dean-taylor-a8699238
+    name: xnat
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-1.1.20-rc.1/xnat-1.1.20-rc.1.tgz
+    version: 1.1.20-rc.1
   - apiVersion: v2
     appVersion: 1.9.2
     created: "2025-07-14T00:16:56.86742699Z"
@@ -615,4 +649,4 @@ entries:
     urls:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-0.3.0/xnat-0.3.0.tgz
     version: 0.3.0
-generated: "2025-07-14T00:16:56.867653944Z"
+generated: "2025-09-04T04:28:23.302895441Z"
