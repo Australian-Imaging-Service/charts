@@ -183,8 +183,7 @@ xnat-web:
       mountPath: "/data/xnat/prearchive"
       # storageClass: ""
       size: 0
-    fileStore:
-      accessModes: [ReadWriteMany]
+    filestore:
       accessMode: ReadWriteMany
       existingClaim: ""
       mountPath: "/data/xnat/vol"
