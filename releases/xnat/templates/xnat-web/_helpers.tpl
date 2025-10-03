@@ -15,11 +15,7 @@ If release name contains chart name it will be used as a full name.
 {{- (index .Values "xnat-web" "fullnameOverride") | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name := default .Chart.Name (index .Values "xnat-web" "nameOverride") }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
 {{- end }}
 {{- end }}
 
