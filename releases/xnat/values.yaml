@@ -153,12 +153,12 @@ xnat-web:
   prearchivePath: /data/xnat/prearchive
   triagePath: /data/xnat/triage
 
-  persistence:
-    cache:
-      accessMode: ReadWriteOnce
-      mountPath: "/data/xnat/cache"
-      # storageClass: ""
-      size: 10Gi
+  persistence: {}
+    # cache:
+    #   accessMode: ReadWriteOnce
+    #   mountPath: "/data/xnat/cache"
+    #   # storageClass: ""
+    #   size: 10Gi
 
   volumeMounts:
     - mountPath: /data/xnat
