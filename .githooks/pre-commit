@@ -50,7 +50,13 @@ git diff-index --check --cached $against -- || exit $?
 # Helm chart testing
 if which ct &>/dev/null; then
 	echo Running helm chart linting tests
-	ct lint --chart-dirs=releases || exit $?
+	if helm plugin list |grep -q '^unittest'; then
+		ct lint --chart-dirs=releases \
+			--additional-commands='helm unittest {{ .Path }}' \
+			|| exit $?
+	else
+		ct lint --chart-dirs=releases || exit $?
+	fi
 else
 	cat <<\EOF
 Skipping Helm chart testing.

@@ -5,41 +5,43 @@
 global:
   postgresql:
     auth:
-      username: "xnat_web"
-      database: "xnat_web"
+      username: ""
+      database: ""
       existingSecret: ""
       secretKeys:
         adminPasswordKey: ""
         userPasswordKey: ""
         replicationPasswordKey: ""
-  # storageClass: ""
-  # storageClassName: ""
+  # A value of '-' indicates the default storage class should be used.
+  storageClassName: "-"
 
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing
 postgresql:
   enabled: true
+  image:
+    tag: latest
   auth:
     existingSecret: ""
     secretKeys:
-      database: ""
-      host: ""
-      password: ""
-      port: ""
-      username: ""
-    database: ""
+      databaseKey: ""
+      hostKey: ""
+      userPasswordKey: password
+      portKey: ""
+      usernameKey: ""
+    database: "xnat_web"
     host: ""
     password: ""
-    username: ""
+    username: "xnat_web"
 # Example CloudNativePG configuration
 # auth:
 #   existingSecret: example-xnat-app
 #   secretKeys:
-#     database: dbname
-#     host: host
-#     password: password
-#     port: port
-#     username: username
+#     databaseKey: dbname
+#     hostKey: host
+#     userPasswordKey: password
+#     portKey: port
+#     usernameKey: username
   primary:
     resources:
       requests:
@@ -49,9 +51,10 @@ postgresql:
         cpu: 1000m
         memory: 1024Mi
 
+# DEPRECATED
 # External Database service endpoint, ensure `postgresql.enabled: false`
-postgresqlExternalName: ""
-postgresqlExternalIPs: []
+# postgresqlExternalName: ""
+# postgresqlExternalIPs: []
 #  - 130.95.126.8
 
 xnat-web:
@@ -66,7 +69,7 @@ xnat-web:
     tag: ""
 
   imagePullSecrets: []
-  nameOverride: ""
+  nameOverride: "xnat-web"
   fullnameOverride: ""
 
   serviceAccount:
@@ -138,59 +141,42 @@ xnat-web:
     targetCPUUtilizationPercentage: 80
     # targetMemoryUtilizationPercentage: 80
 
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   tolerations: []
 
   affinity: {}
 
   fileStorePath: /data/xnat
-  archivePath: /data/xnat/archive
+  archivePath: &archive_path /data/xnat/archive
   buildPath: /data/xnat/build
-  cachePath: /data/xnat/cache
+  cachePath: &cache_path /data/xnat/cache
   inboxPath: /data/xnat/inbox
   pipelinePath: /data/xnat/pipeline
-  prearchivePath: /data/xnat/prearchive
+  prearchivePath: &prearchive_path /data/xnat/prearchive
   triagePath: /data/xnat/triage
 
-  persistence: {}
-    # cache:
-    #   accessMode: ReadWriteOnce
-    #   mountPath: "/data/xnat/cache"
-    #   # storageClass: ""
-    #   size: 10Gi
-
-  volumeMounts:
-    - mountPath: /data/xnat
-      name: fileStore
-    - mountPath: /data/xnat/build
-      name: build
-    - mountPath: /data/xnat/cache/DELETED
-      name: deleted
+  persistence:
+    cache:
+      accessMode: ReadWriteOnce
+      mountPath: *cache_path
+      # storageClass: ""
+      size: 10Gi
 
   volumes:
     archive:
       accessMode: ReadWriteMany
       existingClaim: ""
-      mountPath: "/data/xnat/archive"
+      mountPath: *archive_path
       # storageClass: ""
-      size: 0
-    deleted:
-      storeageClass: efs
+      size: 1Ti
     prearchive:
       accessMode: ReadWriteMany
       existingClaim: ""
-      mountPath: "/data/xnat/prearchive"
+      mountPath: *prearchive_path
       # storageClass: ""
-      size: 0
-    filestore:
-      accessMode: ReadWriteMany
-      existingClaim: ""
-      mountPath: "/data/xnat/vol"
-      size: 8Gi
-      # storageClass: ""
-      volumeMode: Filesystem
-      selector: {}
+      size: 1Ti
 
   pluginSecrets: []
   #  - existingSecret: ""

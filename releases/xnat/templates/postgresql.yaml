@@ -1,0 +1,17 @@
+{{- $existingSecret := include "xnat.postgresql.existingSecret" . -}}
+{{- if not $existingSecret -}}
+{{- if not .Values.postgresql.enabled -}}
+{{- $postgresql := index .Values "xnat-web" "postgresql" | default dict -}}
+{{- $password := coalesce .Values.global.postgresql.postgresqlPassword $postgresql.postgresqlPassword
+                          .Values.global.postgresql.auth.password .Values.postgresql.auth.password -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "xnat.postgresql.fullname" . }}
+  labels:
+    {{- include "xnat.labels" $ | nindent 4 }}
+type: Opaque
+data:
+  {{ include "xnat.postgresql.passwordKey" . }}: {{ $password | b64enc | quote }}
+{{- end }}
+{{- end }}

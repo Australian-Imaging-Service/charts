@@ -1,0 +1,31 @@
+suite: Persistent Volume Claim Test
+templates:
+  - templates/xnat-web/pvc.yaml
+tests:
+  - it: should pass all kinds of assertions
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: PersistentVolumeClaim
+      - matchRegex:
+          path: metadata.name
+          pattern: -filestore$
+      - equal:
+          path: spec.accessModes
+          value: [ReadWriteMany]
+      - equal:
+          path: spec.resources.requests.storage
+          value: 1Ti
+      - equal:
+          path: spec.storageClassName
+          value: filestore-storage-class
+      - equal:
+          path: spec.volumeMode
+          value: Filesystem
+    set:
+      xnat-web.volumes.archive.size: 0
+      xnat-web.volumes.prearchive.size: 0
+      xnat-web.volumes.filestore.accessMode: ReadWriteMany
+      xnat-web.volumes.filestore.mountPath: /data/xnat/file_store
+      xnat-web.volumes.filestore.size: 1Ti
+      xnat-web.volumes.filestore.storageClassName: filestore-storage-class

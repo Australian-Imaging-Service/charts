@@ -135,15 +135,15 @@ spec:
                 until pg_isready --quiet; do sleep 5; done
           env:
             - name: PGDATABASE
-              {{- (include "xnat-web.postgresql.database" $) | nindent 14 }}
+              {{- (include "xnat.postgresql.database" $) | nindent 14 }}
             - name: PGHOST
-              {{- (include "xnat-web.postgresql.host" $) | nindent 14 }}
+              {{- (include "xnat.postgresql.host" $) | nindent 14 }}
             - name: PGPASSWORD
-              {{- (include "xnat-web.postgresql.password" $) | nindent 14 }}
+              {{- (include "xnat.postgresql.password" $) | nindent 14 }}
             - name: PGPORT
-              {{- (include "xnat-web.postgresql.port" $) | nindent 14 }}
+              {{- (include "xnat.postgresql.port" $) | nindent 14 }}
             - name: PGUSER
-              {{- (include "xnat-web.postgresql.user" $) | nindent 14 }}
+              {{- (include "xnat.postgresql.user" $) | nindent 14 }}
             - name: XNAT_ADMIN_CREDS
               valueFrom:
                 secretKeyRef:
@@ -249,9 +249,7 @@ spec:
         name: {{ $name | quote }}
       spec:
         accessModes: [ {{ $c.accessMode | quote }} ]
-        {{- if (or $c.storageClass $.Values.global.storageClass) }}
-        storageClassName: {{ $c.storageClass | default $.Values.global.storageClass | quote }}
-        {{- end }}
+        {{ include "xnat.storageClassName" (dict "vol" $c "global" $.Values.global) }}
         volumeMode: Filesystem
         resources:
           requests:

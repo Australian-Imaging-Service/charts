@@ -61,3 +61,14 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{- define "xnat.storageClassName" -}}
+{{- $storageClassName := coalesce .vol.storageClass .vol.storageClassName
+                         .global.defaultStorageClass .global.storageClass .global.storageClassName
+                         | default "" -}}
+{{- if eq $storageClassName "-" -}}
+{{- printf "# storageClassName: \"\"" -}}
+{{- else -}}
+{{- printf "storageClassName: \"%s\"" $storageClassName -}}
+{{- end }}
+{{- end -}}

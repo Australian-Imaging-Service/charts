@@ -6,7 +6,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "xnat-web.fullname" $ }}-{{ $name }}
+  name: {{ include "xnat-web.fullname" $ }}-{{ $name | lower }}
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
@@ -15,9 +15,7 @@ spec:
   resources:
     requests:
       storage: {{ $c.size | quote }}
-{{- if $c.storageClass }}
-  storageClassName: {{ $c.storageClass }}
-{{- end }}
+  {{ include "xnat.storageClassName" (dict "vol" $c "global" $.Values.global) }}
 {{- if $c.selector }}
   selector:
     {{- $c.selector | toYaml | nindent 4 }}
