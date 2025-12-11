@@ -1,3 +1,8 @@
+---
+title: "README"
+weight: 10
+---
+
 # Deployments of AIS released service
 
 The `/docs/Deployment` folder is a dump directory for any documentation related to deployment of the AIS released services. This includes, but is not limited to, deployment examples:
