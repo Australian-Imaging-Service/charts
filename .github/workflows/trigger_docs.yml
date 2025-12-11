@@ -13,13 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        repo:
-          - Australian-Imaging-Service/Australian-Imaging-Service.github.io
-          - Australian-Imaging-Service/web-dev
+        page:
+          - {repo: Australian-Imaging-Service/Australian-Imaging-Service.github.io, branch: main}
+          - {repo: Australian-Imaging-Service/web-dev, branch: master}
     steps:
       - name: Repository Dispatch
         run: |
-          gh workflow run 'Deploy Hugo site to Pages'
+          gh workflow run 'Deploy Hugo site to Pages' --ref ${{ matrix.page.branch }}
         env:
-          GH_REPO: ${{ matrix.repo }}
+          GH_REPO: ${{ matrix.page.repo }}
           GH_TOKEN: ${{ secrets.GITHUBPAGES_KEY }}
