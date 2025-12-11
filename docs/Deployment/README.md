@@ -1,6 +1,6 @@
 ---
 title: "README"
-draft: true
+draft: false
 ---
 
 # Deployments of AIS released service
