@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         page:
-          - {repo: Australian-Imaging-Service/Australian-Imaging-Service.github.io, branch: main}
+          - {repo: Australian-Imaging-Service/Australian-Imaging-Service.github.io, branch: master}
           - {repo: Australian-Imaging-Service/web-dev, branch: master}
     steps:
       - uses: actions/create-github-app-token@v2
