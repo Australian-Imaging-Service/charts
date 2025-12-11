@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'docs/**'
+  workflow_dispatch:
 
 jobs:
   auth:
@@ -14,6 +15,8 @@ jobs:
     outputs:
       token: ${{ steps.app-token.outputs.token }}
     steps:
+      - run: |
+          echo "APPLICATION ID: ${{ vars.DOCS_BUILDER_APP_ID }}"
       - uses: actions/create-github-app-token@v2
         id: app-token
         with:
