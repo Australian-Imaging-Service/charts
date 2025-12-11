@@ -1,6 +1,5 @@
 ---
 title: "README"
-weight: 10
 draft: true
 ---
 
