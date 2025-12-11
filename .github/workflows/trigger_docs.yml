@@ -9,8 +9,20 @@ on:
       - 'docs/**'
 
 jobs:
+  auth:
+    runs-on: ubuntu-latest
+    outputs:
+      token: ${{ steps.app-token.outputs.token }}
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.DOCS_BUILDER_APP_ID }}
+          private-key: ${{ secrets.DOCS_BUILDER_PRIVATE_KEY }}
+
   deploy:
     runs-on: ubuntu-latest
+    needs: auth
     strategy:
       matrix:
         page:
@@ -22,4 +34,4 @@ jobs:
           gh workflow run 'Deploy Hugo site to Pages' --ref ${{ matrix.page.branch }}
         env:
           GH_REPO: ${{ matrix.page.repo }}
-          GH_TOKEN: ${{ secrets.GITHUBPAGES_KEY }}
+          GH_TOKEN: ${{ needs.auth.outputs.token }}
