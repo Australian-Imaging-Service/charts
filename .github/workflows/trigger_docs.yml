@@ -11,10 +11,15 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo:
+          - Australian-Imaging-Service/Australian-Imaging-Service.github.io
+          - Australian-Imaging-Service/web-dev
     steps:
       - name: Repository Dispatch
         run: |
           gh workflow run 'Deploy Hugo site to Pages'
         env:
-          GH_REPO: Australian-Imaging-Service/Australian-Imaging-Service.github.io
+          GH_REPO: ${{ matrix.repo }}
           GH_TOKEN: ${{ secrets.GITHUBPAGES_KEY }}
