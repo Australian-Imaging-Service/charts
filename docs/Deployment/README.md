@@ -1,6 +1,7 @@
 ---
-title: "README"
-draft: false
+title: README
+description: Charts deployment readme
+draft: true
 ---
 
 # Deployments of AIS released service
