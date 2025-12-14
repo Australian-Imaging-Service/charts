@@ -25,6 +25,9 @@ postgresql:
       limits:
         cpu: 1000m
         memory: 1024Mi
+  image:
+    repository: bitnamilegacy/postgresql
+    tag: 16.4.0-debian-12-r14      
 
 # External Database service endpoint, ensure `postgresql.enabled: false`
 postgresqlExternalName: ""
