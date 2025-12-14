@@ -125,6 +125,25 @@ entries:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-2.0.0-rc.2/xnat-2.0.0-rc.2.tgz
     version: 2.0.0-rc.2
   - apiVersion: v2
+    appVersion: 1.9.3
+    created: "2025-12-14T23:57:37.60596788Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+      version: 15.5.38
+    - condition: xnat-web.enabled
+      name: xnat-web
+      repository: ""
+      version: 1.1.21
+    description: XNAT imaging informatics platform
+    digest: 7703440a22cd8babb15e866f99320d906099ea33a73113ff1e0d2560bdc54d0d
+    name: xnat
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-1.1.21/xnat-1.1.21.tgz
+    version: 1.1.21
+  - apiVersion: v2
     appVersion: 1.9.2.2
     created: "2025-09-19T12:19:05.124482166Z"
     dependencies:
@@ -744,4 +763,4 @@ entries:
     urls:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-0.3.0/xnat-0.3.0.tgz
     version: 0.3.0
-generated: "2025-10-17T07:29:17.027791231Z"
+generated: "2025-12-14T23:57:37.606380893Z"
