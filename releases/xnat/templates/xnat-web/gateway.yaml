@@ -1,0 +1,111 @@
+{{- with (index .Values "xnat-web") -}}
+{{- if .gateway.enabled -}}
+{{- $svcPort := .service.port -}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  {{- with .gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .gateway.gatewayClassName }}
+  gatewayClassName: {{ .gateway.gatewayClassName }}
+  {{- end }}
+  {{- with .gateway.service }}
+  infrastructure:
+  {{- with .annotations }}
+    annotations:
+    {{- toYaml . | nindent 6 }}
+  {{- end }}
+  {{- with .labels }}
+    labels:
+    {{- toYaml . | nindent 6 }}
+  {{- end }}    
+  {{- end }}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+  {{- if .gateway.tls }}
+  {{- range .gateway.tls.hosts }}
+  - name: https
+    port: 443
+    protocol: HTTPS
+    hostname: {{ .host | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ .secretName }}
+  {{- end }}
+  {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  {{- if .gateway.tls }}
+  name: {{ include "xnat-web.fullname" $ }}-https-redirect
+  {{- else }}
+  name: {{ include "xnat-web.fullname" $ }}-http
+  {{- end }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: {{ include "xnat-web.fullname" $ }}
+    sectionName: http
+  {{ if .gateway.hosts }}
+  hostnames:
+  {{- range .gateway.hosts }}
+  - {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  rules:
+  {{- if .gateway.tls }}
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        port: 443
+  {{- end }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ include "xnat-web.fullname" $ }}-headless
+      port: {{ $svcPort }}
+---
+{{- if .gateway.tls }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-https
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: {{ include "xnat-web.fullname" $ }}
+    sectionName: https
+  hostnames:
+  {{- range .gateway.tls.hosts }}
+  - {{ .host | quote }}
+  {{- end }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ include "xnat-web.fullname" $ }}-headless
+      port: {{ $svcPort }}
+{{- end }}
+{{- end }}
+{{- end }}
