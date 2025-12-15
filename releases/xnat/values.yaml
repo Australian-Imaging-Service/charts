@@ -27,7 +27,7 @@ postgresql:
         memory: 1024Mi
   image:
     repository: bitnamilegacy/postgresql
-    tag: 16.4.0-debian-12-r14      
+    tag: 16.4.0-debian-12-r28      
 
 # External Database service endpoint, ensure `postgresql.enabled: false`
 postgresqlExternalName: ""
