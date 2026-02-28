@@ -25,6 +25,11 @@ postgresql:
       limits:
         cpu: 1000m
         memory: 1024Mi
+    # Optional PostgreSQL tuning overrides (example)
+    # extendedConfiguration: |
+    #   work_mem = 50MB
+    #   maintenance_work_mem = 128MB
+    #   effective_cache_size = 256MB
   image:
     repository: bitnamilegacy/postgresql
     tag: 16.4.0-debian-12-r28      
