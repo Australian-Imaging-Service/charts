@@ -29,4 +29,5 @@ dependencies:
   version: "15.5.38"  # postgresql app version 16.4.0
 - name: xnat-web
   condition: xnat-web.enabled
+  repository: "https://australian-imaging-service.github.io/charts"
   version: "1.1.23"
