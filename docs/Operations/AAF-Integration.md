@@ -8,7 +8,7 @@ weight: 10
 
 AAF have several services they offer which authenticate users, for example, Rapid Connect.
 We are interested in the AAF OIDC RP service.
-Please contact AAF Support via email at support@aaf.net.au to apply for a ClientId and Secret.
+Please contact AAF Support via email at support@aaf.edu.au to apply for a ClientId and Secret.
 
 They will ask you these questions:
 
