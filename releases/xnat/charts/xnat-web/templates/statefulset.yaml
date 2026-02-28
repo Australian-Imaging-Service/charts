@@ -90,7 +90,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- range $name, $c := .Values.volumes }}
-            {{- if $c.size }}
+            {{- if or $c.size $c.existingClaim }}
             - mountPath: {{ $c.mountPath | quote }}
               name: {{ $name | quote }}
               {{- if $c.mountPropagation }}
@@ -167,7 +167,7 @@ spec:
             secretName: {{ include "xnat-web.fullname" . }}
         {{- $context := . -}}
         {{- range $name, $c := .Values.volumes }}
-        {{- if $c.size }}
+        {{- if or $c.size $c.existingClaim }}
         - name: {{ $name }}
           persistentVolumeClaim:
             claimName: {{ $c.existingClaim | default (printf "%s-%s" (include "xnat-web.fullname" $context) $name) }}
