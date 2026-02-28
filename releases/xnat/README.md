@@ -67,3 +67,28 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | For more *xnat-web* detail and configuration options please visit the [xnat-web](https://github.com/Australian-Imaging-Service/charts/tree/main/charts/xnat-web#Parameters) sub-chart |||
 
 
+
+### Viewing and overriding sub-chart values (`xnat-web`)
+
+`helm show values ais/xnat` shows the parent chart values. The embedded sub-chart (`xnat-web`) values are overridden under the `xnat-web:` key in the parent values file.
+
+To inspect the sub-chart defaults directly in this repository:
+
+```bash
+cat releases/xnat/charts/xnat-web/values.yaml
+```
+
+To override sub-chart values in your deployment file:
+
+```yaml
+xnat-web:
+  resources: {}
+  ingress:
+    enabled: true
+```
+
+Then install/upgrade as usual:
+
+```bash
+helm upgrade --install my-xnat ais/xnat -f my-values.yaml
+```
