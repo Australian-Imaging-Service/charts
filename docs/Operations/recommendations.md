@@ -4,30 +4,73 @@ title: "Operational recommendations"
 weight: 10
 ---
 
-## Requirements and rationals
+## Purpose
 
-* Collaboration and knowledge share
+These recommendations provide a practical, high-level path for deploying and operating AIS chart-based services when Helm defaults are not enough for site-specific requirements.
 
-  Tool selection has been chosen with a security oriented focus but enabling collaboration and sharing of site specific configurations, experiences and recommendations.
+## Deployment lifecycle (high level)
 
-* Security
+1. **Plan**
+   - Define security and compliance requirements.
+   - Decide deployment model (single-site, federated, cloud/on-prem).
+   - Confirm ownership model (platform team, app team, shared).
 
-  A layered security approach with mechanisms to provide access at granular levels either through Access Control Lists (ACLs) or encryption
+2. **Baseline platform**
+   - Kubernetes cluster readiness (RBAC, ingress, storage classes, backups).
+   - Network policies and DNS strategy.
+   - Observability baseline (logs, metrics, alerts).
 
-* Automated deployment
-  * Allow use of Continuous Delivery (CD) pipelines
-  * Incorporate automated testing principals, such as Canary deployments
-* Federation of service
+3. **Configuration strategy**
+   - Keep base chart values minimal.
+   - Layer site overrides in version control.
+   - Separate secrets from non-sensitive config.
 
-## Tools
+4. **Release workflow**
+   - Validate with `helm lint` / `helm template` before apply.
+   - Promote through environments (dev -> test -> prod).
+   - Prefer progressive rollout patterns where possible.
 
-* Git - version control
-* [GnuPG](https://gnupg.org/) - Encryption key management
-  * This can be replaced with a corporate Key Management Service (KMS) if your organisation supports this type of service.
-* [Secrets OPerationS (SOPS)](https://github.com/mozilla/sops)
-  * Encryption of secrets to allow configuration to be securely placed in version control.
-  * SOPS allows full file encryption much like many other tools, however, individual values within certain files can be selectively encrypted. This allows the majority of the file that does not pose a site specific security risk to be available for review and sharing amongst Federated support teams. This should also comply with most security team requirements (please ensure this is the case)
-  * Can utilise GnuPG keys for encryption but also has the ability to incorporate more Corporate type Key Management Services (KMS) and role based groups (such as AWS AIM accounts)
-* [git-secrets](https://github.com/awslabs/git-secrets)
-  * Git enhancement that utilises pattern matching to help prevent sensitive information being submitted to version control by accident.
-  {{% alert color="warning" title="Warning" %}}Does not replace diligence but can help safe guard against mistakes.{{% /alert %}}
+5. **Operate**
+   - Monitor app health, storage growth, and DB performance.
+   - Review security posture regularly.
+   - Test restore paths and disaster recovery procedures.
+
+## Decision points
+
+### 1) Database placement
+
+- **Use bundled DB** for simple/dev setups.
+- **Use external managed DB** for production-scale and stronger operational controls.
+
+### 2) Secret management
+
+- Start with Kubernetes secrets where appropriate.
+- For shared/federated operations, prefer encrypted secrets workflows (e.g. SOPS + KMS/GPG).
+
+### 3) Change control
+
+- Use Git PRs for all values/template changes.
+- Require peer review for security, networking, and storage-impacting changes.
+
+## Recommended tooling
+
+- **Git**: source of truth for chart config and overlays.
+- **SOPS**: encrypt sensitive values in-repo.
+- **GnuPG/KMS**: key management for encrypted workflows.
+- **git-secrets**: prevent accidental credential commits.
+- **CI**: automate lint/render checks on every PR.
+
+## Minimum validation checklist
+
+- [ ] Rendered manifests look correct for target environment.
+- [ ] No plaintext secrets introduced.
+- [ ] Resource requests/limits match cluster policy.
+- [ ] Ingress/TLS configuration matches site routing model.
+- [ ] Backup and restore path documented and tested.
+
+## References
+
+- [PostgreSQL DB tuning](./PostgreSQL-DB-Tuning/)
+- [External PostgreSQL connection](./External-PGSQL-DB-Connection/)
+- [Logging with EFK](./Logging-With-EFK/)
+- [Autoscaling XNAT on Kubernetes](./Autoscaling-XNAT-Kubernetes-with-EKS/)
