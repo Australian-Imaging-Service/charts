@@ -1,44 +1,60 @@
-# Quick start
+# Charts Quick Start
 
-Requires:
+This repository contains Helm charts and deployment documentation.
 
-* existing Kubernetes (k8s) service with the following:
-  * internal DNS provider
-  * Ingress controller
-  * Role Based Access Control (RBAC)
-  * default Storage Class for persistent volumes
-* Workstation with the following:
-  * `kubectl` client configured to control your k8s service
-  * `helm` client
+## Prerequisites
 
-Helm client configuration
+You need:
+
+- A Kubernetes cluster with:
+  - internal DNS provider
+  - Ingress controller
+  - RBAC enabled
+  - default StorageClass for persistent volumes
+- A workstation with:
+  - `kubectl` configured for your cluster
+  - `helm` installed
+
+## Helm repository setup
 
 ```bash
-# Add the AIS helm chart repository
+# Add the AIS chart repository
 helm repo add ais https://australian-imaging-service.github.io/charts
 helm repo update
 ```
 
-Deploy XNAT
+## Deploy XNAT
 
 ```bash
-# Create a namespace and deploy the AIS XNAT service
-kubectl create namespace xnat
-helm upgrade xnat ais/xnat --install --values ./my-site-overrides.yaml --namespace xnat
+# Create namespace (idempotent)
+kubectl create namespace xnat --dry-run=client -o yaml | kubectl apply -f -
 
-# Watch the AIS goodness
-watch kubectl -nxnat get all
+# Install/upgrade release
+helm upgrade --install xnat ais/xnat \
+  --values ./my-site-overrides.yaml \
+  --namespace xnat
+
+# Watch resources
+watch kubectl -n xnat get all
 ```
 
-Deploy Clinical Trials Processor (CTP)
+## Deploy Clinical Trials Processor (CTP)
 
 ```bash
-# Create a namespace and deploy the AIS CTP service
-kubectl create namespace ctp
-helm upgrade ctp ais/ctp --install --values ./my-ctp-site-overrides.yaml --namespace ctp
+# Create namespace (idempotent)
+kubectl create namespace ctp --dry-run=client -o yaml | kubectl apply -f -
 
-# Watch the AIS goodness
-watch kubectl -nctp get all
+# Install/upgrade release
+helm upgrade --install ctp ais/ctp \
+  --values ./my-ctp-site-overrides.yaml \
+  --namespace ctp
+
+# Watch resources
+watch kubectl -n ctp get all
 ```
 
-For more information refer to the [AIS Dev Documentation](https://australian-imaging-service.github.io/docs/)
+## Next steps
+
+- Charts and deployment docs: `docs/`
+- Contribution process: `CONTRIBUTING.md`
+- AIS docs: <https://australian-imaging-service.github.io/docs/>
