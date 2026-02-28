@@ -1,12 +1,15 @@
-# Operational recommendations
+# Operations documentation
 
-The `/docs/_operational` folder is a dump directory for any documentation related to the day-to-day runnings of AIS released services. This includes, but is not limited to, operational tasks such as:
+The `docs/Operations` section contains day-to-day operational guidance for AIS chart deployments.
 
-* Administration tasks
-* Automation
-* Release management
-* Backup and disaster recovery
+Typical topics include:
 
-Jekyll is used to render these documents and any MarkDown files with the appropriate `FrontMatter` tags will appear in the `Operational` drop-down menu item.
+- administration procedures
+- automation patterns
+- release and rollback practices
+- backup and disaster recovery considerations
+- security and secret management workflows
 
-[https://australian-imaging-service.github.io/charts/](https://australian-imaging-service.github.io/charts/)
+For rendered docs, see:
+
+<https://australian-imaging-service.github.io/charts/>
