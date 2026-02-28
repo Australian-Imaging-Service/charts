@@ -67,3 +67,28 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | For more *xnat-web* detail and configuration options please visit the [xnat-web](https://github.com/Australian-Imaging-Service/charts/tree/main/charts/xnat-web#Parameters) sub-chart |||
 
 
+
+### PostgreSQL memory tuning
+
+If you use the bundled Bitnami PostgreSQL sub-chart, you can provide tuning values through:
+
+- `postgresql.primary.resources`
+- `postgresql.primary.extendedConfiguration`
+
+Example override snippet:
+
+```yaml
+postgresql:
+  primary:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1024Mi
+    extendedConfiguration: |
+      work_mem = 50MB
+      maintenance_work_mem = 128MB
+      effective_cache_size = 256MB
+```
