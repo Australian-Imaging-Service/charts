@@ -40,6 +40,9 @@ xnat-web:
     postgresqlDatabase: "xnat_web"
     postgresqlPassword: "xnat_web"
     postgresqlUsername: "xnat_web"
+    # existingSecret:
+    #   name: "xnat-db-credentials"
+    #   key: "password"
 
   enabled: true
   replicaCount: 1

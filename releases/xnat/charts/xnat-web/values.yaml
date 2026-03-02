@@ -14,6 +14,9 @@ postgresql: {}
   # postgresqlDatabase: "xnat_web"
   # postgresqlUsername: "xnat_web"
   # postgresqlPassword: "xnat_web"
+  # existingSecret:
+  #   name: "xnat-db-credentials"
+  #   key: "password"
 
 replicaCount: 1
 
