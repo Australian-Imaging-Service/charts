@@ -15,7 +15,10 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | For more PostgreSQL detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
 | `volumes.archive.existingClaim`    | | |
+| `volumes.archive.mountPath`        | Archive path propagated to XNAT setup (`archivePath`)                                | `/data/xnat/archive` |
 | `volumes.prearchive.existingClaim` | | |
+| `volumes.prearchive.mountPath`     | Prearchive path propagated to XNAT setup (`prearchivePath`)                          | `/data/xnat/prearchive` |
+| `persistence.cache.mountPath`      | Cache path propagated to XNAT setup (`cachePath`)                                    | `/data/xnat/cache` |
 | `dicom_scp.serviceType                      | DICOM C-STORE Service Class Provider (SCP) service type (NodePort|LoadBalancer)      | `NodePort` |
 | `dicom_scp.recievers.ae_title`              |                                                                                      | `XNAT` |
 | `dicom_scp.recievers.port`                  |                                                                                      | `8104` |
