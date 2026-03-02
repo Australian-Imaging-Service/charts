@@ -121,7 +121,7 @@ xnat-web:
   gateway:
     enabled: false
     annotations: {}
-    service: {}
+    infrastructure: {}
     #   annotations: {}
     #   labels: {}
     hosts:

@@ -16,7 +16,7 @@ spec:
   {{- if .gateway.gatewayClassName }}
   gatewayClassName: {{ .gateway.gatewayClassName }}
   {{- end }}
-  {{- with .gateway.service }}
+  {{- with .gateway.infrastructure }}
   infrastructure:
   {{- with .annotations }}
     annotations:
