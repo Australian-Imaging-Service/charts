@@ -98,6 +98,25 @@ xnat-web:
     #    hosts:
     #      - chart-example.local
 
+  gateway:
+    enabled: false
+    # gatewayClassName: istio
+    # Existing Gateway to attach HTTPRoute to. If empty, chart creates a Gateway.
+    existingGatewayName: ""
+    annotations: {}
+    hostnames: []
+    #  - "chart-example.local"
+    listener:
+      name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    httpRoute:
+      enabled: true
+      parentSectionName: ""
+
   resources:
     # We usually recommend not to specify default resources and to leave this as a conscious
     # choice for the user. This also increases chances charts run on environments with little
