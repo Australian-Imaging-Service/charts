@@ -20,3 +20,7 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | `dicom_scp.recievers.ae_title`              |                                                                                      | `XNAT` |
 | `dicom_scp.recievers.port`                  |                                                                                      | `8104` |
 | `dicom_scp.recievers.nodePort`              |                                                                                      | `nil` |
+| `gateway.enabled`                            | Enable Gateway API resources (`Gateway` + `HTTPRoute`)                              | `false` |
+| `gateway.existingGatewayName`                | Use an existing Gateway instead of creating one                                      | `""` |
+| `gateway.gatewayClassName`                   | GatewayClass used when chart creates a Gateway                                       | `nil` |
+| `gateway.hostnames`                          | Hostnames for generated HTTPRoute (falls back to `ingress.hosts`)                   | `[]` |
