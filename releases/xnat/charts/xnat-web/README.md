@@ -14,6 +14,8 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | `global.postgresql.servicePort`             | PostgreSQL port (overrides `postgresql.service.port`)                                | `nil` |
 | For more PostgreSQL detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
+| `csiIdMapping.enabled`                      | Auto-apply `podSecurityContext.fsGroup` for CSI ID mapping                          | `false` |
+| `csiIdMapping.fsGroup`                      | fsGroup value used when `csiIdMapping.enabled=true` and fsGroup is not set manually | `2000` |
 | `volumes.archive.existingClaim`    | | |
 | `volumes.prearchive.existingClaim` | | |
 | `dicom_scp.serviceType                      | DICOM C-STORE Service Class Provider (SCP) service type (NodePort|LoadBalancer)      | `NodePort` |
