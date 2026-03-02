@@ -88,3 +88,11 @@ Converty yaml to xnat configuration syntax
 {{ $prefix }}={{ $value }}
 {{ end -}}
 {{- end -}}
+
+{{/*
+Standardized OpenID login link snippet, aligned to provider.id
+*/}}
+{{- define "xnat-web.openid.link" -}}
+{{- $providerId := . -}}
+<p>To sign-in using your credentials, please click on the button below.</p><p><a href="/openid-login?providerId={{ $providerId }}"><img src="/images/{{ $providerId }}_service_223x54.png" /></a></p>
+{{- end -}}
