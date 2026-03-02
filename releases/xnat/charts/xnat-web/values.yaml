@@ -53,6 +53,17 @@ service:
   port: 80
   type: ClusterIP
 
+jmxExporter:
+  enabled: false
+  port: 9404
+  javaAgentPath: "/opt/jmx-exporter/jmx_prometheus_javaagent.jar"
+  configMountPath: "/etc/jmx-exporter/config.yaml"
+  config: |
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+      - pattern: ".*"
+
 ingress:
   enabled: false
   annotations: {}

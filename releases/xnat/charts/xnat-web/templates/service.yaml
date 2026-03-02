@@ -11,6 +11,12 @@ spec:
       targetPort: 8080
       protocol: TCP
       name: http
+    {{- if .Values.jmxExporter.enabled }}
+    - port: {{ .Values.jmxExporter.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
   selector:
     {{- include "xnat-web.selectorLabels" . | nindent 4 }}
   sessionAffinity: "ClientIP"

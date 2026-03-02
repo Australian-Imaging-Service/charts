@@ -1,0 +1,11 @@
+{{- if .Values.jmxExporter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "xnat-web.fullname" . }}-jmx-exporter
+  labels:
+    {{- include "xnat-web.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+{{ .Values.jmxExporter.config | indent 4 }}
+{{- end }}

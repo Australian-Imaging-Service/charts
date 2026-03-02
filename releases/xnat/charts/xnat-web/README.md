@@ -14,6 +14,10 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | `global.postgresql.servicePort`             | PostgreSQL port (overrides `postgresql.service.port`)                                | `nil` |
 | For more PostgreSQL detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
+| `jmxExporter.enabled`                       | Enable Tomcat JMX Exporter javaagent configuration                                  | `false` |
+| `jmxExporter.port`                          | Metrics port exposed by JMX exporter                                                | `9404` |
+| `jmxExporter.javaAgentPath`                 | Path to JMX exporter javaagent jar in container                                     | `/opt/jmx-exporter/jmx_prometheus_javaagent.jar` |
+| `jmxExporter.configMountPath`               | Mount path of JMX exporter config in container                                      | `/etc/jmx-exporter/config.yaml` |
 | `volumes.archive.existingClaim`    | | |
 | `volumes.prearchive.existingClaim` | | |
 | `dicom_scp.serviceType                      | DICOM C-STORE Service Class Provider (SCP) service type (NodePort|LoadBalancer)      | `NodePort` |
