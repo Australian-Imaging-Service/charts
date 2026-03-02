@@ -168,6 +168,13 @@ plugins: {}
   #      clientId: ""
   #      clientSecret: ""
   #      scopes: "openid,profile,email"
+  #      # Optional secretRefs allow sensitive values to be sourced from existing
+  #      # Kubernetes Secrets and merged into provider properties at render time.
+  #      # secretRefs:
+  #      #   - property: "openid.aaf.clientSecret"
+  #      #     secretName: "xnat-openid-secrets"
+  #      #     secretKey: "aafClientSecret"
+  #      #     # default: "" # optional fallback if secret/key is missing
   #      link: '<p>To sign-in using your AAF credentials, please click on the button below.</p><p><a href="/openid-login?providerId=aaf"><img src="/images/aaf_service_223x54.png" /></a></p>'
   #      # Flag that sets if we should be checking email domains
   #      # Domains below are the only ones allowed to login, empty array allows ALL domains
