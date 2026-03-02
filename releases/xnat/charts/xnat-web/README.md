@@ -11,6 +11,8 @@ The following tables list the configuration parameters of the XNAT-web Chart and
 | `global.postgresql.postgresqlDatabase`      | PostgreSQL database (overrides `postgresql.postgresqlDatabase`)                      | `nil` |
 | `global.postgresql.postgresqlUsername`      | PostgreSQL username (overrides `postgresql.postgresqlUsername`)                      | `nil` |
 | `global.postgresql.postgresqlPassword`      | PostgreSQL admin password (overrides `postgresql.postgresqlPassword`)                | `nil` |
+| `postgresql.existingSecret.name`            | Existing secret name for database password lookup                                     | `nil` |
+| `postgresql.existingSecret.key`             | Existing secret key containing database password                                      | `nil` |
 | `global.postgresql.servicePort`             | PostgreSQL port (overrides `postgresql.service.port`)                                | `nil` |
 | For more PostgreSQL detail and configuration options please visit the official [Bitnami Chart repository](https://github.com/bitnami/charts/tree/master/bitnami/postgresql). |||
 | `global.storageClass`                       | Global storage class for dynamic provisioning                                        | `nil` |
