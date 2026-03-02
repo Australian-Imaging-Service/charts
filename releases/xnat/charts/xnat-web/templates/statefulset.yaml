@@ -36,18 +36,29 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- $request := trimSuffix "Mi" .Values.resources.requests.memory }}
-          env:
+          {{- $nonheapOpts := "" }}
           {{- if .Values.nonheapmem }}
           {{- $nonheap := trimSuffix "Mi" .Values.nonheapmem }}
-            - name: CATALINA_OPTS
-              value: -Xms{{ sub $request $nonheap }}m -Xmx{{ sub $request $nonheap }}m -Dxnat.home=/data/xnat/home
+          {{- $nonheapOpts = printf "-Xms%sm -Xmx%sm " (sub $request $nonheap) (sub $request $nonheap) }}
           {{- end }}
+          {{- $jmxAgentOpts := "" }}
+          {{- if .Values.jmxExporter.enabled }}
+          {{- $jmxAgentOpts = printf "-javaagent:%s=%v:%s " .Values.jmxExporter.javaAgentPath .Values.jmxExporter.port .Values.jmxExporter.configMountPath }}
+          {{- end }}
+          env:
+            - name: CATALINA_OPTS
+              value: {{ printf "%s%s-Dxnat.home=/data/xnat/home" $nonheapOpts $jmxAgentOpts | quote }}
             - name: TZ
               value: {{ .Values.timezone }}
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
+            {{- if .Values.jmxExporter.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.jmxExporter.port }}
+              protocol: TCP
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.probes.liveness | nindent 12 }}
           readinessProbe:
@@ -73,6 +84,12 @@ spec:
               mountPath: "/data/xnat/home/config/xnat-conf.properties"
               readOnly: true
               subPath: "xnat-conf.properties"
+            {{- if .Values.jmxExporter.enabled }}
+            - name: jmx-exporter-config
+              mountPath: {{ .Values.jmxExporter.configMountPath | quote }}
+              readOnly: true
+              subPath: config.yaml
+            {{- end }}
             {{- range $plugin, $p := .Values.plugins }}
             {{- range $p }}
             {{- if .auth }}
@@ -165,6 +182,11 @@ spec:
         - name: xnat-config
           secret:
             secretName: {{ include "xnat-web.fullname" . }}
+        {{- if .Values.jmxExporter.enabled }}
+        - name: jmx-exporter-config
+          configMap:
+            name: {{ include "xnat-web.fullname" . }}-jmx-exporter
+        {{- end }}
         {{- $context := . -}}
         {{- range $name, $c := .Values.volumes }}
         {{- if $c.size }}
