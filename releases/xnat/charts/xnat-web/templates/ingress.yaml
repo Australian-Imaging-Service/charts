@@ -1,4 +1,4 @@
-{{- if .Values.ingress.enabled -}}
+{{- if and .Values.ingress.enabled (not .Values.gateway.enabled) -}}
 {{- $fullName := include "xnat-web.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
 {{- if semverCompare ">=1.14-0 <=1.21-0" .Capabilities.KubeVersion.GitVersion -}}

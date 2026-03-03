@@ -2,6 +2,19 @@
 
 ## Parameters
 
+## Gateway API (Issue #176)
+
+This chart can generate Gateway API resources (`Gateway` and `HTTPRoute`) as an alternative to Kubernetes `Ingress`.
+
+Enable it with:
+
+- `gateway.enabled=true`
+- `ingress.enabled=false`
+
+Notes:
+- Gateway API CRDs (`gateway.networking.k8s.io/v1beta1`) must be installed in the cluster.
+- If `gateway.existingGatewayName` is set, the chart will not create a `Gateway` and will instead attach the `HTTPRoute` to the named existing Gateway.
+
 The following tables list the configuration parameters of the XNAT-web Chart and their default values.
 
 | Parameter                                   | Description                                                                          | Default |

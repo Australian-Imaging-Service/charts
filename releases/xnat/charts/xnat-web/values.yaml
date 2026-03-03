@@ -57,6 +57,41 @@ ingress:
   enabled: false
   annotations: {}
     # kubernetes.io/tls-acme: "true"
+
+# Gateway API (Issue #176)
+# Enables Gateway/HTTPRoute resources as an alternative to Ingress.
+# NOTE: `gateway.networking.k8s.io` CRDs must be installed in the cluster.
+# This is intended as a drop-in replacement for ingress routing.
+#
+# Safety: do not enable both ingress.enabled and gateway.enabled.
+gateway:
+  enabled: false
+  annotations: {}
+  # If set, do not create a Gateway; instead attach the HTTPRoute to an existing Gateway.
+  existingGatewayName: ""
+  # Required when creating a Gateway.
+  gatewayClassName: ""
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "" # optional
+  tls:
+    enabled: false
+    # Example certificateRefs:
+    # - kind: Secret
+    #   name: chart-example-tls
+    certificateRefs: []
+
+  httpRoute:
+    enabled: true
+    # Optional hostnames for HTTPRoute. When empty, falls back to ingress.hosts[].host.
+    hostnames: []
+    # Default match: PathPrefix /
+    matches:
+      - path:
+          type: PathPrefix
+          value: /
     # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
     # nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
     # nginx.ingress.kubernetes.io/proxy-send-timeout: "100"
