@@ -36,7 +36,33 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- $request := trimSuffix "Mi" .Values.resources.requests.memory }}
+          {{- if and .Values.activemq.enabled (eq (default "basic" .Values.activemq.auth.mode) "serviceAccountJwt") }}
+          # Start Tomcat with SPRING_ACTIVEMQ_PASSWORD loaded from the projected ServiceAccount token.
+          # This enables Kubernetes-managed token rotation at the filesystem layer.
+          # NOTE: The application must reconnect/reload credentials to fully benefit from token rotation.
+          command:
+            - /bin/bash
+            - -lc
+          args:
+            - |
+              set -euo pipefail
+              if [ -n "${SPRING_ACTIVEMQ_PASSWORD_TOKEN_FILE:-}" ] && [ -f "$SPRING_ACTIVEMQ_PASSWORD_TOKEN_FILE" ]; then
+                export SPRING_ACTIVEMQ_PASSWORD="$(cat "$SPRING_ACTIVEMQ_PASSWORD_TOKEN_FILE")"
+              fi
+              exec /usr/local/tomcat/bin/catalina.sh run
+          {{- end }}
           env:
+          {{- if .Values.activemq.enabled }}
+            - name: SPRING_ACTIVEMQ_BROKER_URL
+              value: {{ .Values.activemq.brokerUrl | quote }}
+            - name: SPRING_ACTIVEMQ_USER
+              value: {{ default (include "xnat-web.serviceAccountName" .) .Values.activemq.user | quote }}
+            {{- if eq (default "basic" .Values.activemq.auth.mode) "serviceAccountJwt" }}
+            # Note: env vars are static; the entrypoint reads the token file at container start.
+            - name: SPRING_ACTIVEMQ_PASSWORD_TOKEN_FILE
+              value: {{ .Values.activemq.auth.serviceAccountJwt.tokenPath | quote }}
+            {{- end }}
+          {{- end }}
           {{- if .Values.nonheapmem }}
           {{- $nonheap := trimSuffix "Mi" .Values.nonheapmem }}
             - name: CATALINA_OPTS
@@ -73,6 +99,11 @@ spec:
               mountPath: "/data/xnat/home/config/xnat-conf.properties"
               readOnly: true
               subPath: "xnat-conf.properties"
+            {{- if and .Values.activemq.enabled (eq (default "basic" .Values.activemq.auth.mode) "serviceAccountJwt") }}
+            - name: activemq-sa-token
+              mountPath: {{ dir .Values.activemq.auth.serviceAccountJwt.tokenPath | quote }}
+              readOnly: true
+            {{- end }}
             {{- range $plugin, $p := .Values.plugins }}
             {{- range $p }}
             {{- if .auth }}
@@ -165,6 +196,17 @@ spec:
         - name: xnat-config
           secret:
             secretName: {{ include "xnat-web.fullname" . }}
+        {{- if and .Values.activemq.enabled (eq (default "basic" .Values.activemq.auth.mode) "serviceAccountJwt") }}
+        - name: activemq-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: {{ base .Values.activemq.auth.serviceAccountJwt.tokenPath | quote }}
+                  {{- if .Values.activemq.auth.serviceAccountJwt.audience }}
+                  audience: {{ .Values.activemq.auth.serviceAccountJwt.audience | quote }}
+                  {{- end }}
+                  expirationSeconds: {{ .Values.activemq.auth.serviceAccountJwt.expirationSeconds }}
+        {{- end }}
         {{- $context := . -}}
         {{- range $name, $c := .Values.volumes }}
         {{- if $c.size }}

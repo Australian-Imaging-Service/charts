@@ -150,6 +150,18 @@ xnat-web:
 
   plugins: {}
     #container-service: []
+
+  # ActiveMQ client configuration (Issue #175)
+  activemq:
+    enabled: false
+    brokerUrl: ""
+    user: ""
+    auth:
+      mode: basic # basic|serviceAccountJwt
+      serviceAccountJwt:
+        tokenPath: "/var/run/secrets/ais/activemq/token"
+        audience: ""
+        expirationSeconds: 3600
     # Uncomment OHIF viewer line below for XNAT 1.8.2 and higher
     #ohif-viewer: {}
     #ldap-auth-plugin:

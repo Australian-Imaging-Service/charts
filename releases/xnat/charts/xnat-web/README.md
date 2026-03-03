@@ -2,6 +2,22 @@
 
 ## Parameters
 
+## ActiveMQ (Issue #175)
+
+This chart can inject Spring ActiveMQ client configuration into the XNAT web pod.
+
+For Kubernetes ServiceAccount JWT authentication (OAuth/Bearer-style), set:
+
+- `activemq.enabled=true`
+- `activemq.auth.mode=serviceAccountJwt`
+
+The chart will mount a projected ServiceAccount token at `activemq.auth.serviceAccountJwt.tokenPath` and start Tomcat with `SPRING_ACTIVEMQ_PASSWORD` loaded from that file.
+
+Notes:
+- Kubernetes will automatically rotate the projected token file.
+- The application must reconnect/reload credentials to fully benefit from token rotation.
+
+
 The following tables list the configuration parameters of the XNAT-web Chart and their default values.
 
 | Parameter                                   | Description                                                                          | Default |
