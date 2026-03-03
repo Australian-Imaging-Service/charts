@@ -83,6 +83,28 @@ xnat-web:
   ingress:
     enabled: false
     annotations: {}
+
+  # Gateway API (Issue #176)
+  gateway:
+    enabled: false
+    annotations: {}
+    existingGatewayName: ""
+    gatewayClassName: ""
+    listeners:
+      - name: http
+        protocol: HTTP
+        port: 80
+        hostname: ""
+    tls:
+      enabled: false
+      certificateRefs: []
+    httpRoute:
+      enabled: true
+      hostnames: []
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
       # kubernetes.io/tls-acme: "true"
       # nginx.ingress.kubernetes.io/whitelist-source-range: "130.95.0.0/16"
       # nginx.ingress.kubernetes.io/proxy-connect-timeout: "150"
