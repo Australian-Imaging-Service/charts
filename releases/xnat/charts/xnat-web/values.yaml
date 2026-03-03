@@ -205,6 +205,18 @@ plugins: {}
   #      givenNameProperty: given_name
   #      familyNameProperty: family_name
 
+# ActiveMQ configuration for XNAT messaging
+# When useServiceAccountToken is true, password will be set to file:/run/secrets/kubernetes.io/serviceaccount/token
+# which Spring Boot will read from the mounted Kubernetes ServiceAccount token
+activemq:
+  enabled: false
+  brokerUrl: ""
+  user: ""
+  password: ""
+  # Set to true to use Kubernetes ServiceAccount JWT token for authentication
+  # When true, password is ignored and token from /run/secrets/kubernetes.io/serviceaccount/token is used
+  useServiceAccountToken: false
+
 # https://wiki.xnat.org/documentation/xnat-administration/connecting-xnat-to-dicom-scanners-and-pacs
 # DICOM C-STORE Service Class Provider (SCP)
 # DICOM Application Entity (AE)
