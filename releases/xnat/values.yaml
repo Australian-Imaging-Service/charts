@@ -120,6 +120,8 @@ xnat-web:
 
   gateway:
     enabled: false
+    createGateway: true
+    # gatewayName:
     annotations: {}
     infrastructure: {}
     #   annotations: {}

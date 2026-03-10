@@ -1,11 +1,13 @@
 {{- with (index .Values "xnat-web") -}}
 {{- if .gateway.enabled -}}
 {{- $svcPort := .service.port -}}
+{{- $gatewayName := .gateway.gatewayName | default (include "xnat-web.fullname" $) -}}
 ---
+{{- if .gateway.createGateway -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: {{ include "xnat-web.fullname" $ }}
+  name: {{ $gatewayName }}
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
   {{- with .gateway.annotations }}
@@ -44,6 +46,7 @@ spec:
         name: {{ .secretName }}
   {{- end }}
   {{- end }}
+{{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -58,7 +61,7 @@ metadata:
 spec:
   parentRefs:
   - kind: Gateway
-    name: {{ include "xnat-web.fullname" $ }}
+    name: {{ $gatewayName }}
     sectionName: http
   {{ if .gateway.hosts }}
   hostnames:
@@ -92,7 +95,7 @@ metadata:
 spec:
   parentRefs:
   - kind: Gateway
-    name: {{ include "xnat-web.fullname" $ }}
+    name: {{ $gatewayName }}
     sectionName: https
   hostnames:
   {{- range .gateway.tls.hosts }}
