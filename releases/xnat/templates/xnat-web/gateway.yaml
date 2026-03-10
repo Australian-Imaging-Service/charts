@@ -30,20 +30,29 @@ spec:
   {{- end }}    
   {{- end }}
   listeners:
+  {{- if .gateway.hosts }}
+  {{ range $index, $host := .gateway.hosts }}
+  - name: http-{{ $index }}
+    port: 80
+    protocol: HTTP
+    hostname: {{ $host | quote }}
+  {{- end }}
+  {{- else }}
   - name: http
     port: 80
     protocol: HTTP
+  {{- end }}
   {{- if .gateway.tls }}
-  {{- range .gateway.tls.hosts }}
-  - name: https
+  {{- range $index, $elem := .gateway.tls.hosts }}
+  - name: https-{{ $index }}
     port: 443
     protocol: HTTPS
-    hostname: {{ .host | quote }}
+    hostname: {{ $elem.host | quote }}
     tls:
       mode: Terminate
       certificateRefs:
       - kind: Secret
-        name: {{ .secretName }}
+        name: {{ $elem.secretName }}
   {{- end }}
   {{- end }}
 {{- end }}
@@ -51,7 +60,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  {{- if .gateway.tls }}
+  {{- if and (.gateway.tls) (.gateway.hosts) }}
   name: {{ include "xnat-web.fullname" $ }}-https-redirect
   {{- else }}
   name: {{ include "xnat-web.fullname" $ }}-http
@@ -60,17 +69,25 @@ metadata:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
   parentRefs:
+  {{- if .gateway.hosts -}}
+  {{ range $index, $host := .gateway.hosts }}
+  - kind: Gateway
+    name: {{ $gatewayName }}
+    sectionName: http-{{ $index }}
+  {{- end }}
+  {{- else }}
   - kind: Gateway
     name: {{ $gatewayName }}
     sectionName: http
-  {{ if .gateway.hosts }}
+  {{- end }}
+  {{- if .gateway.hosts -}}
   hostnames:
   {{- range .gateway.hosts }}
   - {{ . | quote }}
   {{- end }}
   {{- end }}
   rules:
-  {{- if .gateway.tls }}
+  {{- if and (.gateway.tls) (.gateway.hosts) }}
   - filters:
     - type: RequestRedirect
       requestRedirect:
@@ -94,9 +111,11 @@ metadata:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
   parentRefs:
+  {{ range $index, $host := .gateway.tls.hosts }}
   - kind: Gateway
     name: {{ $gatewayName }}
-    sectionName: https
+    sectionName: https-{{ $index }}
+  {{- end }}
   hostnames:
   {{- range .gateway.tls.hosts }}
   - {{ .host | quote }}
