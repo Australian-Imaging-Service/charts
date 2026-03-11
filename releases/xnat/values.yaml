@@ -126,12 +126,17 @@ xnat-web:
     infrastructure: {}
     #   annotations: {}
     #   labels: {}
-    hosts:
-    - chart-example.local
-    tls: {}
+    http: {}
       # hosts:
       #   - host: chart-example.local
-      #     secretName: chart-example-tls
+      #     listenerName: xnat-http
+    https: {}
+      # hosts:
+      #   - host: chart-example.local
+      #     secretName: chart-example-https
+      #     listenerName: xnat-https
+    redirectHttpToHttps: false
+    createNoHostnameListener: false
 
   resources: {}
     # We usually recommend not to specify default resources and to leave this as a conscious

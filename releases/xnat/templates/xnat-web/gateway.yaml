@@ -30,21 +30,17 @@ spec:
   {{- end }}    
   {{- end }}
   listeners:
-  {{- if .gateway.hosts }}
-  {{ range $index, $host := .gateway.hosts }}
-  - name: http-{{ $index }}
+  {{- if .gateway.http }}
+  {{ range $index, $elem := .gateway.http.hosts }}
+  - name: {{ $elem.listenerName | default (print "http-" $index) }}
     port: 80
     protocol: HTTP
-    hostname: {{ $host | quote }}
+    hostname: {{ $elem.host | quote }}
   {{- end }}
-  {{- else }}
-  - name: http
-    port: 80
-    protocol: HTTP
   {{- end }}
-  {{- if .gateway.tls }}
-  {{- range $index, $elem := .gateway.tls.hosts }}
-  - name: https-{{ $index }}
+  {{- if .gateway.https }}
+  {{- range $index, $elem := .gateway.https.hosts }}
+  - name: {{ $elem.listenerName | default (print "https-" $index) }}
     port: 443
     protocol: HTTPS
     hostname: {{ $elem.host | quote }}
@@ -55,12 +51,18 @@ spec:
         name: {{ $elem.secretName }}
   {{- end }}
   {{- end }}
+  {{- if .gateway.createNoHostnameListenerAndRoute }}
+  - name: http-nohostname
+    port: 80
+    protocol: HTTP
+  {{- end }}
 {{- end }}
 ---
+{{- if .gateway.http }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  {{- if and (.gateway.tls) (.gateway.hosts) }}
+  {{- if and (.gateway.https) (.gateway.redirectHttpToHttps) }}
   name: {{ include "xnat-web.fullname" $ }}-https-redirect
   {{- else }}
   name: {{ include "xnat-web.fullname" $ }}-http
@@ -69,25 +71,17 @@ metadata:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
   parentRefs:
-  {{- if .gateway.hosts -}}
-  {{ range $index, $host := .gateway.hosts }}
+  {{ range $index, $elem := .gateway.http.hosts }}
   - kind: Gateway
     name: {{ $gatewayName }}
-    sectionName: http-{{ $index }}
+    sectionName: {{ $elem.listenerName | default (print "http-" $index) }}
   {{- end }}
-  {{- else }}
-  - kind: Gateway
-    name: {{ $gatewayName }}
-    sectionName: http
-  {{- end }}
-  {{- if .gateway.hosts -}}
   hostnames:
-  {{- range .gateway.hosts }}
-  - {{ . | quote }}
-  {{- end }}
+  {{- range .gateway.http.hosts }}
+  - {{ .host | quote }}
   {{- end }}
   rules:
-  {{- if and (.gateway.tls) (.gateway.hosts) }}
+  {{- if and (.gateway.https) (.gateway.redirectHttpToHttps) }}
   - filters:
     - type: RequestRedirect
       requestRedirect:
@@ -101,8 +95,9 @@ spec:
     backendRefs:
     - name: {{ include "xnat-web.fullname" $ }}-headless
       port: {{ $svcPort }}
+{{- end }}
 ---
-{{- if .gateway.tls }}
+{{- if .gateway.https }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -111,15 +106,37 @@ metadata:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
   parentRefs:
-  {{ range $index, $host := .gateway.tls.hosts }}
+  {{ range $index, $elem := .gateway.https.hosts }}
   - kind: Gateway
     name: {{ $gatewayName }}
-    sectionName: https-{{ $index }}
+    sectionName: {{ $elem.listenerName | default (print "https-" $index) }}
   {{- end }}
   hostnames:
-  {{- range .gateway.tls.hosts }}
+  {{- range .gateway.https.hosts }}
   - {{ .host | quote }}
   {{- end }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ include "xnat-web.fullname" $ }}-headless
+      port: {{ $svcPort }}
+{{- end }}
+---
+{{- if .gateway.createNoHostnameListenerAndRoute }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-http-nohostname
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: {{ $gatewayName }}
+    sectionName: http-nohostname
   rules:
   - matches:
     - path:
