@@ -2,12 +2,15 @@
 {{- if .gateway.enabled -}}
 {{- $svcPort := .service.port -}}
 {{- $gatewayName := .gateway.gatewayName | default (include "xnat-web.fullname" $) -}}
+{{- $gatewayNamespace := .gateway.gatewayNamespace | default $.Release.Namespace -}}
+{{- $listenersAllowedRoutesFromNamespaces := .gateway.listenersAllowedRoutesFromNamespaces | default "Same" -}}
 ---
 {{- if .gateway.createGateway -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: {{ $gatewayName }}
+  namespace: {{ $gatewayNamespace }}
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
   {{- with .gateway.annotations }}
@@ -36,6 +39,9 @@ spec:
     port: 80
     protocol: HTTP
     hostname: {{ $elem.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
   {{- end }}
   {{- end }}
   {{- if .gateway.https }}
@@ -44,6 +50,9 @@ spec:
     port: 443
     protocol: HTTPS
     hostname: {{ $elem.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
     tls:
       mode: Terminate
       certificateRefs:
@@ -55,6 +64,9 @@ spec:
   - name: http-nohostname
     port: 80
     protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
   {{- end }}
 {{- end }}
 ---
@@ -75,6 +87,7 @@ spec:
   - kind: Gateway
     name: {{ $gatewayName }}
     sectionName: {{ $elem.listenerName | default (print "http-" $index) }}
+    namespace: {{ $gatewayNamespace }}
   {{- end }}
   hostnames:
   {{- range .gateway.http.hosts }}
@@ -110,6 +123,7 @@ spec:
   - kind: Gateway
     name: {{ $gatewayName }}
     sectionName: {{ $elem.listenerName | default (print "https-" $index) }}
+    namespace: {{ $gatewayNamespace }}
   {{- end }}
   hostnames:
   {{- range .gateway.https.hosts }}
@@ -137,6 +151,7 @@ spec:
   - kind: Gateway
     name: {{ $gatewayName }}
     sectionName: http-nohostname
+    namespace: {{ $gatewayNamespace }}
   rules:
   - matches:
     - path:

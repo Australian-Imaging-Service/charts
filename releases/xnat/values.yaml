@@ -122,6 +122,7 @@ xnat-web:
     enabled: false
     createGateway: true
     # gatewayName:
+    # gatewayNamespace:
     annotations: {}
     infrastructure: {}
     #   annotations: {}
@@ -137,6 +138,7 @@ xnat-web:
       #     listenerName: xnat-https
     redirectHttpToHttps: false
     createNoHostnameListener: false
+    # listenersAllowedRoutesFromNamespaces: All
 
   resources: {}
     # We usually recommend not to specify default resources and to leave this as a conscious
