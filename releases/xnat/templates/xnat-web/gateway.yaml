@@ -108,6 +108,15 @@ spec:
     backendRefs:
     - name: {{ include "xnat-web.fullname" $ }}-headless
       port: {{ $svcPort }}
+    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    timeouts:
+      {{- if .gateway.httpRoutesRequestTimeout }}
+      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- end }}
+      {{- if .gateway.httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- end }}
+    {{- end }}
 {{- end }}
 ---
 {{- if .gateway.https }}
@@ -137,6 +146,15 @@ spec:
     backendRefs:
     - name: {{ include "xnat-web.fullname" $ }}-headless
       port: {{ $svcPort }}
+    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    timeouts:
+      {{- if .gateway.httpRoutesRequestTimeout }}
+      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- end }}
+      {{- if .gateway.httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- end }}
+    {{- end }}
 {{- end }}
 ---
 {{- if .gateway.createNoHostnameListenerAndRoute }}
@@ -160,6 +178,15 @@ spec:
     backendRefs:
     - name: {{ include "xnat-web.fullname" $ }}-headless
       port: {{ $svcPort }}
+    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    timeouts:
+      {{- if .gateway.httpRoutesRequestTimeout }}
+      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- end }}
+      {{- if .gateway.httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- end }}
+    {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
