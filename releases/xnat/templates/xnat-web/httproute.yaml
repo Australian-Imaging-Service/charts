@@ -1,17 +1,20 @@
 {{- with (index .Values "xnat-web") -}}
 {{- if .gateway.enabled -}}
 {{- $svcPort := .service.port -}}
-{{- $gatewayName := .gateway.gatewayName | default (include "xnat-web.fullname" $) -}}
+{{- $fullName := include "xnat-web.fullname" $ -}}
+{{- $gatewayName := .gateway.gatewayName | default $fullName -}}
 {{- $gatewayNamespace := .gateway.gatewayNamespace | default $.Release.Namespace -}}
+{{- $httpRoutesRequestTimeout := .gateway.httpRoutesRequestTimeout | default false -}}
+{{- $httpRoutesBackendRequestTimeout := .gateway.httpRoutesBackendRequestTimeout | default false -}}
 ---
 {{- if .gateway.http }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   {{- if and (.gateway.https) (.gateway.redirectHttpToHttps) }}
-  name: {{ include "xnat-web.fullname" $ }}-https-redirect
+  name: {{ $fullName }}-https-redirect
   {{- else }}
-  name: {{ include "xnat-web.fullname" $ }}-http
+  name: {{ $fullName }}-http
   {{- end }}
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
@@ -40,15 +43,15 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: {{ include "xnat-web.fullname" $ }}-headless
+    - name: {{ $fullName }}-headless
       port: {{ $svcPort }}
-    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    {{- if or ($httpRoutesRequestTimeout) ($httpRoutesBackendRequestTimeout) }}
     timeouts:
-      {{- if .gateway.httpRoutesRequestTimeout }}
-      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- if $httpRoutesRequestTimeout }}
+      request: {{ $httpRoutesRequestTimeout }}
       {{- end }}
-      {{- if .gateway.httpRoutesBackendRequestTimeout }}
-      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- if $httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ $httpRoutesBackendRequestTimeout }}
       {{- end }}
     {{- end }}
 {{- end }}
@@ -57,7 +60,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ include "xnat-web.fullname" $ }}-https
+  name: {{ $fullName }}-https
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
@@ -78,15 +81,15 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: {{ include "xnat-web.fullname" $ }}-headless
+    - name: {{ $fullName }}-headless
       port: {{ $svcPort }}
-    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    {{- if or ($httpRoutesRequestTimeout) ($httpRoutesBackendRequestTimeout) }}
     timeouts:
-      {{- if .gateway.httpRoutesRequestTimeout }}
-      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- if $httpRoutesRequestTimeout }}
+      request: {{ $httpRoutesRequestTimeout }}
       {{- end }}
-      {{- if .gateway.httpRoutesBackendRequestTimeout }}
-      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- if $httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ $httpRoutesBackendRequestTimeout }}
       {{- end }}
     {{- end }}
 {{- end }}
@@ -95,7 +98,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ include "xnat-web.fullname" $ }}-http-nohostname
+  name: {{ $fullName }}-http-nohostname
   labels:
     {{- include "xnat-web.labels" $ | nindent 4 }}
 spec:
@@ -110,15 +113,15 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: {{ include "xnat-web.fullname" $ }}-headless
+    - name: {{ $fullName }}-headless
       port: {{ $svcPort }}
-    {{- if or (.gateway.httpRoutesRequestTimeout) (.gateway.httpRoutesBackendRequestTimeout) }}
+    {{- if or ($httpRoutesRequestTimeout) ($httpRoutesBackendRequestTimeout) }}
     timeouts:
-      {{- if .gateway.httpRoutesRequestTimeout }}
-      request: {{ .gateway.httpRoutesRequestTimeout }}
+      {{- if $httpRoutesRequestTimeout }}
+      request: {{ $httpRoutesRequestTimeout }}
       {{- end }}
-      {{- if .gateway.httpRoutesBackendRequestTimeout }}
-      backendRequest: {{ .gateway.httpRoutesBackendRequestTimeout }}
+      {{- if $httpRoutesBackendRequestTimeout }}
+      backendRequest: {{ $httpRoutesBackendRequestTimeout }}
       {{- end }}
     {{- end }}
 {{- end }}
