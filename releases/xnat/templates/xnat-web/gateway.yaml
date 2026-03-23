@@ -17,9 +17,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .gateway.gatewayClassName }}
-  gatewayClassName: {{ .gateway.gatewayClassName }}
-  {{- end }}
+  gatewayClassName: {{ required "gatewayClassName is required for creating Gateway" .gateway.gatewayClassName }}
   {{- with .gateway.infrastructure }}
   infrastructure:
   {{- with .annotations }}
