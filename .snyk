@@ -1,0 +1,11 @@
+version: v1.25.0
+ignore:
+  SNYK-CC-K8S-4:
+    - '*':
+        reason: N/A - Container is running without memory limit
+  SNYK-CC-K8S-5:
+    - '*':
+        reason: N/A - Container has no CPU limit
+  SNYK-CC-K8S-33:
+    - 'xnat/charts/postgresql/templates/primary/statefulset.yaml':
+        reason: Required - Container is running with custom SELinux options

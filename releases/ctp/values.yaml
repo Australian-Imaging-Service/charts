@@ -25,36 +25,38 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
 
-services: {}
-  # web:
-  #   enabled: true
-  #   type: ClusterIP
-  #   port: 80
-  #   targetPort: 80
-  #   nodePort: 30001
-  # httpsimport:
-  #   enabled: false
-  #   type: LoadBalancer
-  #   port: 443
-  #   targetPort: 443
-  #   nodePort: 30002
-  # dicomimport:
-  #   enabled: true
-  #   type: NodePort
-  #   port: 8104
-  #   targetPort: 25055
-  #   nodePort: 30004
+services:
+  web:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    nodePort: 30001
+  httpsimport:
+    enabled: false
+    type: LoadBalancer
+    port: 443
+    targetPort: 443
+    nodePort: 30002
+  dicomimport:
+    enabled: true
+    type: NodePort
+    port: 8104
+    targetPort: 25055
+    nodePort: 30004
 
 ingress:
   enabled: false
@@ -95,15 +97,15 @@ tolerations: []
 affinity: {}
 
 users: {}
-  #admin:
-  #  password: "126680608771750945340162210354335764377"
-  #  roles:
-  #    - admin
-  #king:
-  #  password: "126680608771750945340162210354335764377"
-  #  roles:
-  #    - admin
-  #    - shutdown
+#  admin:
+#    password: "126680608771750945340162210354335764377"
+#    roles:
+#      - admin
+#  king:
+#    password: "126680608771750945340162210354335764377"
+#    roles:
+#      - admin
+#      - shutdown
 
 timezone: Australia/Perth
 
@@ -125,23 +127,23 @@ launcherProperties: |
 #   dicomImportService: 25055
 
 pipelines: {}
-  #Main_Pipeline:
-  #  desc: "Main Pipeline"
-  #  stages:
-  #    - name: "DicomImportService"
-  #      root: "roots/dicom-import"
-  #      port: 1104
-  #    - name: "FileStorageService"
-  #      root: "storage"
-  #      returnStoredFile: false
-  #      quarantine: "quarantines/storage"
-  #    - name: "DicomAnonymizer"
-  #      root: "roots/anonymizer"
-  #      script: "scripts/da.script"
-  #      quarantine: "quarantines/anonymizer"
-  #    - name: "HttpExportService"
-  #      root: "roots/http-export"
-  #      url: "https://university.edu:1443"
+#  Main_Pipeline:
+#    desc: "Main Pipeline"
+#    stages:
+#      - name: "DicomImportService"
+#        root: "roots/dicom-import"
+#        port: 1104
+#      - name: "FileStorageService"
+#        root: "storage"
+#        returnStoredFile: false
+#        quarantine: "quarantines/storage"
+#      - name: "DicomAnonymizer"
+#        root: "roots/anonymizer"
+#        script: "scripts/da.script"
+#        quarantine: "quarantines/anonymizer"
+#      - name: "HttpExportService"
+#        root: "roots/http-export"
+#        url: "https://university.edu:1443"
 
 proxyServer:
   ipAddress: ""
@@ -152,9 +154,9 @@ proxyServer:
 volumes:
   roots:
     accessMode: ReadWriteMany
-    #existingClaim: ""
+    # existingClaim: ""
     mountPath: "/vol/roots"
-    #storageClassName: "-"
+    # storageClassName: "-"
     size: 10Gi
   # quarantines:
   #   accessMode: ReadWriteMany

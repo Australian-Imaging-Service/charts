@@ -1,0 +1,25 @@
+{{- with (index .Values "xnat-web") -}}
+{{- range $name, $c := .volumes }}
+{{- if .existingClaim }}
+{{- else if .size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-{{ $name | lower }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  accessModes: [ {{ $c.accessMode | quote }} ]
+  volumeMode: {{ $c.volumeMode | default "Filesystem" }}
+  resources:
+    requests:
+      storage: {{ $c.size | quote }}
+  {{ include "xnat.storageClassName" (dict "vol" $c "global" $.Values.global) }}
+{{- if $c.selector }}
+  selector:
+    {{- $c.selector | toYaml | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,4 @@
+postgresql:
+  enabled: false
+  auth:
+    password: FAKEPASSWORD

@@ -1,0 +1,44 @@
+suite: deployment test
+templates:
+  - xnat-web/configmap.yaml
+  - xnat-web/secret.yaml
+  - xnat-web/statefulset.yaml
+tests:
+  - it: should pass all types of assertions
+    template: xnat-web/statefulset.yaml
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - matchRegex:
+          path: metadata.name
+          pattern: -xnat-web$
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/australian-imaging-service/xnat:latest
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[3].mountPath
+          value: /data/xnat/home
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[4].mountPath
+          value: /data/xnat/home/config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[5].mountPath
+          value: /data/xnat/home/plugins
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[6].mountPath
+          value: /data/xnat/cache
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[7].mountPath
+          value: /data/xnat/file_store
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: global-set-storage-class
+    set:
+      global.storageClassName: global-set-storage-class
+      postgresql.auth.password: FAKEPASSWORD
+      xnat-web.image.tag: latest
+      xnat-web.volumes.archive.size: 0
+      xnat-web.volumes.prearchive.size: 0
+      xnat-web.volumes.filestore.accessMode: ReadWriteMany
+      xnat-web.volumes.filestore.mountPath: /data/xnat/file_store
+      xnat-web.volumes.filestore.size: 1Ti
