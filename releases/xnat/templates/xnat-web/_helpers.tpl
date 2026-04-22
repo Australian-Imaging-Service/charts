@@ -84,3 +84,17 @@ Converty yaml to xnat configuration syntax
 {{ $prefix }}={{ $value }}
 {{ end -}}
 {{- end -}}
+
+{{/*
+UID under which containers are run
+*/}}
+{{- define "xnat-web.runasuser" -}}
+{{- default "1000" (index .Values "xnat-web" "podSecurityContext" "runAsUser") }}
+{{- end }}
+
+{{/*
+GID under which containers are run
+*/}}
+{{- define "xnat-web.runasgroup" -}}
+{{- default "1000" (index .Values "xnat-web" "podSecurityContext" "runAsGroup") }}
+{{- end }}

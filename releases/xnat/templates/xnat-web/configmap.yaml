@@ -35,7 +35,7 @@ data:
     gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
     nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     _apt:x:100:65534::/nonexistent:/usr/sbin/nologin
-    tomcat:x:{{ default "1000" .securityContext.runAsUser }}:{{ default "1000" .securityContext.runAsUser }}::/data/xnat/home:/usr/sbin/nologin
+    tomcat:x:{{ default "1000" (include "xnat-web.runasuser" $ ) }}:{{ default "1000" (include "xnat-web.runasgroup" $ ) }}::/data/xnat/home:/usr/sbin/nologin
 ---
 apiVersion: v1
 kind: ConfigMap
