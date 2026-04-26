@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "apache-artemis.fullname" . }}
+  labels:
+    {{- include "apache-artemis.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "apache-artemis.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "apache-artemis.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "apache-artemis.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [./bin/artemis]
+          args: [run]
+          env:
+            - name: ARTEMIS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apache-artemis.fullname" . }}
+                  key: username
+            - name: ARTEMIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apache-artemis.fullname" . }}
+                  key: password
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: artemis
+              containerPort: {{ .Values.service.artemis.port }}
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - mountPath: /var/lib/artemis-instance
+              name: apache-artemis-config
+              readOnly: false
+            - mountPath: /var/lib/artemis-instance/etc
+              name: apache-artemis-etc
+              readOnly: true
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      initContainers:
+        - name: create
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [/opt/artemis/bin/artemis, create]
+          args:
+            - --user=$(ARTEMIS_USER)
+            - --password=$(ARTEMIS_PASSWORD)
+            - --silent
+            - --require-login
+            - --http-host=[::]
+            - --relax-jolokia
+            - .
+          env:
+            - name: ARTEMIS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apache-artemis.fullname" . }}
+                  key: username
+            - name: ARTEMIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apache-artemis.fullname" . }}
+                  key: password
+            # https://artemis.apache.org/components/artemis/documentation/latest/using-server.html#adding-bootstrap-dependencies
+            # - name: JAVA_ARGS_APPEND
+          volumeMounts:
+            - mountPath: /var/lib/artemis-instance
+              name: apache-artemis-config
+              readOnly: false
+            - mountPath: /var/lib/artemis-instance/etc
+              name: apache-artemis-etc
+              readOnly: false
+        - name: patch
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [/bin/bash, -x , -c]
+          args:
+            - |
+              sed -i'' 's|tcp://0\.0\.0\.0|tcp://[::]|' etc/*
+          volumeMounts:
+            - mountPath: /var/lib/artemis-instance/etc
+              name: apache-artemis-etc
+              readOnly: false
+      volumes:
+        - name: apache-artemis-etc
+          emptyDir: {}
+        - name: apache-artemis-config
+          emptyDir: {}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
