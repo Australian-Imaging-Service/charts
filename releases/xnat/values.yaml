@@ -15,6 +15,15 @@ global:
   # A value of '-' indicates the default storage class should be used.
   storageClassName: "-"
 
+activemq:
+  enabled: false
+  auth:
+    existingSecret: ""
+    secretKeys:
+      brokerUrlKey: brokerUrl
+      passwordKey: password
+      usernameKey: username
+
 # Set to false when using an external database, configure either postgresqlExternalName or postgresqlExternalIPs
 # WARNING: Only change this post deployment if you know what you are doing
 postgresql:
