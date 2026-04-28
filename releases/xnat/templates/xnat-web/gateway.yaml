@@ -1,0 +1,70 @@
+{{- with (index .Values "xnat-web") -}}
+{{- if .gateway.enabled -}}
+{{- $gatewayName := .gateway.gatewayName | default (include "xnat-web.fullname" $) -}}
+{{- $gatewayNamespace := .gateway.gatewayNamespace | default $.Release.Namespace -}}
+{{- $listenersAllowedRoutesFromNamespaces := .gateway.listenersAllowedRoutesFromNamespaces | default "Same" -}}
+---
+{{- if .gateway.createGateway -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $gatewayName }}
+  namespace: {{ $gatewayNamespace }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+  {{- with .gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ required "gatewayClassName is required for creating Gateway" .gateway.gatewayClassName }}
+  {{- with .gateway.infrastructure }}
+  infrastructure:
+  {{- with .annotations }}
+    annotations:
+    {{- toYaml . | nindent 6 }}
+  {{- end }}
+  {{- with .labels }}
+    labels:
+    {{- toYaml . | nindent 6 }}
+  {{- end }}    
+  {{- end }}
+  listeners:
+  {{- if .gateway.http }}
+  {{ range $index, $elem := .gateway.http.hosts }}
+  - name: {{ $elem.listenerName | default (print "http-" $index) }}
+    port: 80
+    protocol: HTTP
+    hostname: {{ $elem.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
+  {{- end }}
+  {{- end }}
+  {{- if .gateway.https }}
+  {{- range $index, $elem := .gateway.https.hosts }}
+  - name: {{ $elem.listenerName | default (print "https-" $index) }}
+    port: 443
+    protocol: HTTPS
+    hostname: {{ $elem.host | quote }}
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ $elem.secretName }}
+  {{- end }}
+  {{- end }}
+  {{- if .gateway.createNoHostnameListenerAndRoute }}
+  - name: http-nohostname
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: {{ $listenersAllowedRoutesFromNamespaces }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
