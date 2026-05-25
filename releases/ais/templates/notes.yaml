@@ -1,0 +1,20 @@
+Thank you for using Australian Imaging Service.
+
+You have installed release {{ .Release.Name }}.
+
+The following subcharts are included:
+{{- if .Values.xnat.enabled }}
+  - xnat
+{{- end }}
+{{- if .Values.ctp.enabled }}
+  - ctp
+{{- end }}
+{{- if .Values.aisEdgeTool01.enabled }}
+  - aisEdgeTool01
+{{- end }}
+{{- if .Values.aisEdgeTool02.enabled }}
+  - aisEdgeTool02
+{{- end }}
+
+To check the status of your release:
+  kubectl get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"

@@ -1,0 +1,31 @@
+apiVersion: v2
+name: ais
+description: Australian Imaging Service overarching chart
+maintainers:
+  - name: ais-admin
+    email: ais-admin@sydney.edu.au
+type: application
+version: 1.0.0
+appVersion: 1.0.0 
+
+dependencies:
+  - name: xnat
+    condition: xnat.enabled
+    version: "2.0.0"
+    repository: "file://charts/xnat"
+  - name: ctp
+    condition: ctp.enabled
+    version: "1.1.0"
+    repository: "file://charts/ctp"
+  - name: jupyterhub
+    condition: jupyterhub.enabled
+    version: "4.3.2"
+    repository: "https://hub.jupyter.org/helm-chart/"
+  - name: aisEdgeTool01
+    condition: aisEdgeTool01.enabled
+    repository: "https://xxxxx"
+    version: "x.x.x"
+  - name: aisEdgeTool02
+    condition: aisEdgeTool02.enabled
+    repository: "https://xxxxx"
+    version: "x.x.x"
