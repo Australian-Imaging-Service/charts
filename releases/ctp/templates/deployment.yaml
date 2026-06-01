@@ -61,6 +61,8 @@ spec:
             - mountPath: {{ $v.mountPath | quote }}
               name: {{ $volume | quote }}
             {{- end }}
+            - name: cache
+              mountPath: /JavaPrograms/CTP/CACHE
           #livenessProbe:
           #  httpGet:
           #    path: /
@@ -76,7 +78,14 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: alpine
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["/bin/sh", "-c", "tail -f /JavaPrograms/CTP/logs/ctp.log"]
+          args:
+            - /bin/sh
+            - -c
+            - |
+              while [ ! -f /JavaPrograms/CTP/logs/ctp.log ]; do 
+                sleep 15
+              done
+              tail -F /JavaPrograms/CTP/logs/ctp.log
           volumeMounts:
             - name: logs
               mountPath: /JavaPrograms/CTP/logs
@@ -110,3 +119,5 @@ spec:
           persistentVolumeClaim:
             claimName: {{ if $v.existingClaim }}{{ $v.existingClaim | quote }}{{ else }}{{ $volume }}-{{ include "ctp.fullname" $context }}{{ end }}
         {{- end }}
+        - name: cache
+          emptyDir: {}
