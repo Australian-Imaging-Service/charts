@@ -1,6 +1,6 @@
 {{- with (index .Values "xnat-web") -}}
 {{- if .autoscaling.enabled }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "xnat-web.fullname" $ }}
@@ -10,21 +10,27 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: StatefulSet
-    name: {{ include "xnat-web.fullname" . }}
+    name: {{ include "xnat-web.fullname" $ }}
   minReplicas: {{ .autoscaling.minReplicas }}
   maxReplicas: {{ .autoscaling.maxReplicas }}
   metrics:
     {{- if .autoscaling.targetCPUUtilizationPercentage }}
-    - type: Resource
-      resource:
+    - type: ContainerResource
+      containerResource:
         name: cpu
-        targetAverageUtilization: {{ .autoscaling.targetCPUUtilizationPercentage }}
+        container: xnat
+        target:
+          type: Utilization
+          averageUtilization: {{ .autoscaling.targetCPUUtilizationPercentage }}
     {{- end }}
     {{- if .autoscaling.targetMemoryUtilizationPercentage }}
-    - type: Resource
-      resource:
+    - type: ContainerResource
+      containerResource:
         name: memory
-        targetAverageUtilization: {{ .autoscaling.targetMemoryUtilizationPercentage }}
+        container: xnat
+        target:
+          type: Utilization
+          averageUtilization: {{ .autoscaling.targetMemoryUtilizationPercentage }}
     {{- end }}
 {{- end }}
 {{- end }}
