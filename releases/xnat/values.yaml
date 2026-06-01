@@ -135,6 +135,8 @@ xnat-web:
   nonheapmem: ""
 
   autoscaling:
+    # Enabling this may produce strange results if XNAT instances are not using
+    # an external ActiveMQ component
     enabled: false
     minReplicas: 1
     maxReplicas: 100
