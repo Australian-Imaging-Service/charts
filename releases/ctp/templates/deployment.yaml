@@ -83,7 +83,7 @@ spec:
             - -c
             - |
               while [ ! -f /JavaPrograms/CTP/logs/ctp.log ]; do 
-                sleep 15
+                sleep 2
               done
               tail -F /JavaPrograms/CTP/logs/ctp.log
           volumeMounts:
