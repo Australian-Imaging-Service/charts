@@ -307,3 +307,39 @@ xnat-web:
       timeoutSeconds: 3
 
   timezone: "UTC"
+
+networkPolicy:
+  enabled: false
+  ipBlockDefaults:
+    - cidr: 10.0.0.0/8
+    - cidr: 172.16.0.0/12
+    - cidr: 192.168.0.0/16
+    - cidr: fe00::/7
+  # If empty, defaults to the chart release labels.
+  podLabels: {}
+  # Extra ingress and egress rules
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 80
+          protocol: TCP
+  egress:
+    - to: 
+        - namespaceSelector: 
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+    - to:
+        - podSelector: {}
+      ports:
+        - port: 5432

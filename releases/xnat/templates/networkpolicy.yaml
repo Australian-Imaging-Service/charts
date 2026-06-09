@@ -1,0 +1,29 @@
+{{- if .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "xnat.fullname" . }}
+spec:
+  {{- if .Values.networkPolicy.egress }}
+  egress:
+    {{- toYaml .Values.networkPolicy.egress | nindent 4 }}
+  {{- else }}
+  egress: []
+  {{- end }}
+  {{- if .Values.networkPolicy.ingress }}
+  ingress:
+    {{- toYaml .Values.networkPolicy.ingress | nindent 4 }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  podSelector:
+    matchLabels:
+      {{- if .Values.networkPolicy.podLabels }}
+      {{- toYaml .Values.networkPolicy.podLabels | nindent 6 }}
+      {{- else }}
+      {{- include "xnat-web.selectorLabels" . | nindent 6 }}
+      {{- end }}
+  policyTypes:
+    - Egress
+    - Ingress
+{{- end }}
