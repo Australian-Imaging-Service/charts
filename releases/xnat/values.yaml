@@ -153,7 +153,7 @@ xnat-web:
 
   fileStorePath: /data/xnat
   archivePath: &archive_path /data/xnat/archive
-  buildPath: /data/xnat/build
+  buildPath: &build_path /data/xnat/build
   cachePath: &cache_path /data/xnat/cache
   inboxPath: /data/xnat/inbox
   pipelinePath: /data/xnat/pipeline
@@ -178,6 +178,12 @@ xnat-web:
       accessMode: ReadWriteMany
       existingClaim: ""
       mountPath: *prearchive_path
+      # storageClass: ""
+      size: 1Ti
+    build:
+      accessMode: ReadWriteMany
+      existingClaim: ""
+      mountPath: *build_path
       # storageClass: ""
       size: 1Ti
 
