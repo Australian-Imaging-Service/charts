@@ -285,6 +285,29 @@ xnat-web:
         # nodePort: 32514
         # loadBalancerIp: "130.95.27.91"
 
+  # Additional StatefulSet pools to be used as shadow intances. These are dedicated for 
+  # specific functionality.  
+  shadowNodes: []
+  #  - name: upload
+  #    replicaCount: 1
+  #    resources: {}
+  #    nodeSelector: {}
+  #    tolerations: []
+  #    affinity: {}
+  #    service:
+  #      type: ClusterIP
+  #    ingress:
+  #      enabled: true
+  #      ingressClassName: ""
+  #      annotations:
+  #        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  #        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+  #        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+  #        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  #      hosts:
+  #        - host: "upload.chart-example.local"
+  #      tls: []
+
   probes:
     startup:
       httpGet:
