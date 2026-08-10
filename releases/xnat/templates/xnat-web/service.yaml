@@ -14,6 +14,7 @@ spec:
       name: http
   selector:
     {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+    role: primary
   sessionAffinity: "ClientIP"
 {{ if (eq .service.type "ClusterIP") }}
 ---
@@ -33,6 +34,7 @@ spec:
       name: http
   selector:
     {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+    role: primary
   sessionAffinity: "ClientIP"
 {{- end }}
 {{- if .dicom_scp.recievers }}
@@ -64,6 +66,7 @@ spec:
     {{- end }}
   selector:
     {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+    role: primary
   sessionAffinity: "ClientIP"
 {{- end }}
 {{- end }}
