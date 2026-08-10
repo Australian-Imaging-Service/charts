@@ -1,0 +1,25 @@
+{{- with (index .Values "xnat-web") -}}
+{{- $xnatWeb := . -}}
+{{- range .shadowNodes }}
+{{- $group := . -}}
+{{- $groupName := .name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-{{ $groupName }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+spec:
+  type: {{ (($group.service).type) | default "ClusterIP" }}
+  ports:
+    - port: {{ $xnatWeb.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "xnat-web.selectorLabels" $ | nindent 4 }}
+    role: {{ $groupName }}
+  sessionAffinity: "ClientIP"
+{{- end }}
+{{- end }}
