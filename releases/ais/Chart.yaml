@@ -21,11 +21,11 @@ dependencies:
     condition: jupyterhub.enabled
     version: "4.3.2"
     repository: "https://hub.jupyter.org/helm-chart/"
-  - name: aisEdgeTool01
-    condition: aisEdgeTool01.enabled
-    repository: "https://xxxxx"
-    version: "x.x.x"
-  - name: aisEdgeTool02
-    condition: aisEdgeTool02.enabled
-    repository: "https://xxxxx"
-    version: "x.x.x"
+  # - name: aisEdgeTool01
+  #   condition: aisEdgeTool01.enabled
+  #   repository: "https://xxxxx"
+  #   version: "x.x.x"
+  # - name: aisEdgeTool02
+  #   condition: aisEdgeTool02.enabled
+  #   repository: "https://xxxxx"
+  #   version: "x.x.x"
