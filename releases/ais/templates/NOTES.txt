@@ -9,10 +9,10 @@ The following subcharts are included:
 {{- if .Values.ctp.enabled }}
   - ctp
 {{- end }}
-{{- if .Values.aisEdgeTool01.enabled }}
+{{- if and .Values.aisEdgeTool01 .Values.aisEdgeTool01.enabled }}
   - aisEdgeTool01
 {{- end }}
-{{- if .Values.aisEdgeTool02.enabled }}
+{{- if and .Values.aisEdgeTool02 .Values.aisEdgeTool02.enabled }}
   - aisEdgeTool02
 {{- end }}
 

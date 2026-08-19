@@ -11,7 +11,7 @@ xnat:
 
 # ctp subchart values (overrides ctp/values.yaml)
 ctp:
-  enabled: false
+  enabled: true
   # ctp overrides here
 
 # jupyterhub subchart values (overrides upstream values)
@@ -20,7 +20,7 @@ jupyterhub:
   # jupyterhub overrides here
 
 aisEdgeTool01:
-  enabled: true
+  enabled: false
   # overrides here
 
 aisEdgeTool02:
