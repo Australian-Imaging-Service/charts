@@ -12,11 +12,11 @@ dependencies:
   - name: xnat
     condition: xnat.enabled
     version: "2.0.0"
-    repository: "file://charts/xnat"
+    repository: "file://../xnat"
   - name: ctp
     condition: ctp.enabled
     version: "1.1.0"
-    repository: "file://charts/ctp"
+    repository: "file://../ctp"
   - name: jupyterhub
     condition: jupyterhub.enabled
     version: "4.3.2"
