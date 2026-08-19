@@ -7,22 +7,19 @@ global: {}
 # xnat subchart values (overrides xnat/values.yaml)
 xnat:
   enabled: true
-  # xnat overrides here
+  # xnat overrides below
 
 # ctp subchart values (overrides ctp/values.yaml)
 ctp:
   enabled: true
-  # ctp overrides here
+  # ctp overrides below
 
 # jupyterhub subchart values (overrides upstream values)
 jupyterhub:
   enabled: true
-  # jupyterhub overrides here
+  # jupyterhub overrides below
+  fullnameOverride: null
 
 aisEdgeTool01:
   enabled: false
-  # overrides here
-
-aisEdgeTool02:
-  enabled: false
-  # overrides here
+  # overrides below
