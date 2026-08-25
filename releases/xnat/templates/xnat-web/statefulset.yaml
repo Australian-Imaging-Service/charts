@@ -88,6 +88,9 @@ spec:
               {{- end }}
             {{- end }}
             {{- end }}
+            {{- with .extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
         - name: plugin-logs
           securityContext:
             {{- toYaml .securityContext | nindent 12 }}
@@ -137,6 +140,10 @@ spec:
               which pg_isready &>/dev/null && \
                 until pg_isready --quiet; do sleep 5; done
           env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: PGDATABASE
               {{- (include "xnat.postgresql.database" $) | nindent 14 }}
             - name: PGHOST
@@ -231,6 +238,9 @@ spec:
           persistentVolumeClaim:
             claimName: {{ $c.existingClaim | default (printf "%s-%s" (include "xnat-web.fullname" $) $name) }}
         {{- end }}
+        {{- end }}
+        {{- with .extraVolumes }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- with .nodeSelector }}
       nodeSelector:
