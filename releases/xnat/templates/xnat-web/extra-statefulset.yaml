@@ -17,6 +17,10 @@ piece of functionality.
 {{- $affinity := default $values.affinity $group.affinity -}}
 {{- $extraVolumes := default $values.extraVolumes $group.extraVolumes -}}
 {{- $extraVolumeMounts := default $values.extraVolumeMounts $group.extraVolumeMounts -}}
+{{- $groupProbes := default dict $group.probes -}}
+{{- $startupProbe := mergeOverwrite (deepCopy (default dict $values.probes.startup)) (default dict $groupProbes.startup) -}}
+{{- $livenessProbe := mergeOverwrite (deepCopy (default dict $values.probes.liveness)) (default dict $groupProbes.liveness) -}}
+{{- $readinessProbe := mergeOverwrite (deepCopy (default dict $values.probes.readiness)) (default dict $groupProbes.readiness) -}}
 {{- $name := printf "%s-%s" (include "xnat-web.fullname" $) $groupName }}
 ---
 apiVersion: apps/v1
@@ -66,11 +70,11 @@ spec:
               containerPort: 8080
               protocol: TCP
           livenessProbe:
-            {{- toYaml $values.probes.liveness | nindent 12 }}
+            {{- toYaml $livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml $values.probes.readiness | nindent 12 }}
+            {{- toYaml $readinessProbe | nindent 12 }}
           startupProbe:
-            {{- toYaml $values.probes.startup | nindent 12 }}
+            {{- toYaml $startupProbe | nindent 12 }}
           resources:
             {{- toYaml $resources | nindent 12 }}
           volumeMounts:
