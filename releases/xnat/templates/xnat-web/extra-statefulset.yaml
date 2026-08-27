@@ -211,7 +211,7 @@ spec:
             - |
               set -x
               shopt -s extglob
-              plugins=( {{ join " " (keys $values.plugins) }} )
+              plugins=( {{ join " " (keys $values.plugins | sortAlpha) }} )
               # Copy Tomcat folder
               cp -r --preserve=mode,timestamps --update=none /usr/local/tomcat/* /TOMCAT
               # Copy XNAT_HOME directory excluding the plugins folder
