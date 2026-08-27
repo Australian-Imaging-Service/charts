@@ -297,40 +297,6 @@ xnat-web:
         # nodePort: 32514
         # loadBalancerIp: "130.95.27.91"
 
-  # Additional StatefulSet pools to be used as shadow intances. These are dedicated for 
-  # specific functionality.  
-  shadowNodes: []
-  #  - name: upload
-  #    replicaCount: 1
-  #    resources: {}
-  #    nodeSelector: {}
-  #    tolerations: []
-  #    affinity: {}
-  #    # Override extraVolumes/extraVolumeMounts for this node only, e.g. to
-  #    # give it its own tomcat conf/web.xml.
-  #    extraVolumes:
-  #      - name: tomcat-config
-  #        configMap:
-  #          name: tomcat-config-upload
-  #    extraVolumeMounts:
-  #      - name: tomcat-config
-  #        mountPath: /usr/local/tomcat/conf/web.xml
-  #        subPath: web.xml
-  #        readOnly: true
-  #    service:
-  #      type: ClusterIP
-  #    ingress:
-  #      enabled: true
-  #      ingressClassName: ""
-  #      annotations:
-  #        nginx.ingress.kubernetes.io/proxy-body-size: "0"
-  #        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-  #        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-  #        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-  #      hosts:
-  #        - host: "upload.chart-example.local"
-  #      tls: []
-
   probes:
     startup:
       httpGet:
@@ -353,5 +319,42 @@ xnat-web:
       failureThreshold: 1
       periodSeconds: 10
       timeoutSeconds: 3
+
+  # Additional StatefulSet pools to be used as shadow intances. These are dedicated for 
+  # specific functionality.  
+  shadowNodes: []
+  #  - name: upload
+  #    replicaCount: 1
+  #    resources: {}
+  #    nodeSelector: {}
+  #    tolerations: []
+  #    affinity: {}
+  #    # Override extraVolumes/extraVolumeMounts for this node only, e.g. to
+  #    # give it its own tomcat conf/web.xml.
+  #    extraVolumes:
+  #      - name: tomcat-config
+  #        configMap:
+  #          name: tomcat-config-upload
+  #    extraVolumeMounts:
+  #      - name: tomcat-config
+  #        mountPath: /usr/local/tomcat/conf/web.xml
+  #        subPath: web.xml
+  #        readOnly: true
+  #    # Override startup/liveness/readiness probes for this shadow node only.
+  #    # Each probe type falls back independently to the default xnat-web.probes.
+  #    probes: {}
+  #    service:
+  #      type: ClusterIP
+  #    ingress:
+  #      enabled: true
+  #      ingressClassName: ""
+  #      annotations:
+  #        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  #        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+  #        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+  #        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  #      hosts:
+  #        - host: "upload.chart-example.local"
+  #      tls: []
 
   timezone: "UTC"
