@@ -158,6 +158,9 @@ volumes:
     mountPath: "/vol/roots"
     # storageClassName: "-"
     size: 10Gi
+    # selector:
+    #   matchLabels: {}
+    #   matchExpressions: []
   # quarantines:
   #   accessMode: ReadWriteMany
   #   #existingClaim: ""
