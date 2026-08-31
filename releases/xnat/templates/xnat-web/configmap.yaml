@@ -55,3 +55,12 @@ data:
   {}
   {{- end }}
 {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "xnat-web.fullname" $ }}-entrypoint
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+data:
+  {{- tpl ((.Files.Glob "entrypoint/*").AsConfig) . | nindent 2 }}

@@ -55,6 +55,9 @@ spec:
           resources:
             {{- toYaml .resources | nindent 12 }}
           volumeMounts:
+            - mountPath: /docker-entrypoint.d
+              name: entrypoint
+              readOnly: true
             - mountPath: /etc/passwd
               name: passwd
               readOnly: true
@@ -208,6 +211,9 @@ spec:
             - mountPath: /XNAT_HOME_PLUGINS
               name: xnat-home-plugins
       volumes:
+        - name: entrypoint
+          configMap:
+            name: {{ include "xnat-web.fullname" $ }}-entrypoint
         - name: passwd
           configMap:
             name: {{ include "xnat-web.fullname" $ }}
