@@ -101,8 +101,9 @@ spec:
               sleep 30
               # Display logs to stdout
               for f in /data/xnat/home/logs/*.log; do
-                tail -F "${f}"
+                tail -F "${f}" &
               done
+              wait
           volumeMounts:
             - name: xnat-home
               mountPath: /data/xnat/home

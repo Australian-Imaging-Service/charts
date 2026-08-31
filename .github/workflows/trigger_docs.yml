@@ -7,14 +7,27 @@ on:
       - main
     paths:
       - 'docs/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        page:
+          - {repo: Australian-Imaging-Service/Australian-Imaging-Service.github.io, branch: master}
+          - {repo: Australian-Imaging-Service/web-dev, branch: master}
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.DOCS_BUILDER_APP_ID }}
+          private-key: ${{ secrets.DOCS_BUILDER_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Repository Dispatch
         run: |
-          gh workflow run 'Deploy Hugo site to Pages'
+          gh workflow run 'Deploy Hugo site to Pages' --ref ${{ matrix.page.branch }}
         env:
-          GH_REPO: Australian-Imaging-Service/Australian-Imaging-Service.github.io
-          GH_TOKEN: ${{ secrets.GITHUBPAGES_KEY }}
+          GH_REPO: ${{ matrix.page.repo }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
