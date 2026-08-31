@@ -3,6 +3,32 @@ entries:
   ais:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-08-31T23:42:48.558713328Z"
+    dependencies:
+    - condition: xnat.enabled
+      name: xnat
+      repository: file://../xnat
+      version: ~2.0.0
+    - condition: ctp.enabled
+      name: ctp
+      repository: file://../ctp
+      version: ~1.1.0
+    - condition: jupyterhub.enabled
+      name: jupyterhub
+      repository: https://hub.jupyter.org/helm-chart/
+      version: ~4.3.2
+    description: Australian Imaging Service overarching chart
+    digest: 42ae727ded6e0ebd1897babeb20a97512609a447c0392075ea604e91765b6edb
+    maintainers:
+    - email: ais-admin@sydney.edu.au
+      name: ais-admin
+    name: ais
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/ais-1.0.1/ais-1.0.1.tgz
+    version: 1.0.1
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-08-31T00:06:48.150227009Z"
     dependencies:
     - condition: xnat.enabled
@@ -1029,4 +1055,4 @@ entries:
     urls:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-0.3.0/xnat-0.3.0.tgz
     version: 0.3.0
-generated: "2026-08-31T23:29:07.291742911Z"
+generated: "2026-08-31T23:42:48.558856325Z"
