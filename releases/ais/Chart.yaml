@@ -11,15 +11,15 @@ appVersion: 1.0.0
 dependencies:
   - name: xnat
     condition: xnat.enabled
-    version: "2.0.0"
+    version: "~2.0.0"
     repository: "file://../xnat"
   - name: ctp
     condition: ctp.enabled
-    version: "1.1.0"
+    version: "~1.1.0"
     repository: "file://../ctp"
   - name: jupyterhub
     condition: jupyterhub.enabled
-    version: "4.3.2"
+    version: "~4.3.2"
     repository: "https://hub.jupyter.org/helm-chart/"
   # - name: aisEdgeTool01
   #   condition: aisEdgeTool01.enabled
