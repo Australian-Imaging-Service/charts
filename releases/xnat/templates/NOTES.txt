@@ -1,9 +1,19 @@
 {{- with index .Values "xnat-web" }}
-1. Get the application URL by running these commands:
+1. Application URL/s:
+{{- if or (.ingress.enabled) (.gateway.enabled) }}
 {{- if .ingress.enabled }}
 {{- $context := . }}
 {{- range .ingress.hosts }}
   http{{ if $context.ingress.tls }}s{{ end }}://{{ . }}/
+{{- end }}
+{{- end }}
+{{- if .gateway.enabled }}
+{{- range .gateway.http.hosts }}
+  http://{{ .host }}/
+{{- end -}}
+{{ range .gateway.https.hosts }}
+  https://{{ .host }}/
+{{- end }}
 {{- end }}
 {{- else if contains "NodePort" .service.type }}
   export NODE_PORT=$(kubectl get --namespace {{ $.Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "xnat-web.fullname" $ }})
