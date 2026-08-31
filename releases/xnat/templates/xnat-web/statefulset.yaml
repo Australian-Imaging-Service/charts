@@ -89,7 +89,7 @@ spec:
         - name: plugin-logs
           securityContext:
             {{- toYaml .securityContext | nindent 12 }}
-          image: debian:bullseye-slim
+          image: debian:stable-slim
           imagePullPolicy: {{ .image.pullPolicy }}
           command: [bash, -c]
           args:

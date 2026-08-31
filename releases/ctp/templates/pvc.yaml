@@ -17,8 +17,9 @@ spec:
   {{- if $v.storageClassName }}
   storageClassName: {{ $v.storageClassName }}
   {{- end }}
+  {{- if $v.selector }}
   selector:
-    matchLabels: {}
-    matchExpressions: []
+   {{- toYaml $v.selector  | nindent 4 }}
+  {{- end }}
 {{- end }}
 {{- end }}
