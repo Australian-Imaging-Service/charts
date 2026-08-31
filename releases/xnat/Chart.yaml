@@ -27,6 +27,10 @@ version: 2.0.1
 appVersion: 1.10.0
 
 dependencies:
+- name: apache-artemis
+  condition: apache-artemis.enabled
+  repository: file://../apache-artemis
+  version: "~0.1.0"
 - name: postgresql
   condition: postgresql.enabled
   repository: "https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami"
