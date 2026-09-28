@@ -1,0 +1,50 @@
+{{- /*
+Local addition, not from upstream — see charts/base/docs/security-profiles-operator/vendor/README.md.
+*/ -}}
+{{- if .Values.enableAppArmor }}
+apiVersion: security-profiles-operator.x-k8s.io/v1alpha1
+kind: AppArmorProfile
+metadata:
+  name: notebook
+  namespace: {{ .Release.Namespace }}
+spec:
+  abstract:
+    extra: |
+      file,
+      mount,
+      umount,
+      remount,
+      capability,
+      signal (receive),
+      signal (send) peer=notebook,
+      ptrace peer=notebook,
+
+      # Allow CVMFS mount propagation
+      mount fstype=fuse,
+      mount fstype=fuse.cvmfs2,
+      mount options=(ro, nosuid, nodev) fstype=fuse.cvmfs2,
+
+      # Allow access to /cvmfs and subdirectories
+      /cvmfs/** r,
+      /cvmfs/ r,
+
+      # Deny cryptocurrency miners
+      deny /**/cpu x,
+      deny /**avast x,
+      deny /**t-rex* x,
+      deny /**/smart x,
+      deny /**Termux x,
+      deny /**{m,M}iner* x,
+      deny /**ccmine* x,
+      deny /**/xmr-stak x,
+      deny /**SRBMiner* x,
+      deny /**titcoind* x,
+      deny /**sugarmaker* x,
+      deny /**/PheonixMiner* x,
+      deny /**/{xm,cn,pwn}rig* x,
+    network:
+      allowRaw: true
+      allowedProtocols:
+        allowTcp: true
+        allowUdp: true
+{{- end }}

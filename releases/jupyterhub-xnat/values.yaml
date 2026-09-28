@@ -1,0 +1,305 @@
+# Default values for jupyterhub-xnat.
+# This is a wrapper around the plain jupyterhub/jupyterhub chart, giving it a dedicated Postgres backend
+
+postgresql:
+  enabled: true
+  fullnameOverride: jupyterhub-postgresql
+  postgresqlUsername: jupyterhub
+  postgresqlDatabase: jupyterhub
+  # Leave it blank for automatically generated password
+  postgresqlPassword: ""
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 14.11.0-debian-12-r9
+
+jupyterhub:
+  enabled: true
+
+  hub:
+    db:
+      type: postgres
+
+    extraEnv:
+      POSTGRES_DB: jupyterhub
+      POSTGRES_USER: jupyterhub
+      POSTGRES_HOST: jupyterhub-postgresql
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: jupyterhub-postgresql
+            key: postgresql-password
+      # Empty by default. Set to "require" for AWS RDS Postgres and other Postgres that requires it
+      POSTGRES_SSLMODE: ""
+      JH_XNAT_URL: "https://TO-SET"
+      JH_XNAT_ARCHIVE_PVC: "TO-SET-xnat-web-archive"
+      JH_XNAT_UID: "1000"
+      JH_XNAT_GID: "100"
+      JH_XNAT_USERNAME: "jupyterhub"
+      JH_XNAT_PASSWORD: "TO-SET"
+
+    # Injects custom Python directly into the Hub's own jupyterhub_config.py at startup
+    # Order them to enforce execution order if needed
+    extraConfig:
+      00-postgres: |
+        import os
+
+        postgres_db = os.environ['POSTGRES_DB']
+        postgres_user = os.environ['POSTGRES_USER']
+        postgres_pass = os.environ['POSTGRES_PASSWORD']
+        postgres_host = os.environ['POSTGRES_HOST']
+        postgres_port = os.environ['POSTGRES_PORT']
+        postgres_sslmode = os.environ.get('POSTGRES_SSLMODE', '')
+
+        db_url = f'postgresql+psycopg2://{postgres_user}:{postgres_pass}@{postgres_host}:{postgres_port}/{postgres_db}'
+        if postgres_sslmode:
+            db_url += f'?sslmode={postgres_sslmode}'
+        c.JupyterHub.db_url = db_url
+
+      01-aaf-oauthenticator: |
+        from oauthenticator.generic import GenericOAuthenticator
+
+        class AAFOAuthenticator(GenericOAuthenticator):
+          def normalize_username(self, username):
+            if not username.startswith('aaf_'):
+              username = 'aaf_' + username
+            username = self.username_map.get(username, username)
+            return username
+
+        c.JupyterHub.authenticator_class = AAFOAuthenticator
+
+      02-xnat-pre-spawn-hook: |
+        # Ported from jupyterhub-xnat's files/pre_spawn_hook.py + files/xnat_logger.py
+        # (combined here so this snippet is self-contained).
+        import logging
+        import os
+        import sys
+
+        import requests
+        from requests.auth import HTTPBasicAuth
+
+        logger = logging.getLogger("xnat-jupyterhub")
+        logger.propagate = False
+        logger.setLevel(logging.INFO)
+        _sh = logging.StreamHandler(sys.stdout)
+        _sh.setLevel(logging.INFO)
+        _sh.setFormatter(logging.Formatter("[%(levelname)s %(asctime)s %(name)s %(module)s:%(lineno)d] %(message)s"))
+        logger.addHandler(_sh)
+
+        def pre_spawn_hook(spawner):
+            logger.info(f'Requesting user options from XNAT for user {spawner.user.name} server {spawner.name}')
+            xnat_url = f'{os.environ["JH_XNAT_URL"]}/xapi/jupyterhub/users/{spawner.user.name}/server/{spawner.name}/user-options'
+            res = requests.get(xnat_url, auth=HTTPBasicAuth(os.environ['JH_XNAT_USERNAME'],
+                                                            os.environ['JH_XNAT_PASSWORD']))
+            if res and res.ok:
+                logger.info(f'User options for user {spawner.user.name} server {spawner.name} retrieved from XNAT.')
+
+                user_options = res.json()
+                task_template = user_options['task_template']
+
+                if 'placement' in task_template:
+                    placement = task_template['placement']
+                    if 'constraints' in placement:
+                        spawner.node_selector = {i.split('==')[0]: i.split('==')[-1] for i in placement['constraints']}
+
+                if 'resources' in task_template:
+                    resources = task_template['resources']
+                    cpu_limit, cpu_guarantee, mem_limit, mem_guarantee, generic_resources = (0, 0, 0, 0, {})
+                    if 'cpu_limit' in resources: cpu_limit = resources.pop('cpu_limit')
+                    if 'cpu_reservation' in resources: cpu_guarantee = resources.pop('cpu_reservation')
+                    if 'mem_limit' in resources: mem_limit = resources.pop('mem_limit')
+                    if 'mem_reservation' in resources: mem_guarantee = resources.pop('mem_reservation')
+                    if 'generic_resources' in resources: generic_resources = resources.pop('generic_resources')
+
+                    if cpu_limit: spawner.cpu_limit = cpu_limit
+                    if cpu_guarantee: spawner.cpu_guarantee = cpu_guarantee
+                    if mem_limit: spawner.mem_limit = mem_limit
+                    if mem_guarantee: spawner.mem_guarantee = mem_guarantee
+
+                    if generic_resources:
+                        if 'gpu' in generic_resources: generic_resources['nvidia.com/gpu'] = generic_resources.pop('gpu')
+                        if 'fuse' in generic_resources: generic_resources['smarter-devices/fuse'] = generic_resources.pop('fuse')
+                        spawner.extra_resource_guarantees = generic_resources
+                        spawner.extra_resource_limits = generic_resources
+
+                    if resources: spawner.extra_pod_config.update(resources)
+
+                if 'container_spec' in task_template:
+                    container_spec = task_template['container_spec']
+
+                    is_neurodesk = ('neurodesk' in container_spec.get('image', ''))
+                    if is_neurodesk:
+                        logger.info('updating spawner settings for neurodesk image')
+                        spawner.allow_privilege_escalation = True
+                        spawner.uid = 1000
+                        spawner.fs_gid = 100
+                        username = 'jovyan'
+                        workspace = 'home'
+                    else:
+                        username = f'{spawner.user.name}'
+                        workspace = 'workspace'
+
+                    if 'image' in container_spec:
+                        spawner.image = container_spec['image']
+                        spawner.image_pull_policy = 'IfNotPresent'
+
+                    if 'command' in container_spec and container_spec['command']:
+                        spawner.cmd = container_spec['command'].split(' ')
+
+                    if 'env' in container_spec: spawner.environment.update(container_spec['env'])
+
+                    spawner.environment.update({'NB_USER': username})
+                    if is_neurodesk:
+                        spawner.environment.update({
+                            'NB_UID': f'{spawner.uid}',
+                            'NB_GID': f'{spawner.fs_gid}',
+                            'JUPYTERHUB_ROOT_DIR': f'/{workspace}/{username}',
+                            'XDG_CONFIG_HOME': f'/{workspace}/{username}',
+                            'JUPYTERHUB_COOKIE_HOST_PREFIX_ENABLED': '0',
+                        })
+                    else:
+                        spawner.environment.update({
+                            'NB_UID': os.environ['JH_XNAT_UID'],
+                            'NB_GID': os.environ['JH_XNAT_GID'],
+                            # Cookie auth isn't persisted from a token in a URL-authenticated request otherwise
+                            'JUPYTERHUB_SINGLEUSER_EXTENSION': '0',
+                        })
+
+                    if 'mounts' in container_spec:
+                        v = []
+                        vm = []
+                        for m in container_spec['mounts']:
+                            src, tgt = m['source'], m['target']
+                            # Workspace mounts are handled by JupyterHub's own singleuser.storage config
+                            if '/workspaces/' in src:
+                                continue
+                            # Presumes all remaining mounts are within the archive volume (the plugin
+                            # doesn't provide the volume name itself).
+                            if not any(i['name'] == 'archive' for i in v):
+                                v.append({'name': 'archive',
+                                          'persistentVolumeClaim': {'claimName': os.environ['JH_XNAT_ARCHIVE_PVC']}})
+                            vm.append({'name': 'archive', 'mountPath': tgt, 'readOnly': m['read_only'], 'subPath': src})
+
+                        # KubeSpawner 7.x can represent spawner.volumes/volume_mounts as a dict
+                        # (keyed by volume name) rather than the list the old chart's much older
+                        # kubespawner used, so normalize to a list before combining instead of
+                        # relying on list-only .extend().
+                        existing_volumes = list(spawner.volumes.values()) if isinstance(spawner.volumes, dict) else list(spawner.volumes)
+                        existing_mounts = list(spawner.volume_mounts.values()) if isinstance(spawner.volume_mounts, dict) else list(spawner.volume_mounts)
+                        spawner.volumes = existing_volumes + [i for i in v if i not in existing_volumes]
+                        spawner.volume_mounts = existing_mounts + [i for i in vm if i not in existing_mounts]
+
+                spawner.working_dir = f'/{workspace}/{username}'
+                logger.info('Successfully updated spawner configuration')
+            else:
+                logger.error(f'Failed to get user options from XNAT for user {spawner.user.name}')
+                raise Exception(f'Failed to get user options from XNAT for user {spawner.user.name}')
+
+        c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
+
+    config:
+      AAFOAuthenticator:
+        client_id: "TO-SET"
+        client_secret: "TO-SET"
+        authorize_url: https://central.aaf.edu.au/providers/op/authorize
+        token_url: https://central.aaf.edu.au/providers/op/token
+        userdata_url: https://central.aaf.edu.au/providers/op/userinfo
+        login_service: AAF
+        oauth_callback_url: "https://TO-SET/jupyterhub/hub/oauth_callback"
+        scope:
+          - openid
+          - profile
+        tls_verify: false
+        userdata_params:
+          state: state
+        username_claim: sub
+      Authenticator:
+        allow_all: true
+        admin_users:
+          - admin
+      JupyterHub:
+        admin_access: true
+      KubeSpawner:
+        # Requires the security-profiles-operator subchart's "notebook" AppArmorProfile
+        extra_container_config:
+          securityContext:
+            appArmorProfile:
+              localhostProfile: notebook
+              type: Localhost
+            privileged: false
+        # Requires the smarter-device-manager subchart
+        extra_resource_guarantees:
+          smarter-devices/fuse: "1"
+        extra_resource_limits:
+          smarter-devices/fuse: "1"
+        http_timeout: 120
+        start_timeout: 900
+
+    services:
+      xnat:
+        admin: true
+        # set at install time
+        apiToken: "TO-SET"
+
+    # Lets XNAT itself call back into JupyterHub's admin API using the "xnat" service token above
+    loadRoles:
+      xnat-role:
+        description: XNAT service role
+        scopes:
+          - admin:servers
+          - admin:users
+          - admin:groups
+          - tokens
+          - list:services
+          - read:hub
+          - access:servers
+          - access:services
+          - proxy
+        services:
+          - xnat
+
+    # Disabled to match the deployed setup (no NetworkPolicy restricting hub/proxy traffic)
+    networkPolicy:
+      enabled: false
+
+  proxy:
+    chp:
+      networkPolicy:
+        enabled: false
+
+  singleuser:
+    allowPrivilegeEscalation: true
+    cmd:
+      - jupyterhub-singleuser
+    uid: 1000
+    fsGid: 100
+    startTimeout: 900
+    networkPolicy:
+      enabled: false
+    # Requires the smarter-device-manager subchart
+    extraResource:
+      guarantees:
+        smarter-devices/fuse: 1
+      limits:
+        smarter-devices/fuse: 1
+    storage:
+      type: static
+      static:
+        # Use the shared XNAT-managed workspaces PVC name
+        pvcName: "TO-SET-xnat-web-workspaces"
+        subPath: "users/{username}"
+      homeMountPath: /neurodesktop-storage
+      extraVolumes:
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs
+        - name: shm-volume
+          emptyDir:
+            medium: Memory
+      extraVolumeMounts:
+        - name: cvmfs
+          mountPath: /cvmfs
+          mountPropagation: HostToContainer
+        - name: shm-volume
+          mountPath: /dev/shm

@@ -1,0 +1,17 @@
+{{- $csi := get .Values "cvmfs-csi" | default dict }}
+{{- if $csi.enabled }}
+# Shared read-only handle to the cvmfs-csi driver, mounted by JupyterHub singleuser pods at /cvmfs
+# (claimName: cvmfs). The claim stays Pending until the cvmfs-csi driver and its StorageClass are up.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cvmfs
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: {{ $csi.automountStorageClass.name }}
+{{- end }}

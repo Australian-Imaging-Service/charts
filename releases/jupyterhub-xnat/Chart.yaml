@@ -1,0 +1,19 @@
+apiVersion: v2
+name: jupyterhub-xnat
+description: JupyterHub for XNAT integration (plain jupyterhub/jupyterhub chart + its own postgresql backend)
+maintainers:
+  - name: ais-admin
+    email: ais-admin@sydney.edu.au
+type: application
+version: 0.1.0
+appVersion: "4.3.1"
+
+dependencies:
+  - name: jupyterhub
+    condition: jupyterhub.enabled
+    version: "4.3.1"
+    repository: "https://hub.jupyter.org/helm-chart/"
+  - name: postgresql
+    condition: postgresql.enabled
+    version: "10.16.2"
+    repository: "https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami"

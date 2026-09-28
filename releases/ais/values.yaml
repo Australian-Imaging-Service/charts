@@ -14,12 +14,125 @@ ctp:
   enabled: true
   # ctp overrides below
 
-# jupyterhub subchart values (overrides upstream values)
-jupyterhub:
-  enabled: true
-  # jupyterhub overrides below
-  fullnameOverride: null
+# jupyterhub-xnat subchart values (overrides ../jupyterhub-xnat/values.yaml). 
+# ../jupyterhub-xnat is a first-party wrapper chart with postgresql dependency and default values for running Neurodesk. 
+# Supply actual environment's config such as XNAT URL, PVC names, DB host, node selector, oauth callback URL, etc to suit your deployment 
+# Note: Jupyterhub requires cvmfs-csi, smarter-device-manager, security-profiles-operator
+jupyterhub-xnat:
+  enabled: false
+  # overrides below
 
+# cvmfs-csi subchart values (overrides cern/cvmfs-csi defaults)
+cvmfs-csi:
+  enabled: false
+
+  nodeplugin:
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Equal
+        value: "true"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: smarter-device-manager
+                  operator: In
+                  values:
+                    - enabled
+
+  # Local cache size in MiB (chart default is 1000)
+  cache:
+    local:
+      cvmfsQuotaLimit: 5000
+
+  # Mounted at /etc/cvmfs/config.d and /etc/cvmfs/default.local
+  extraConfigMaps:
+    cvmfs-csi-config-d:
+      neurodesk.ardc.edu.au.conf: |
+        CVMFS_SERVER_URL="http://cvmfs1.neurodesk.org/cvmfs/@fqrn@;http://cvmfs2.neurodesk.org/cvmfs/@fqrn@;http://cvmfs3.neurodesk.org/cvmfs/@fqrn@"
+        CVMFS_PUBLIC_KEY='/etc/cvmfs/config.d/neurodesk.ardc.edu.au.pub'
+      neurodesk.ardc.edu.au.pub: |
+        -----BEGIN PUBLIC KEY-----
+        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwUPEmxDp217SAtZxaBep
+        Bi2TQcLoh5AJ//HSIz68ypjOGFjwExGlHb95Frhu1SpcH5OASbV+jJ60oEBLi3sD
+        qA6rGYt9kVi90lWvEjQnhBkPb0uWcp1gNqQAUocybCzHvoiG3fUzAe259CrK09qR
+        pX8sZhgK3eHlfx4ycyMiIQeg66AHlgVCJ2fKa6fl1vnh6adJEPULmn6vZnevvUke
+        I6U1VcYTKm5dPMrOlY/fGimKlyWvivzVv1laa5TAR2Dt4CfdQncOz+rkXmWjLjkD
+        87WMiTgtKybsmMLb2yCGSgLSArlSWhbMA0MaZSzAwE9PJKCCMvTANo5644zc8jBe
+        NQIDAQAB
+        -----END PUBLIC KEY-----
+    cvmfs-csi-default-local:
+      default.local: |
+        CVMFS_USE_GEOAPI=yes
+        CVMFS_HTTP_PROXY="DIRECT"
+
+        # It is advised to change these configs in the cache section of the helm values
+        # and leave them unchanged here, so they auto-generate.
+        CVMFS_QUOTA_LIMIT={{ .Values.cache.local.cvmfsQuotaLimit }}
+        CVMFS_CACHE_BASE=/cvmfs-localcache
+
+  # StorageClass used by the "cvmfs" PVC (templates/cvmfs-pvc.yaml, rendered when cvmfs-csi.enabled)
+  automountStorageClass:
+    create: true
+    name: cvmfs
+
+# smarter-device-manager subchart values (overrides smarter-device-manager/values.yaml)
+# Exposes /dev/fuse to pods as the extended resource smarter-devices/fuse (used by neurodesk containers).
+smarter-device-manager:
+  enabled: false
+
+  application:
+    appName: smarter-device-manager
+  image:
+    repository: ghcr.io/smarter-project/smarter-device-manager
+    tag: ""  
+    pullPolicy: IfNotPresent
+  # Only run on nodes labelled smarter-device-manager=enabled
+  nodeSelector:
+    smarter-device-manager: enabled
+  config:
+    - devicematch: ^fuse$
+      nummaxdevices: 10
+
+# security-profiles-operator subchart values (overrides the vendored chart's defaults).
+# Vendored from the neurodesk fork (see charts/base/releases/security-profiles-operator/values.yaml)
+# since it has no published Helm repo. Values below reproduce the standalone install done by
+# ais-devstack/jupyterhub/8-security-setup.sh.
+security-profiles-operator:
+  enabled: false
+
+  enableAppArmor: true
+  replicaCount: 1
+  spoImage:
+    registry: ghcr.io
+    repository: neurodesk/security-profiles-operator
+    tag: latest
+  daemon:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: smarter-device-manager
+                  operator: In
+                  values:
+                    - enabled
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Equal
+        value: "true"
+
+# gpu-operator subchart values (overrides nvidia/gpu-operator defaults)
+gpu-operator:
+  enabled: false
+  # The standalone release was installed with a root-level `tolerations` (key: gpu) that the chart
+  # never reads, so the effective config was the chart defaults. The operands already tolerate the
+  # jupyter-gpu nodepool taint (nvidia.com/gpu=true:NoSchedule) via daemonsets.tolerations.
+
+# aisEdgeTool placeholder
 aisEdgeTool01:
   enabled: false
   # overrides below
