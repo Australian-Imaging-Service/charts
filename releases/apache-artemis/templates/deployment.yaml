@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "apache-artemis.fullname" . }}
   labels:
@@ -53,6 +53,9 @@ spec:
                 secretKeyRef:
                   name: {{ include "apache-artemis.fullname" . }}
                   key: password
+            # https://artemis.apache.org/components/artemis/documentation/latest/using-server.html#adding-bootstrap-dependencies
+            # - name: JAVA_ARGS_APPEND
+            #   value: >-
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -74,11 +77,7 @@ spec:
           {{- end }}
           volumeMounts:
             - mountPath: /var/lib/artemis-instance
-              name: apache-artemis-config
-              readOnly: false
-            - mountPath: /var/lib/artemis-instance/etc
-              name: apache-artemis-etc
-              readOnly: true
+              name: instance
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -90,15 +89,21 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: [/opt/artemis/bin/artemis, create]
+          command: [/bin/bash, -x, -c]
           args:
-            - --user=$(ARTEMIS_USER)
-            - --password=$(ARTEMIS_PASSWORD)
-            - --silent
-            - --require-login
-            - --http-host=[::]
-            - --relax-jolokia
-            - .
+            - |
+              /opt/artemis/bin/artemis create \
+                --user=$(ARTEMIS_USER) \
+                --password=$(ARTEMIS_PASSWORD) \
+                --silent \
+                --require-login \
+                --http-host=[::] \
+                --relax-jolokia \
+                .
+              if [ -d ./etc-override ]; then
+                for file in `ls ./etc-override`; do echo copying file to etc folder: $file; cp ./etc-override/$file ./etc || :; done
+              fi
+              sed -i'' 's|tcp://0\.0\.0\.0|tcp://[::]|' etc/*
           env:
             - name: ARTEMIS_USER
               valueFrom:
@@ -114,31 +119,14 @@ spec:
             # - name: JAVA_ARGS_APPEND
           volumeMounts:
             - mountPath: /var/lib/artemis-instance
-              name: apache-artemis-config
-              readOnly: false
-            - mountPath: /var/lib/artemis-instance/etc
+              name: instance
+            - mountPath: /var/lib/artemis-instance/etc-override
               name: apache-artemis-etc
-              readOnly: false
-        - name: patch
-          {{- with .Values.securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: [/bin/bash, -x , -c]
-          args:
-            - |
-              sed -i'' 's|tcp://0\.0\.0\.0|tcp://[::]|' etc/*
-          volumeMounts:
-            - mountPath: /var/lib/artemis-instance/etc
-              name: apache-artemis-etc
-              readOnly: false
+              readOnly: true
       volumes:
         - name: apache-artemis-etc
-          emptyDir: {}
-        - name: apache-artemis-config
-          emptyDir: {}
+          configMap:
+            name: {{ include "apache-artemis.fullname" . }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -154,3 +142,12 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: instance
+      spec:
+        accessModes: ["ReadWriteOncePod"]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 1Gi

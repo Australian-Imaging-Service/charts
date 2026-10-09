@@ -10,7 +10,7 @@
 valueFrom:
   secretKeyRef:
     name: {{ include "xnat.activemq.existingSecret" . }}
-    key: {{ .Values.activemq.auth.secretKeys.brokerUrlKey }}
+    key: {{ index .Values "apache-artemis" "auth" "secretKeys" "brokerUrlKey" }}
 {{- end }}
 
 {{/*
@@ -19,7 +19,7 @@ valueFrom:
 valueFrom:
   secretKeyRef:
     name: {{ include "xnat.activemq.existingSecret" . }}
-    key: {{ .Values.activemq.auth.secretKeys.passwordKey }}
+    key: {{ index .Values "apache-artemis" "auth" "secretKeys" "passwordKey" }}
 {{- end }}
 
 {{/*
@@ -28,5 +28,13 @@ valueFrom:
 valueFrom:
   secretKeyRef:
     name: {{ include "xnat.activemq.existingSecret" . }}
-    key: {{ .Values.activemq.auth.secretKeys.usernameKey }}
+    key: {{ index .Values "apache-artemis" "auth" "secretKeys" "usernameKey" }}
 {{- end }}
+
+{{/*
+*/}}
+{{- define "xnat.activemq.configured" -}}
+{{- with index .Values "apache-artemis" -}}
+{{- if or .enabled .auth.existingSecret -}}true{{- end -}}
+{{- end -}}
+{{- end -}}

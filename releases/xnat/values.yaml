@@ -15,7 +15,7 @@ global:
   # A value of '-' indicates the default storage class should be used.
   storageClassName: "-"
 
-activemq:
+apache-artemis:
   enabled: false
   auth:
     existingSecret: ""

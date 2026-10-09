@@ -153,7 +153,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "xnat-web.fullname" $ }}-admin
                   key: password
-            {{- if or $.Values.activemq.enabled $.Values.activemq.auth.existingSecret }}
+            {{- if (include "xnat.activemq.configured" $) }}
             - name: AMQBROKERURL
               {{- (include "xnat.activemq.brokerUrl" $) | nindent 14 }}
             - name: AMQPASSWORD

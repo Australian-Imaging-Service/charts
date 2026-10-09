@@ -28,7 +28,7 @@ appVersion: 1.10.0
 
 dependencies:
 - name: apache-artemis
-  condition: activemq.enabled
+  condition: apache-artemis.enabled
   repository: file://../apache-artemis
   version: "~0.1.0"
 - name: postgresql
