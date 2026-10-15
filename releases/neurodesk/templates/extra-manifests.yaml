@@ -1,0 +1,13 @@
+{{- /*
+Render arbitrary user-supplied manifests verbatim. Lets operators keep
+ad-hoc resources inside the Helm release instead of out-of-band kubectl apply.
+Each list item is a full Kubernetes object (or a template string).
+*/ -}}
+{{- range $manifest := .Values.extraManifests }}
+---
+{{- if kindIs "string" $manifest }}
+{{ tpl $manifest $ }}
+{{- else }}
+{{ toYaml $manifest }}
+{{- end }}
+{{- end }}

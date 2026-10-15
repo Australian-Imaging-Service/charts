@@ -1,0 +1,65 @@
+# ============================================================================
+# examples/minimal-values.yaml
+# ----------------------------------------------------------------------------
+# Smallest working configuration: dummy authenticator, CVMFS on, security
+# profiles on, XNAT off. Good for a first install / kicking the tyres.
+#
+#   helm repo add jupyterhub https://jupyterhub.github.io/helm-chart
+#   helm repo add smarter-device-manager https://smarter-project.github.io/smarter-device-manager
+#   helm dependency build .            # honors the committed Chart.lock
+#   helm upgrade --install neurodesk . \
+#     --namespace jupyter --create-namespace \
+#     -f examples/minimal-values.yaml
+#     # add --set cert-manager.enabled=true on a cluster with NO cert-manager
+#
+# IMPORTANT: always pass --namespace explicitly (the z2jh image-awaiter Job
+# targets 'default' otherwise).
+#
+# This overlay is intentionally tiny: it INHERITS the chart's singleuser
+# cvmfs + security defaults verbatim — the /cvmfs PVC volume + mount, the
+# smarter-devices/fuse extraResource request, the shm-volume, and the AppArmor
+# localhostProfile 'notebook' attachment all come from the chart's values.yaml.
+# Because it does not restate jupyterhub.singleuser.storage.extraVolumes (a LIST
+# that Helm REPLACES), there is nothing to keep in sync here. global.cvmfs.server
+# is also inherited from the chart default. Set jupyterhub.ingress.{enabled,
+# ingressClassName,hosts,tls} when you want external access; without it the Hub
+# is only reachable via `kubectl port-forward svc/proxy-public 8080:80`.
+#
+# WARNING: dummy auth accepts ANY username with no password. Never expose this
+# on a public ingress — swap to GitHub/OIDC (see examples/{neurocloud,devstack})
+# before going beyond a private test cluster.
+# ============================================================================
+
+global:
+  domain: ""                       # "" => no ingress host; port-forward to reach
+  storageClassName: ""             # "" => cluster default StorageClass
+
+# (No ingress here — reach the Hub via `kubectl port-forward svc/proxy-public`.
+#  To expose it, set jupyterhub.ingress.{enabled,ingressClassName,hosts,tls}.)
+
+# CVMFS access (Stratum-1 mirrors + automount PVC + FUSE device + probe). On.
+cvmfs:
+  enabled: true
+
+# AppArmor profile for singleuser pods. On; bundles the operator by default.
+# The bundled Security Profiles Operator needs cert-manager: either the cluster
+# already runs it, or install it with this release (cert-manager.enabled=true,
+# only on a cluster that has none). The render fails if neither holds.
+security:
+  enabled: true
+  installOperator: true
+  appArmor:
+    enabled: true
+    profileName: notebook
+
+# No XNAT integration in the minimal profile.
+xnat:
+  enabled: false
+
+jupyterhub:
+  hub:
+    config:
+      JupyterHub:
+        authenticator_class: dummy
+      Authenticator:
+        admin_users: []

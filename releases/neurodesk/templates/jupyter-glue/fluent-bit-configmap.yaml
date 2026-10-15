@@ -1,0 +1,52 @@
+{{- if .Values.jupyterGlue.fluentbit.enabled }}
+{{- /*
+Fluent-bit config for the singleuser log sidecar. The notebook pod mounts this
+ConfigMap (as the `logger-conf`/`fluent-bit` volume in the z2jh
+singleuser.storage block) and the sidecar tails /var/log/*.log plus systemd,
+lowercases levels, and ships to Loki. The data key is `fluent-bit.yml` to match
+the upstream filename the sidecar loads. Body is embedded verbatim (the source
+chart sourced it via .Files.Glob "fluent-bit.yml").
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+data:
+  fluent-bit.yml: |
+    parsers:
+    - name: log
+      format: regex
+      regex: '^\[(?<time>.+?)\] \[(?<level>[A-Z]+) ?\] (?<msg>.*)$'
+      time_key: time
+      time_format: "%Y%m%d-%T"
+    pipeline:
+      inputs:
+      - name: tail
+        path: /var/log/*.log
+        path_key: file
+        parser: log
+        processors:
+          logs:
+          - name: lua
+            call: lower
+            code: |
+              function lower(tag, timestamp, record)
+                record["level"] = string.lower(record["level"])
+                return 1, timestamp, record
+              end
+      - name: systemd
+        lowercase: true
+        strip_underscores: true
+      outputs:
+      - name: loki
+        match: "*"
+        host: loki.monitoring
+        labels: job=singleuser,pod=${HOSTNAME}
+        label_keys:  $file,$level
+        remove_keys: $file,$level
+        drop_single_key: true
+{{- end }}

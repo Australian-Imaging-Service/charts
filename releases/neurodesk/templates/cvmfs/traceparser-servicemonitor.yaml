@@ -1,0 +1,22 @@
+{{- /* ServiceMonitor CRD is external (Prometheus Operator); skip gracefully if absent instead of aborting the whole release. */ -}}
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.traceParser.enabled .Values.infra.monitoring.serviceMonitors (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cvmfs-metrics
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-trace-parser
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    {{- with .Values.infra.monitoring.serviceMonitorLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: cvmfs-trace-parser
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+{{- end }}

@@ -1,0 +1,22 @@
+# Helm build artifacts
+charts/*.tgz
+**/charts/*.tgz
+# NOTE: Chart.lock is COMMITTED (not ignored) so `helm dependency build`
+# resolves the exact pinned subchart versions reproducibly in CI/release.
+
+# Rendered output / scratch
+/tmp/
+*.rendered.yaml
+*.out.yaml
+
+# Secrets — never commit
+keys.txt
+secrets.yaml
+*.dec.yaml
+*-secret.yaml
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,53 @@
+{{- if and .Values.jupyterhub.enabled .Values.jupyterGlue.sharedGroupStorage.enabled .Values.jupyterGlue.sharedGroupStorage.rbac }}
+{{- /*
+RBAC for shared-group-storage reconciliation. At spawn time the Hub
+(jupyterhub.hub.extraConfig, delivered via the examples overlay) creates/patches
+one RWX PVC per Hub group the user belongs to and runs a short permission-init
+Job to chown/chmod the share, then deletes that Job — hence create/delete on
+batch/jobs and create/patch on persistentvolumeclaims.
+
+Subject resolution mirrors home-resize-rbac.yaml: the z2jh Hub ServiceAccount,
+resolved from .Values.jupyterhub.hub.serviceAccount.{create,name} with the
+z2jh default name "hub".
+*/}}
+{{- $hubValues := default (dict) .Values.jupyterhub.hub }}
+{{- $serviceAccount := default (dict) $hubValues.serviceAccount }}
+{{- $saName := "" }}
+{{- if (default true $serviceAccount.create) }}
+{{- $saName = default "hub" $serviceAccount.name }}
+{{- else }}
+{{- $saName = default "default" $serviceAccount.name }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shared-group-storage
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-group-storage
+rules:
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "patch", "update"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shared-group-storage
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-group-storage
+subjects:
+- kind: ServiceAccount
+  name: {{ $saName }}
+  namespace: {{ include "neurodesk.namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: shared-group-storage
+{{- end }}

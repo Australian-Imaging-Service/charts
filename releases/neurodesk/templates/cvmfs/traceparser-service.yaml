@@ -1,0 +1,27 @@
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.traceParser.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvmfs-metrics
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-trace-parser
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: cvmfs-trace-parser
+  ports:
+  - name: metrics
+    port: 9002
+    targetPort: 9002
+    protocol: TCP
+  - name: telegraf-metrics
+    port: 9001
+    targetPort: 9001
+    protocol: TCP
+  - name: influx-udp
+    port: 8092
+    targetPort: 8092
+    protocol: UDP
+  type: ClusterIP
+{{- end }}

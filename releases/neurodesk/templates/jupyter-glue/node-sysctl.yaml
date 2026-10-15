@@ -1,0 +1,69 @@
+{{- /*
+Node inotify-limit tuning DaemonSet. This exists solely for the JupyterHub
+fluent-bit logger sidecars: they call inotify_init() at startup and fail with
+EMFILE (errno 24) when the kernel default fs.inotify.max_user_instances is
+exhausted by kubelet, containerd, and the sidecars themselves on nodes running
+many notebook pods. It is JupyterHub-app-related (not generic infra), so it is
+gated on the fluent-bit sidecar being in use rather than rendered unconditionally.
+Requires jupyterhub.enabled for the singleuser pods that carry the sidecar.
+
+The matching persistent values are normally written to /etc/sysctl.d/ at node
+bootstrap; this DaemonSet covers nodes provisioned without that and reapplies on
+every pod restart. It is privileged + hostPID by necessity (it writes sysctls on
+the host); operators on locked-down clusters who set these limits via node
+bootstrap can leave jupyterGlue.fluentbit disabled or omit this manifest.
+*/ -}}
+{{- if and .Values.jupyterhub.enabled .Values.jupyterGlue.fluentbit.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-sysctl-tuning
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node-sysctl-tuning
+spec:
+  selector:
+    matchLabels:
+      {{- include "neurodesk.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: node-sysctl-tuning
+  template:
+    metadata:
+      labels:
+        {{- include "neurodesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: node-sysctl-tuning
+    spec:
+      hostPID: true
+      # Run on every node, including control-plane / tainted nodes.
+      tolerations:
+      - operator: Exists
+      initContainers:
+      - name: sysctl
+        image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+        securityContext:
+          privileged: true
+        # Fail fast (sh -e + read-back) and never LOWER a limit the node already
+        # has set higher. Ported from neurocloud (fdf664e).
+        command: [sh, -ec]
+        args:
+        - |
+          for kv in fs.inotify.max_user_instances=8192 fs.inotify.max_user_watches=1048576 fs.inotify.max_queued_events=1048576; do
+            k=${kv%%=*}; want=${kv#*=}
+            now=$(sysctl -n "$k")
+            if [ "$now" -lt "$want" ]; then sysctl -w "$k=$want" >/dev/null; fi
+            got=$(sysctl -n "$k")
+            [ "$got" -ge "$want" ] || { echo "node-sysctl: FATAL - $k is $got, need at least $want"; exit 1; }
+            echo "node-sysctl: $k=$got (target $want)"
+          done
+      containers:
+      # Idle pause container keeps the DaemonSet pod Running after the
+      # init-container has applied the sysctls.
+      - name: pause
+        image: registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4
+        resources:
+          requests:
+            cpu: 1m
+            memory: 4Mi
+          limits:
+            memory: 16Mi
+{{- end }}

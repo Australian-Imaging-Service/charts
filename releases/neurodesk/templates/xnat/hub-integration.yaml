@@ -1,0 +1,108 @@
+{{- /*
+================================================================================
+Hub-side integrations: XNAT-launched servers and AAF login.
+
+z2jh passes hub values through without templating, so release-dependent names
+(XNAT's Service and archive PVC are <release>-xnat-web[-archive] under the AIS
+umbrella) cannot live in jupyterhub.hub.* values. This chart renders them into
+the fixed-name ConfigMap below; the hub mounts it (optional) at
+/etc/neurodesk/integration via jupyterhub.hub.extraVolumes, and the
+jupyterhub.hub.extraConfig entry `10-neurodesk-integrations` executes the
+shipped files/hub/neurodesk_integrations.py. integration.json is re-read on
+every spawn; a change to the Python itself takes effect at the next hub restart.
+
+What this does NOT do: configure XNAT. The XNAT side (JupyterHub plugin
+installed, its JupyterHub URL and the `xnat` service token) is set in XNAT;
+see docs/xnat.md.
+================================================================================
+*/ -}}
+{{- $x := .Values.xnat | default dict -}}
+{{- $xj := dig "jupyterhub" (dict) $x -}}
+{{- $xnatHub := and .Values.jupyterhub.enabled $x.enabled (dig "enabled" false $xj) -}}
+{{- $ns := include "neurodesk.namespace" . -}}
+{{- $cfgJson := include "neurodesk.hubIntegrationConfig" . }}
+{{- if $cfgJson }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # Fixed name: jupyterhub.hub.extraVolumes (a plain value) references it.
+  name: neurodesk-hub-integration
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+data:
+  integration.json: {{ $cfgJson | quote }}
+  neurodesk_integrations.py: |
+    {{- .Files.Get "files/hub/neurodesk_integrations.py" | nindent 4 }}
+{{- end }}
+{{- if $xnatHub }}
+{{- $secret := $xj.credentialsSecret | default (printf "%s-xnat-web-admin" .Release.Name) }}
+---
+# The hub reads the XNAT account it calls user-options with from this Secret at
+# spawn time (by default the AIS xnat chart's own admin Secret): `get` on that
+# Secret. (z2jh's own hub Role, with rbac.create=true, already covers every
+# Secret in the namespace; this grant is what remains when it is off.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "neurodesk.fullname" . }}-xnat-credentials
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $secret | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "neurodesk.fullname" . }}-xnat-credentials
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "neurodesk.fullname" . }}-xnat-credentials
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "neurodesk.hubServiceAccount" . }}
+    namespace: {{ $ns }}
+{{- if and (not $x.server.namespace) (dig "hub" "networkPolicy" "enabled" true (.Values.jupyterhub | default dict)) }}
+---
+# XNAT in the same namespace (the AIS umbrella). z2jh's hub NetworkPolicy only
+# admits pods labelled hub.jupyter.org/network-access-hub, which the XNAT chart
+# cannot set; NetworkPolicies are additive, so this admits XNAT's pods to the
+# hub API and lets the hub reach XNAT. Only while z2jh's hub policy is on: alone
+# this one would isolate the hub from the proxy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "neurodesk.fullname" . }}-hub-xnat
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      component: hub
+      release: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $x.server.podLabels | nindent 14 }}
+      ports:
+        - port: http
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $x.server.podLabels | nindent 14 }}
+      ports:
+        - port: {{ $x.server.port }}
+{{- end }}
+{{- end }}

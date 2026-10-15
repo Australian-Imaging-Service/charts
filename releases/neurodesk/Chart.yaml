@@ -1,0 +1,89 @@
+apiVersion: v2
+name: neurodesk
+description: >-
+  Consolidated, installable JupyterHub application chart for Neurodesk —
+  the JupyterHub-centric layer shared by the ais-devstack and neurocloud
+  deployments (JupyterHub + CVMFS access + security profiles + optional XNAT
+  integration). Cluster infrastructure (StorageClass, ingress controller, cert
+  issuer, Prometheus Operator) is consumed by name, never installed here.
+type: application
+
+# Chart version — bump on every change. App version tracks the default
+# neurodesktop singleuser image tag shipped in values.yaml (date part only; the
+# values.yaml tag also carries an @sha256 digest pin).
+version: 0.3.0
+appVersion: "2026-09-23"
+
+# The chart's default singleuser securityContext pins AppArmor via the NATIVE
+# `securityContext.appArmorProfile` field (added in k8s 1.30 as beta, on by
+# default; GA in 1.31). On older clusters that field is silently ignored (no
+# enforcement), so require >=1.30. z2jh 4.4 needs >=1.28; this is the stricter
+# bound.
+kubeVersion: ">=1.30.0-0"
+
+home: https://www.neurodesk.org
+sources:
+  - https://github.com/neurodesk/helm-chart
+  - https://github.com/neurodesk/neurocloud
+  - https://github.com/Australian-Imaging-Service/ais-devstack
+maintainers:
+  - name: Neurodesk
+    url: https://www.neurodesk.org
+keywords:
+  - jupyterhub
+  - neurodesk
+  - neuroimaging
+  - cvmfs
+  - xnat
+
+# ---------------------------------------------------------------------------
+# Remote chart dependencies. Each is gated by a `condition` that reads a
+# toggle from values.yaml, so a component can be switched off (and installed
+# separately by the operator) without removing it from the chart.
+#
+# IMPORTANT (Helm contract): a subchart's values are nested under the top-level
+# key matching its `name` (or `alias`) — e.g. cvmfs-csi values live under the
+# `cvmfs-csi:` key, NOT under `cvmfs:`. The `cvmfs:` block holds this chart's
+# own in-house CVMFS settings (server URL, squid/probe toggles, the `cvmfs`
+# PVC). See values.yaml for the full layout.
+# ---------------------------------------------------------------------------
+dependencies:
+  - name: jupyterhub
+    version: "4.4.2"
+    repository: https://jupyterhub.github.io/helm-chart
+    condition: jupyterhub.enabled
+
+  - name: cvmfs-csi
+    version: "2.6.0"
+    repository: oci://registry.cern.ch/kubernetes/charts
+    condition: cvmfs.enabled
+
+  - name: smarter-device-manager
+    version: "0.0.10"
+    repository: https://smarter-project.github.io/smarter-device-manager
+    condition: cvmfs.enabled
+
+  # Security Profiles Operator — provides the AppArmorProfile / SeccompProfile
+  # CRDs and the node daemon (spod) that loads profiles onto every node.
+  # Bundled and ON by default; set security.installOperator=false only if the
+  # cluster already runs SPO >= 1.0.0.
+  #
+  # UPSTREAM kubernetes-sigs v1.0.0, VENDORED under
+  # vendor/security-profiles-operator because it needs local patches (fixed
+  # runtime namespace, parent-release ownership, the operator's missing
+  # AppArmorProfile RBAC). Every patch and the source checksum are recorded in
+  # vendor/security-profiles-operator/PROVENANCE.txt. CRDs ship from its
+  # crds/ dir (installed on first install only; Helm never upgrades crds/).
+  - name: security-profiles-operator
+    version: "1.0.0"
+    repository: "file://vendor/security-profiles-operator"
+    condition: security.installOperator
+
+  # cert-manager — SPO's certificate provider. OFF by default (most clusters
+  # already run it and it is a cluster singleton); `cert-manager.enabled=true`
+  # installs it in this release for a cluster that has none. OCI, so no
+  # `helm repo add` is needed.
+  - name: cert-manager
+    version: "v1.21.2"
+    repository: oci://quay.io/jetstack/charts
+    condition: cert-manager.enabled

@@ -1,0 +1,129 @@
+# ============================================================================
+# ci/ct-values-full.yaml
+# ----------------------------------------------------------------------------
+# chart-testing (ct) values: "everything on" profile for the helm
+# lint/template matrix. Exercises every in-house toggle plus every subchart
+# (jupyterhub, cvmfs-csi, smarter-device-manager, the vendored
+# security-profiles-operator and cert-manager). Bundling cert-manager makes this
+# the complete standalone path: it renders on a bare cluster with no
+# --api-versions assertions. To INSTALL it, pass --set namespace.create=false
+# when using --create-namespace (the CI install-full job does); its
+# namespace.podSecurityLabels are exercised for rendering only. Renders with NO real secrets — auth stays dummy
+# and all credentials are "".
+#
+# `ct lint`/`helm template` against this requires the dependencies to be built
+# first (`helm dep build .`).
+# ============================================================================
+
+global:
+  domain: neurodesk.ci.example.org
+  storageClassName: standard
+  cvmfs:
+    squidEnabled: true   # the ONLY squid toggle (cvmfs.squid.enabled no longer exists)
+
+infra:
+  monitoring:
+    serviceMonitors: true
+    serviceMonitorLabels:
+      release: kube-prometheus-stack
+
+namespace:
+  create: true
+  name: ""
+  podSecurityLabels:
+    # privileged, not baseline: the cvmfs-csi node plugin and smarter-device-manager
+    # run privileged / hostNetwork in the release namespace.
+    pod-security.kubernetes.io/enforce: privileged
+
+# CVMFS on => cvmfs-csi + smarter-device-manager subcharts render too. Squid,
+# probe and trace-parser all exercised.
+cvmfs:
+  enabled: true
+  squid:
+    storageClassName: ""
+  probe:
+    enabled: true
+  traceParser:
+    enabled: true
+    replicas: 1
+
+# Security on + bundle the SPO subchart (condition: security.installOperator).
+security:
+  enabled: true
+  installOperator: true
+  appArmor:
+    enabled: true
+    profileName: notebook
+  seccomp:
+    enabled: true
+    profileName: log
+
+# SPO needs cert-manager. A CI kind cluster has none, so install it with the
+# release (condition: cert-manager.enabled) - the same path a standalone user
+# takes with --set cert-manager.enabled=true.
+cert-manager:
+  enabled: true
+
+# XNAT notebook-side integration objects (ConfigMap + RBAC). No external server
+# in CI; host/namespace are placeholders only.
+xnat:
+  enabled: true
+  server:
+    host: xnat-web.ci-xnat.svc.cluster.local
+    namespace: ci-xnat
+  uploadExtension:
+    enabled: true
+
+# Every jupyterGlue toggle on to render its RBAC/ConfigMaps.
+jupyterGlue:
+  homeResize:
+    enabled: true
+    rbac: true
+  fluentbit:
+    enabled: true
+  sharedTeaching:
+    enabled: true
+    storageClassName: standard
+  sharedGroupStorage:
+    enabled: true
+    rbac: true
+
+# Exercise the extraManifests escape hatch (templated string form).
+extraManifests:
+  - |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: {{ .Release.Name }}-ci-extra
+      namespace: {{ include "neurodesk.namespace" . }}
+    data:
+      ci: "true"
+
+# z2jh passthrough — dummy auth, no secrets.
+jupyterhub:
+  # Ingress is z2jh's own (no separate Ingress object in this chart).
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: ci-issuer
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    hosts: [neurodesk.ci.example.org]
+    tls:
+      - secretName: neurodesk-tls
+        hosts: [neurodesk.ci.example.org]
+  hub:
+    config:
+      JupyterHub:
+        authenticator_class: dummy
+      Authenticator:
+        admin_users: []
+    # The REAL StorageClass knobs for hub DB + home (global.storageClassName
+    # does not reach the z2jh subchart).
+    db:
+      pvc:
+        storageClassName: standard
+  singleuser:
+    storage:
+      dynamic:
+        storageClass: standard

@@ -1,0 +1,128 @@
+{{- /*
+================================================================================
+Hub reload after an upgrade that changes what the hub reads only at start-up.
+
+The hub loads the integration settings (integration.json) and
+files/hub/neurodesk_integrations.py from ConfigMap neurodesk-hub-integration
+once, when it starts. That ConfigMap is this chart's, not z2jh's, so z2jh's own
+checksum annotations do not roll the hub when it changes: enabling AAF or the
+XNAT integration on an upgrade, changing their settings, or a new chart version
+of the Python would otherwise stay inactive until someone restarts the hub.
+
+This Job, after every upgrade and rollback, stamps a fingerprint of that
+content onto the hub Deployment's pod template (annotation
+neurodesk.org/hub-integration): a no-op when the fingerprint is unchanged, a hub
+rollout when it changed. It then waits for that rollout, so `helm upgrade
+--wait`/`--atomic` only succeed once the hub runs the new settings (Helm's own
+wait happens before post-upgrade hooks). Helm keeps an annotation it did not
+render, so later upgrades do not undo it. (Argo CD runs it as a PostSync hook,
+on every sync; unchanged = no-op.) Not run with --no-hooks or when manifests are
+applied from `helm template`: restart the hub yourself after changing these
+settings then. A rollback to a chart revision without this hook (< 0.3.0) runs
+that revision's hooks, so it needs a manual hub restart too.
+================================================================================
+*/ -}}
+{{- if .Values.jupyterhub.enabled }}
+{{- $ns := include "neurodesk.namespace" . -}}
+{{- $name := printf "%s-hub-reload" (include "neurodesk.fullname" . | trunc 45 | trimSuffix "-") -}}
+{{- $hub := include "jupyterhub.hub.fullname" (dict "Values" .Values.jupyterhub "Chart" (dict "Name" "jupyterhub") "Release" .Release) -}}
+{{- $patch := dict "spec" (dict "template" (dict "metadata" (dict "annotations" (dict "neurodesk.org/hub-integration" (include "neurodesk.hubIntegrationChecksum" .))))) -}}
+{{- $uc := .Values.uninstallCleanup -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-upgrade,post-rollback
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-upgrade,post-rollback
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: [{{ $hub | quote }}]
+    # get/patch: the stamp; list/watch: `kubectl rollout status`.
+    verbs: ["get", "patch", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-upgrade,post-rollback
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $ns }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-upgrade,post-rollback
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        {{- include "neurodesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: hub-reload
+    spec:
+      serviceAccountName: {{ $name }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: stamp-hub-integration
+          image: {{ $uc.image }}
+          args: ["-n", {{ $ns | quote }}, "patch", "deployment", {{ $hub | quote }}, "--type", "merge", "-p", {{ toJson $patch | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml (dig "resources" (dict) $uc) | nindent 12 }}
+      containers:
+        # Returns at once when the stamp changed nothing. Bounded below Helm's
+        # default 5m hook timeout.
+        - name: wait-for-hub
+          image: {{ $uc.image }}
+          args: ["-n", {{ $ns | quote }}, "rollout", "status", "deployment/{{ $hub }}", "--timeout=270s"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml (dig "resources" (dict) $uc) | nindent 12 }}
+{{- end }}

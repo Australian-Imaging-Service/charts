@@ -1,0 +1,1597 @@
+# ============================================================================
+# examples/neurocloud-values.yaml
+# ----------------------------------------------------------------------------
+# Consumer overlay that turns the neurodesk chart into the neurocloud notebook
+# layer: GitHub auth + the FriendlyKubeSpawner glue (friendly OOM notices, home
+# PVC auto-resize, shared group/teaching storage reconciliation) +
+# ServiceMonitors. Copied from neurocloud/charts/jupyter/values.yaml, scrubbed
+# of secrets, and expressed as a thin overlay on this chart's defaults.
+#
+#   helm repo add jupyterhub https://jupyterhub.github.io/helm-chart
+#   helm repo add smarter-device-manager https://smarter-project.github.io/smarter-device-manager
+#   helm dependency build .            # honors the committed Chart.lock
+#   helm upgrade --install neurodesk . \
+#     --namespace neurodesk --create-namespace \
+#     -f examples/neurocloud-values.yaml \
+#     -f my-secrets.yaml               # GitHub client_secret, cookie_secret, ...
+#
+# IMPORTANT: always pass --namespace explicitly. The z2jh image-awaiter Job
+# targets 'default' if you don't, and the FriendlyKubeSpawner reconcilers use
+# the release namespace.
+#
+# ADOPTION MODE. This overlay is for running the chart on the EXISTING
+# neurocloud cluster, next to neurocloud's own Argo CD apps, which it reuses
+# and must not replace: the `security` app's Security Profiles Operator (and
+# its RBAC) and the `mounts` app's CVMFS driver. Hence security.installOperator
+# =false, cvmfs.external=true and a distinct AppArmor profile name below. Use a
+# namespace, release name and ingress host that the existing charts/jupyter app
+# does not use: z2jh's in-namespace names (hub, proxy-public, hub-db-dir) are
+# fixed, so two hubs cannot share a namespace. See
+# docs/consuming-from-neurocloud.md. For a FRESH cluster without those apps,
+# use the chart's bundled defaults instead (installOperator=true,
+# cvmfs.enabled=true).
+#
+# ----------------------------------------------------------------------------
+# WARNING — singleuser.storage.extraVolumes is a LIST. Helm REPLACES lists, it
+# does NOT append/merge them. This overlay therefore RESTATES the chart's cvmfs
+# and shm-volume entries (then adds the fluent-bit logger + logs volumes). If
+# you edit the list below, KEEP the cvmfs + shm-volume entries or singleuser
+# pods lose /cvmfs (and the validate.yaml cvmfsVolumeWhenCvmfsOff guard will not
+# catch a missing-but-still-enabled mount). The same applies to
+# extraVolumeMounts.
+# ----------------------------------------------------------------------------
+#
+# SCOPE: this is the JupyterHub notebook layer only. cryptnono and the DNS
+# filter intentionally live in the neurocloud *infrastructure* layer (the
+# cluster security chart), NOT here. Do not add them to this overlay.
+#
+# SECRETS: all credentials are "" / placeholders — supply via a private -f file
+# or existing secret. See docs/secrets.md. Never commit GitHub client secrets,
+# cookie secrets, the ConfigurableHTTPProxy auth_token, or CryptKeeper keys.
+# ============================================================================
+
+global:
+  domain: ""                       # e.g. neurodesk.example.org
+  storageClassName: longhorn-storage-nodes
+  cvmfs:
+    # Single source of truth for the CVMFS Stratum-1 URL(s): read by BOTH this
+    # chart's squid templates AND the cvmfs-csi subchart ConfigMaps.
+    server: "http://cvmfs-jetstream.neurodesk.org/cvmfs/@fqrn@;http://s1fnal-cvmfs.openhtc.io/cvmfs/@fqrn@;http://s1osggoc-cvmfs.openhtc.io/cvmfs/@fqrn@;http://s1bnl-cvmfs.openhtc.io/cvmfs/@fqrn@"
+    # Single toggle for the in-cluster Squid cache (off here; mirrors are fast).
+    squidEnabled: false
+
+infra:
+  monitoring:
+    # neurocloud scrapes JupyterHub via the kube-prometheus-stack operator.
+    serviceMonitors: true
+    serviceMonitorLabels:
+      release: monitor             # match your kube-prometheus-stack release
+
+# neurocloud's `mounts` app already owns the CVMFS driver, including the
+# cluster-scoped CSIDriver `cvmfs.csi.cern.ch` and StorageClass `cvmfs`. The
+# chart's own CVMFS (enabled: true) renders both, and two Argo CD apps must
+# never render the same object, so consume the existing CVMFS instead. The
+# notebooks keep their /cvmfs mount and smarter-devices/fuse request; external
+# mode needs the `cvmfs` PVC in this release's namespace (extraManifests at the
+# end of this file) and the FUSE resource advertised on the worker nodes.
+cvmfs:
+  enabled: false
+  external: true
+  # Used only when the chart manages CVMFS (enabled: true, fresh cluster). The
+  # CVMFS health probe runs only where CVMFS is expected. neurocloud
+  # schedules notebooks on node-type=worker, so confine the probe there too to
+  # avoid false-positive cvmfs_mount_healthy=0 alerts on the control plane.
+  probe:
+    enabled: true
+    nodeSelector:
+      node-type: worker
+    tolerations: []
+
+# neurocloud's cluster already runs Security Profiles Operator 1.0.0 (its own
+# security app), and SPO is a cluster singleton: do NOT bundle a second one.
+# assumeCrdsPresent lets the overlay render without a cluster (plain `helm
+# template`); Argo CD sees the real v1 API anyway. With installOperator=false
+# the chart needs no cert-manager of its own.
+#
+# Profiles are CLUSTER-scoped and neurocloud already owns an AppArmorProfile
+# named `notebook`, so this release uses a distinct name. It must be set in
+# BOTH places: here and jupyterhub.singleuser.extraPodConfig.securityContext
+# .appArmorProfile.localhostProfile below (guard apparmorNameMismatch).
+security:
+  enabled: true
+  installOperator: false
+  assumeCrdsPresent: true
+  appArmor:
+    enabled: true
+    profileName: neurodesk-notebook
+
+# XNAT is a devstack feature; neurocloud does not deploy it.
+xnat:
+  enabled: false
+
+# ============================================================================
+# Neurodesk JupyterHub glue (in-house parent templates). These provision the
+# cluster-side objects (RBAC, ConfigMaps); the matching spawner logic lives in
+# the jupyterhub.hub.extraConfig.friendly-errors block below and reads its
+# config from jupyterhub.custom.* (keep the two in sync).
+# ============================================================================
+jupyterGlue:
+  homeResize:
+    enabled: true
+    rbac: true                     # Hub needs to patch PVCs + read Prometheus
+  fluentbit:
+    enabled: true                  # fluent-bit logging sidecar ConfigMap
+  sharedGroupStorage:
+    enabled: true
+    rbac: true                     # Hub reconciles per-group RWX PVCs at spawn
+  # sharedTeaching stays off here; enable + set storageClassName per deployment.
+  sharedTeaching:
+    enabled: false
+    storageClassName: longhorn-shared-teaching
+
+# ============================================================================
+# JupyterHub (z2jh passthrough). Merged onto chart defaults.
+# ============================================================================
+jupyterhub:
+  # Ingress is z2jh's own (no separate Ingress in this chart). TLS via the
+  # cluster's cert-manager issuer.
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+    hosts: [neurodesk.example.org]      # set to your global.domain
+    tls:
+      - secretName: jupyter-tls
+        hosts: [neurodesk.example.org]
+  # neurocloud reads its feature toggles from jupyterhub.custom.* inside the
+  # FriendlyKubeSpawner config (get_config("custom.homeResize") ...). Keep this
+  # in sync with jupyterGlue.* above.
+  custom:
+    homeResize:
+      enabled: true
+      thresholdPercent: 95
+      increment: 20Gi
+      maxSize: 500Gi
+      checkIntervalSeconds: 300
+      perPvcCooldownSeconds: 21600
+      storageClassName: longhorn-storage-nodes
+      pvcNameRegex: "^claim-.+"
+      prometheusUrl: http://monitor-prometheus.monitoring.svc:9090
+    sharedTeaching:
+      enabled: false
+      mountBasePath: /data/teaching
+      mountPath: /data/shared
+      claimName: shared-teaching
+      storageClassName: longhorn-shared-teaching
+      permissions:
+        ownerUid: 1000
+        ownerGid: 1000
+        mode: "0755"
+      writer: ""
+      writers: []
+      instructors: []
+    sharedGroupStorage:
+      enabled: true
+      mountBasePath: /data/groups
+      claimPrefix: shared-group
+      storageClassName: longhorn-shared-groups
+      size: 100Gi
+      createTimeoutSeconds: 180
+      pollIntervalSeconds: 2
+      permissions:
+        ownerUid: 1000
+        ownerGid: 1000
+        mode: "0755"
+      groups: {}
+    openneuro:
+      enabled: false
+      claimName: openneuro
+      mountPath: /data/openneuro
+
+  hub:
+    # Real z2jh hub-DB StorageClass (see the singleuser one above).
+    db:
+      pvc:
+        storageClassName: longhorn-storage-nodes
+    config:
+      JupyterHub:
+        authenticator_class: github
+      Authenticator:
+        # Pre-created Hub users can log in after GitHub auth; arbitrary GitHub
+        # accounts cannot. allow_all stays false on the default/main policy.
+        allow_all: false
+        allow_existing_users: true
+        auto_login: true
+      GitHubOAuthenticator:
+        client_id: ""              # docs/secrets.md
+        client_secret: ""          # docs/secrets.md  (NEVER commit)
+        oauth_callback_url: ""     # e.g. https://<domain>/hub/oauth_callback
+        allowed_organizations: ["neurodesk"]
+        scope: ["read:org"]
+      # cookie_secret / CryptKeeper.keys / ConfigurableHTTPProxy.auth_token MUST
+      # be pinned from a secret (token drift breaks hub<->proxy auth). Provide
+      # them in your -f secrets file; see docs/secrets.md. Do not inline here.
+
+    loadRoles:
+      prometheus:
+        scopes: [read:metrics]
+        services: [prometheus]
+      user-cull:
+        scopes: [list:users, read:users:activity, read:servers, delete:servers, admin:users]
+        services: [user-cull]
+
+    services:
+      prometheus:
+        api_token: ""              # docs/secrets.md  (NEVER commit)
+      user-cull:
+        command:
+          - python3
+          - -m
+          - jupyterhub_idle_culler
+          - --timeout=2629746
+          - --cull-every=86400
+          - --cull-users
+          - --url=http://localhost:8081/hub/api
+
+    extraConfig:
+      # ----------------------------------------------------------------------
+      # FriendlyKubeSpawner: friendly OOM error pages + a Prometheus OOM-kill
+      # counter, home PVC auto-resize loop, and shared group/teaching storage
+      # reconciliation at spawn. Copied VERBATIM from the neurocloud source
+      # (neurocloud/charts/jupyter/values.yaml, key: friendly-errors). It reads
+      # all of its config from jupyterhub.custom.* (set above) and contains NO
+      # secrets. It sets c.JupyterHub.spawner_class = FriendlyKubeSpawner.
+      # ----------------------------------------------------------------------
+      friendly-errors: |
+        import asyncio
+        import hashlib
+        import inspect
+        import json
+        import math
+        import re
+        import time
+        import uuid
+        from datetime import datetime, timezone
+        from html import escape
+        from urllib.parse import urlencode
+
+        from kubernetes_asyncio import client as kube_client, config as kube_config
+        from kubernetes_asyncio.client.exceptions import ApiException
+        from kubespawner import KubeSpawner
+        from prometheus_client import Counter, Gauge, REGISTRY
+        from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+        from tornado.ioloop import IOLoop
+        from tornado.log import app_log
+
+        def _get_or_create_metric(metric_cls, name, documentation, labelnames):
+            collectors = getattr(REGISTRY, "_names_to_collectors", {})
+            registered_names = (name, f"{name}_total") if metric_cls is Counter else (name,)
+            for registered_name in registered_names:
+                if registered_name in collectors:
+                    return collectors[registered_name]
+            return metric_cls(name, documentation, labelnames)
+
+        def _get_or_create_counter(name, documentation, labelnames):
+            return _get_or_create_metric(Counter, name, documentation, labelnames)
+
+        def _get_or_create_gauge(name, documentation, labelnames):
+            return _get_or_create_metric(Gauge, name, documentation, labelnames)
+
+        SINGLEUSER_OOM_KILLS = _get_or_create_counter(
+            "neurocloud_jupyterhub_singleuser_oom_kills",
+            "Notebook container OOM kills detected by JupyterHub before pod cleanup.",
+            ["namespace", "user", "pod", "container", "reason", "exit_code"],
+        )
+
+        HOME_RESIZE_ATTEMPTS = _get_or_create_counter(
+            "neurocloud_jupyterhub_home_resize_attempts",
+            "Jupyter home PVC automatic resize attempts observed by JupyterHub.",
+            ["namespace", "pvc", "result"],
+        )
+        HOME_RESIZE_LAST_SUCCESS = _get_or_create_gauge(
+            "neurocloud_jupyterhub_home_resize_last_success_timestamp_seconds",
+            "Unix timestamp of the last successful automatic Jupyter home PVC resize.",
+            ["namespace", "pvc"],
+        )
+        HOME_RESIZE_NOTICE_PENDING = _get_or_create_gauge(
+            "neurocloud_jupyterhub_home_resize_notice_pending",
+            "Whether a Jupyter home PVC resize notice is pending for the user.",
+            ["namespace", "pvc"],
+        )
+
+        HOME_RESIZE_CONFIG = get_config("custom.homeResize", {}) or get_config("homeResize", {}) or {}
+        HOME_RESIZE_ENABLED = bool(HOME_RESIZE_CONFIG.get("enabled", False))
+
+        SHARED_TEACHING_CONFIG = get_config("custom.sharedTeaching", {}) or get_config("sharedTeaching", {}) or {}
+        SHARED_TEACHING_ENABLED = bool(SHARED_TEACHING_CONFIG.get("enabled", False))
+        SHARED_TEACHING_MOUNT_BASE_PATH = (
+            str(SHARED_TEACHING_CONFIG.get("mountBasePath", "/data/teaching") or "/data/teaching").rstrip("/")
+            or "/data/teaching"
+        )
+
+        def _shared_teaching_slug(value):
+            slug = re.sub(r"[^a-z0-9-]+", "-", str(value or "").strip().lower()).strip("-")
+            return slug or "shared-teaching"
+
+        _shared_teaching_instructors_raw = SHARED_TEACHING_CONFIG.get("instructors") or []
+        if not isinstance(_shared_teaching_instructors_raw, (list, tuple, set)):
+            _shared_teaching_instructors_raw = [_shared_teaching_instructors_raw]
+        SHARED_TEACHING_INSTRUCTORS = []
+        for _shared_teaching_item in _shared_teaching_instructors_raw:
+            if isinstance(_shared_teaching_item, str):
+                _shared_teaching_username = _shared_teaching_item.strip().lower()
+                _shared_teaching_directory = _shared_teaching_item.strip()
+                _shared_teaching_claim_name = ""
+            else:
+                _shared_teaching_username = str(
+                    _shared_teaching_item.get("username", "") or ""
+                ).strip().lower()
+                _shared_teaching_directory = str(
+                    _shared_teaching_item.get("directory", "") or _shared_teaching_username
+                ).strip()
+                _shared_teaching_claim_name = str(
+                    _shared_teaching_item.get("claimName", "") or ""
+                ).strip()
+            _shared_teaching_directory = _shared_teaching_directory.strip("/")
+            if "/" in _shared_teaching_directory:
+                _shared_teaching_directory = _shared_teaching_directory.replace("/", "-")
+            if not _shared_teaching_username or not _shared_teaching_directory:
+                continue
+            _shared_teaching_slug_value = _shared_teaching_slug(_shared_teaching_directory)
+            SHARED_TEACHING_INSTRUCTORS.append({
+                "username": _shared_teaching_username,
+                "directory": _shared_teaching_directory,
+                "volume_name": f"shared-teaching-{_shared_teaching_slug_value}",
+                "claim_name": _shared_teaching_claim_name or f"shared-teaching-{_shared_teaching_slug_value}",
+                "mount_path": f"{SHARED_TEACHING_MOUNT_BASE_PATH}/{_shared_teaching_directory}",
+            })
+
+        SHARED_TEACHING_LEGACY_MODE = not SHARED_TEACHING_INSTRUCTORS
+        SHARED_TEACHING_MOUNT_PATH = SHARED_TEACHING_CONFIG.get("mountPath", "/data/shared")
+        SHARED_TEACHING_CLAIM_NAME = str(SHARED_TEACHING_CONFIG.get("claimName", "shared-teaching") or "shared-teaching").strip()
+        _shared_teaching_writers_raw = SHARED_TEACHING_CONFIG.get("writers")
+        if isinstance(_shared_teaching_writers_raw, (list, tuple, set)):
+            SHARED_TEACHING_WRITERS = {
+                str(user).strip().lower() for user in _shared_teaching_writers_raw if str(user).strip()
+            }
+        elif _shared_teaching_writers_raw:
+            SHARED_TEACHING_WRITERS = {str(_shared_teaching_writers_raw).strip().lower()}
+        else:
+            _shared_teaching_writer = SHARED_TEACHING_CONFIG.get("writer", "")
+            SHARED_TEACHING_WRITERS = {
+                str(_shared_teaching_writer).strip().lower()
+            } if str(_shared_teaching_writer).strip() else set()
+
+        SHARED_GROUP_STORAGE_CONFIG = (
+            get_config("custom.sharedGroupStorage", {}) or get_config("sharedGroupStorage", {}) or {}
+        )
+        SHARED_GROUP_STORAGE_ENABLED = bool(SHARED_GROUP_STORAGE_CONFIG.get("enabled", False))
+        SHARED_GROUP_STORAGE_MOUNT_BASE_PATH = (
+            str(SHARED_GROUP_STORAGE_CONFIG.get("mountBasePath", "/data/groups") or "/data/groups").rstrip("/")
+            or "/data/groups"
+        )
+        SHARED_GROUP_STORAGE_CLAIM_PREFIX = (
+            re.sub(
+                r"[^a-z0-9-]+",
+                "-",
+                str(SHARED_GROUP_STORAGE_CONFIG.get("claimPrefix", "shared-group") or "shared-group").lower(),
+            ).strip("-") or "shared-group"
+        )[:17].strip("-") or "shared-group"
+        SHARED_GROUP_STORAGE_STORAGE_CLASS_NAME = str(
+            SHARED_GROUP_STORAGE_CONFIG.get("storageClassName", "longhorn-shared-groups")
+            or "longhorn-shared-groups"
+        ).strip()
+        SHARED_GROUP_STORAGE_DEFAULT_SIZE = str(
+            SHARED_GROUP_STORAGE_CONFIG.get("size")
+            or SHARED_GROUP_STORAGE_CONFIG.get("defaultSize")
+            or "100Gi"
+        )
+        SHARED_GROUP_STORAGE_TIMEOUT = int(
+            SHARED_GROUP_STORAGE_CONFIG.get("createTimeoutSeconds", 180)
+        )
+        SHARED_GROUP_STORAGE_POLL_INTERVAL = float(
+            SHARED_GROUP_STORAGE_CONFIG.get("pollIntervalSeconds", 2)
+        )
+        _shared_group_permissions = SHARED_GROUP_STORAGE_CONFIG.get("permissions", {}) or {}
+        SHARED_GROUP_STORAGE_OWNER_UID = int(_shared_group_permissions.get("ownerUid", 1000))
+        SHARED_GROUP_STORAGE_OWNER_GID = int(_shared_group_permissions.get("ownerGid", 1000))
+        SHARED_GROUP_STORAGE_MODE = str(_shared_group_permissions.get("mode", "0755") or "0755")
+        SHARED_GROUP_STORAGE_ANNOTATION_PREFIX = "neurocloud.neurodesk.org"
+        SHARED_GROUP_STORAGE_ENABLED_ANNOTATION = (
+            f"{SHARED_GROUP_STORAGE_ANNOTATION_PREFIX}/shared-group-storage"
+        )
+        SHARED_GROUP_STORAGE_GROUP_NAME_ANNOTATION = (
+            f"{SHARED_GROUP_STORAGE_ANNOTATION_PREFIX}/shared-group-name"
+        )
+        SHARED_GROUP_STORAGE_GROUP_SLUG_ANNOTATION = (
+            f"{SHARED_GROUP_STORAGE_ANNOTATION_PREFIX}/shared-group-slug"
+        )
+        SHARED_GROUP_STORAGE_INITIALIZED_ANNOTATION = (
+            f"{SHARED_GROUP_STORAGE_ANNOTATION_PREFIX}/shared-group-storage-initialized"
+        )
+        SHARED_GROUP_STORAGE_INITIALIZED_AT_ANNOTATION = (
+            f"{SHARED_GROUP_STORAGE_ANNOTATION_PREFIX}/shared-group-storage-initialized-at"
+        )
+        SHARED_GROUP_STORAGE_K8S_CORE = None
+        SHARED_GROUP_STORAGE_K8S_BATCH = None
+
+        def _shared_group_storage_normalize_overrides(raw):
+            overrides = {}
+            if not isinstance(raw, dict):
+                return overrides
+            for group_name, options in raw.items():
+                name = str(group_name).strip()
+                if not name:
+                    continue
+                if isinstance(options, dict):
+                    normalized = dict(options)
+                elif options:
+                    normalized = {"size": str(options)}
+                else:
+                    normalized = {}
+                overrides[name] = normalized
+                overrides[name.lower()] = normalized
+            return overrides
+
+        SHARED_GROUP_STORAGE_GROUP_OVERRIDES = _shared_group_storage_normalize_overrides(
+            SHARED_GROUP_STORAGE_CONFIG.get("groups", {}) or {}
+        )
+
+        def _shared_group_storage_truthy(value):
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return False
+            return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+        def _shared_group_storage_override(group_name):
+            return SHARED_GROUP_STORAGE_GROUP_OVERRIDES.get(
+                group_name,
+                SHARED_GROUP_STORAGE_GROUP_OVERRIDES.get(str(group_name).lower(), {}),
+            )
+
+        def _shared_group_storage_read_only_for_all(group_name):
+            return _shared_group_storage_truthy(
+                _shared_group_storage_override(group_name).get("readOnlyForAll", False)
+            )
+
+        def _shared_group_storage_public_group_names():
+            raw_groups = SHARED_GROUP_STORAGE_CONFIG.get("groups", {}) or {}
+            if not isinstance(raw_groups, dict):
+                return []
+            names = []
+            for group_name in raw_groups.keys():
+                name = str(group_name).strip()
+                if name and _shared_group_storage_read_only_for_all(name):
+                    names.append(name)
+            return sorted(set(names), key=str.lower)
+
+        SHARED_GROUP_STORAGE_PUBLIC_GROUP_NAMES = _shared_group_storage_public_group_names()
+        SHARED_GROUP_STORAGE_PUBLIC_GROUP_BY_LOWER = {
+            name.lower(): name for name in SHARED_GROUP_STORAGE_PUBLIC_GROUP_NAMES
+        }
+
+        def _shared_group_storage_slug(value, max_length=40):
+            raw = str(value or "").strip()
+            digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
+            base = re.sub(r"[^a-z0-9-]+", "-", raw.lower()).strip("-") or "group"
+            base_max = max(1, max_length - len(digest) - 1)
+            base = base[:base_max].strip("-") or "group"
+            return f"{base}-{digest}"
+
+        def _shared_group_storage_group_names(spawner):
+            names = []
+            for group in list(getattr(spawner.user, "groups", []) or []):
+                name = getattr(group, "name", None)
+                if name is None and isinstance(group, dict):
+                    name = group.get("name")
+                if name is None:
+                    name = str(group)
+                name = str(name).strip()
+                if name:
+                    names.append(name)
+            return sorted(set(names), key=str.lower)
+
+        def _shared_group_storage_size(group_name):
+            override = _shared_group_storage_override(group_name)
+            return str(override.get("size") or SHARED_GROUP_STORAGE_DEFAULT_SIZE)
+
+        def _shared_group_storage_share(group_name):
+            slug = _shared_group_storage_slug(group_name)
+            claim_name = f"{SHARED_GROUP_STORAGE_CLAIM_PREFIX}-{slug}"
+            return {
+                "group_name": group_name,
+                "slug": slug,
+                "volume_name": f"{SHARED_GROUP_STORAGE_CLAIM_PREFIX}-{slug}",
+                "claim_name": claim_name,
+                "job_name": f"{claim_name}-init",
+                "mount_path": f"{SHARED_GROUP_STORAGE_MOUNT_BASE_PATH}/{slug}",
+                "size": _shared_group_storage_size(group_name),
+            }
+
+        def _shared_group_storage_parse_quantity(value):
+            if value is None:
+                return None
+            text = str(value).strip()
+            match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)([A-Za-z]+)?", text)
+            if not match:
+                return None
+            number = float(match.group(1))
+            suffix = match.group(2) or ""
+            factors = {
+                "": 1,
+                "Ki": 1024,
+                "Mi": 1024 ** 2,
+                "Gi": 1024 ** 3,
+                "Ti": 1024 ** 4,
+                "K": 1000,
+                "M": 1000 ** 2,
+                "G": 1000 ** 3,
+                "T": 1000 ** 4,
+            }
+            factor = factors.get(suffix)
+            if factor is None:
+                return None
+            return int(number * factor)
+
+        async def _shared_group_storage_core_v1():
+            global SHARED_GROUP_STORAGE_K8S_CORE
+            if SHARED_GROUP_STORAGE_K8S_CORE is None:
+                try:
+                    loaded = kube_config.load_incluster_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                except Exception:
+                    loaded = kube_config.load_kube_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                SHARED_GROUP_STORAGE_K8S_CORE = kube_client.CoreV1Api()
+            return SHARED_GROUP_STORAGE_K8S_CORE
+
+        async def _shared_group_storage_batch_v1():
+            global SHARED_GROUP_STORAGE_K8S_BATCH
+            if SHARED_GROUP_STORAGE_K8S_BATCH is None:
+                try:
+                    loaded = kube_config.load_incluster_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                except Exception:
+                    loaded = kube_config.load_kube_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                SHARED_GROUP_STORAGE_K8S_BATCH = kube_client.BatchV1Api()
+            return SHARED_GROUP_STORAGE_K8S_BATCH
+
+        async def _shared_group_storage_read_pvc(core, claim_name):
+            return await core.read_namespaced_persistent_volume_claim(
+                name=claim_name,
+                namespace=HOME_RESIZE_NAMESPACE,
+            )
+
+        async def _shared_group_storage_ensure_pvc(share):
+            core = await _shared_group_storage_core_v1()
+            labels = {
+                "app.kubernetes.io/managed-by": "jupyterhub",
+                "neurocloud.neurodesk.org/shared-group-storage": "true",
+                "neurocloud.neurodesk.org/shared-group-slug": share["slug"],
+            }
+            annotations = {
+                SHARED_GROUP_STORAGE_ENABLED_ANNOTATION: "true",
+                SHARED_GROUP_STORAGE_GROUP_NAME_ANNOTATION: share["group_name"],
+                SHARED_GROUP_STORAGE_GROUP_SLUG_ANNOTATION: share["slug"],
+            }
+            pvc_body = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {
+                    "name": share["claim_name"],
+                    "namespace": HOME_RESIZE_NAMESPACE,
+                    "labels": labels,
+                    "annotations": annotations,
+                },
+                "spec": {
+                    "accessModes": ["ReadWriteMany"],
+                    "storageClassName": SHARED_GROUP_STORAGE_STORAGE_CLASS_NAME,
+                    "resources": {"requests": {"storage": share["size"]}},
+                },
+            }
+            try:
+                pvc = await core.create_namespaced_persistent_volume_claim(
+                    namespace=HOME_RESIZE_NAMESPACE,
+                    body=pvc_body,
+                )
+                app_log.info(
+                    "shared_group_storage created pvc=%s group=%s size=%s",
+                    share["claim_name"],
+                    share["group_name"],
+                    share["size"],
+                )
+            except ApiException as e:
+                if getattr(e, "status", None) != 409:
+                    raise
+                pvc = await _shared_group_storage_read_pvc(core, share["claim_name"])
+                patch = {"metadata": {"labels": labels, "annotations": annotations}}
+                current_size = (pvc.spec.resources.requests or {}).get("storage")
+                current_bytes = _shared_group_storage_parse_quantity(current_size)
+                requested_bytes = _shared_group_storage_parse_quantity(share["size"])
+                if requested_bytes and current_bytes and requested_bytes > current_bytes:
+                    patch["spec"] = {"resources": {"requests": {"storage": share["size"]}}}
+                if len(patch) > 1 or patch["metadata"]:
+                    pvc = await core.patch_namespaced_persistent_volume_claim(
+                        name=share["claim_name"],
+                        namespace=HOME_RESIZE_NAMESPACE,
+                        body=patch,
+                    )
+            return pvc
+
+        async def _shared_group_storage_wait_for_pvc_bound(core, share):
+            deadline = time.time() + SHARED_GROUP_STORAGE_TIMEOUT
+            while True:
+                pvc = await _shared_group_storage_read_pvc(core, share["claim_name"])
+                if getattr(getattr(pvc, "status", None), "phase", "") == "Bound":
+                    return pvc
+                if time.time() >= deadline:
+                    raise TimeoutError(
+                        f"Timed out waiting for group PVC {share['claim_name']} to bind"
+                    )
+                await asyncio.sleep(SHARED_GROUP_STORAGE_POLL_INTERVAL)
+
+        async def _shared_group_storage_delete_job(batch, job_name):
+            try:
+                await batch.delete_namespaced_job(
+                    name=job_name,
+                    namespace=HOME_RESIZE_NAMESPACE,
+                    body=kube_client.V1DeleteOptions(propagation_policy="Background"),
+                )
+            except ApiException as e:
+                if getattr(e, "status", None) != 404:
+                    raise
+
+        async def _shared_group_storage_create_init_job(batch, share):
+            job_body = {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "metadata": {
+                    "name": share["job_name"],
+                    "namespace": HOME_RESIZE_NAMESPACE,
+                    "labels": {
+                        "app.kubernetes.io/managed-by": "jupyterhub",
+                        "neurocloud.neurodesk.org/shared-group-storage": "true",
+                        "neurocloud.neurodesk.org/shared-group-slug": share["slug"],
+                    },
+                },
+                "spec": {
+                    "backoffLimit": 2,
+                    "template": {
+                        "spec": {
+                            "restartPolicy": "OnFailure",
+                            "containers": [{
+                                "name": "init-perms",
+                                "image": "busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e",
+                                "command": [
+                                    "sh",
+                                    "-euc",
+                                    (
+                                        f"chown {SHARED_GROUP_STORAGE_OWNER_UID}:"
+                                        f"{SHARED_GROUP_STORAGE_OWNER_GID} /share\n"
+                                        f"chmod {SHARED_GROUP_STORAGE_MODE!r} /share\n"
+                                    ),
+                                ],
+                                "securityContext": {"runAsUser": 0},
+                                "resources": {
+                                    "requests": {"cpu": "10m", "memory": "16Mi"},
+                                    "limits": {"cpu": "100m", "memory": "64Mi"},
+                                },
+                                "volumeMounts": [{"name": "share", "mountPath": "/share"}],
+                            }],
+                            "volumes": [{
+                                "name": "share",
+                                "persistentVolumeClaim": {"claimName": share["claim_name"]},
+                            }],
+                        },
+                    },
+                },
+            }
+            try:
+                await batch.create_namespaced_job(
+                    namespace=HOME_RESIZE_NAMESPACE,
+                    body=job_body,
+                )
+            except ApiException as e:
+                if getattr(e, "status", None) != 409:
+                    raise
+
+        async def _shared_group_storage_wait_for_init_job(batch, share):
+            deadline = time.time() + SHARED_GROUP_STORAGE_TIMEOUT
+            await _shared_group_storage_create_init_job(batch, share)
+            while True:
+                job = await batch.read_namespaced_job(
+                    name=share["job_name"],
+                    namespace=HOME_RESIZE_NAMESPACE,
+                )
+                status = job.status
+                if getattr(status, "succeeded", 0):
+                    return
+                if getattr(status, "failed", 0) and getattr(status, "failed", 0) >= 2:
+                    raise RuntimeError(
+                        f"Permission init job {share['job_name']} failed for {share['claim_name']}"
+                    )
+                if time.time() >= deadline:
+                    raise TimeoutError(
+                        f"Timed out waiting for permission init job {share['job_name']}"
+                    )
+                await asyncio.sleep(SHARED_GROUP_STORAGE_POLL_INTERVAL)
+
+        async def _shared_group_storage_ensure_ready(share):
+            core = await _shared_group_storage_core_v1()
+            pvc = await _shared_group_storage_ensure_pvc(share)
+            pvc = await _shared_group_storage_wait_for_pvc_bound(core, share)
+            annotations = dict(getattr(pvc.metadata, "annotations", None) or {})
+            if annotations.get(SHARED_GROUP_STORAGE_INITIALIZED_ANNOTATION) == "true":
+                return
+
+            batch = await _shared_group_storage_batch_v1()
+            await _shared_group_storage_wait_for_init_job(batch, share)
+            await core.patch_namespaced_persistent_volume_claim(
+                name=share["claim_name"],
+                namespace=HOME_RESIZE_NAMESPACE,
+                body={
+                    "metadata": {
+                        "annotations": {
+                            SHARED_GROUP_STORAGE_INITIALIZED_ANNOTATION: "true",
+                            SHARED_GROUP_STORAGE_INITIALIZED_AT_ANNOTATION: (
+                                datetime.now(timezone.utc).isoformat()
+                            ),
+                        }
+                    }
+                },
+            )
+            await _shared_group_storage_delete_job(batch, share["job_name"])
+
+        OPENNEURO_CONFIG = get_config("custom.openneuro", {}) or get_config("openneuro", {}) or {}
+        OPENNEURO_ENABLED = bool(OPENNEURO_CONFIG.get("enabled", False))
+        OPENNEURO_CLAIM = OPENNEURO_CONFIG.get("claimName", "openneuro")
+        OPENNEURO_MOUNT_PATH = OPENNEURO_CONFIG.get("mountPath", "/data/openneuro")
+        HOME_RESIZE_NAMESPACE = c.KubeSpawner.namespace
+        HOME_RESIZE_THRESHOLD = float(HOME_RESIZE_CONFIG.get("thresholdPercent", 95))
+        HOME_RESIZE_INCREMENT = HOME_RESIZE_CONFIG.get("increment", "20Gi")
+        HOME_RESIZE_MAX_SIZE = HOME_RESIZE_CONFIG.get("maxSize", "500Gi")
+        HOME_RESIZE_CHECK_INTERVAL = int(HOME_RESIZE_CONFIG.get("checkIntervalSeconds", 300))
+        HOME_RESIZE_COOLDOWN = int(HOME_RESIZE_CONFIG.get("perPvcCooldownSeconds", 21600))
+        _home_resize_sc_raw = HOME_RESIZE_CONFIG.get("storageClassName", "longhorn-storage-nodes")
+        if isinstance(_home_resize_sc_raw, (list, tuple, set)):
+            HOME_RESIZE_STORAGE_CLASSES = {str(s) for s in _home_resize_sc_raw if s}
+        else:
+            HOME_RESIZE_STORAGE_CLASSES = {str(_home_resize_sc_raw)}
+        HOME_RESIZE_PVC_REGEX = HOME_RESIZE_CONFIG.get("pvcNameRegex", r"^claim-.+")
+        HOME_RESIZE_PROMETHEUS_URL = (
+            HOME_RESIZE_CONFIG.get(
+                "prometheusUrl",
+                "http://monitor-prometheus.monitoring.svc:9090",
+            ).rstrip("/")
+        )
+        HOME_RESIZE_ANNOTATION_PREFIX = "neurocloud.neurodesk.org"
+        HOME_RESIZE_NOTICE_PENDING_ANNOTATION = (
+            f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-notice-pending"
+        )
+        HOME_RESIZE_NOTICE_ID_ANNOTATION = f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-notice-id"
+        HOME_RESIZE_NOTICE_ACK_ANNOTATION = (
+            f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-notice-acknowledged-id"
+        )
+        HOME_RESIZE_PREVIOUS_SIZE_ANNOTATION = (
+            f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-previous-size"
+        )
+        HOME_RESIZE_NEW_SIZE_ANNOTATION = f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-new-size"
+        HOME_RESIZE_USAGE_ANNOTATION = f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-usage-percent"
+        HOME_RESIZE_TIMESTAMP_ANNOTATION = f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-timestamp"
+        HOME_RESIZE_LAST_RESIZE_ANNOTATION = (
+            f"{HOME_RESIZE_ANNOTATION_PREFIX}/home-resize-last-resize-timestamp"
+        )
+        HOME_RESIZE_GIB = 1024 ** 3
+        HOME_RESIZE_K8S_CORE = None
+        HOME_RESIZE_TASK_STARTED = False
+
+        def _home_resize_parse_quantity(value):
+            if value is None:
+                return None
+            if isinstance(value, (int, float)):
+                return int(value)
+            text = str(value).strip()
+            match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)([A-Za-z]+)?", text)
+            if not match:
+                raise ValueError(f"Unsupported Kubernetes quantity: {value}")
+            number = float(match.group(1))
+            suffix = match.group(2) or ""
+            factors = {
+                "": 1,
+                "Ki": 1024,
+                "Mi": 1024 ** 2,
+                "Gi": HOME_RESIZE_GIB,
+                "Ti": 1024 ** 4,
+                "Pi": 1024 ** 5,
+                "K": 1000,
+                "M": 1000 ** 2,
+                "G": 1000 ** 3,
+                "T": 1000 ** 4,
+                "P": 1000 ** 5,
+            }
+            if suffix not in factors:
+                raise ValueError(f"Unsupported Kubernetes quantity suffix: {value}")
+            return int(number * factors[suffix])
+
+        def _home_resize_format_gi(value_bytes):
+            return f"{math.ceil(value_bytes / HOME_RESIZE_GIB)}Gi"
+
+        def _home_resize_prometheus_escape(value):
+            return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+        def _home_resize_emit_attempt(pvc_name, result):
+            try:
+                HOME_RESIZE_ATTEMPTS.labels(
+                    namespace=HOME_RESIZE_NAMESPACE,
+                    pvc=pvc_name or "unknown",
+                    result=result,
+                ).inc()
+            except Exception as e:
+                app_log.warning(f"Could not emit home resize metric: {e}")
+
+        async def _home_resize_core_v1():
+            global HOME_RESIZE_K8S_CORE
+            if HOME_RESIZE_K8S_CORE is None:
+                try:
+                    loaded = kube_config.load_incluster_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                except Exception:
+                    loaded = kube_config.load_kube_config()
+                    if inspect.isawaitable(loaded):
+                        await loaded
+                HOME_RESIZE_K8S_CORE = kube_client.CoreV1Api()
+            return HOME_RESIZE_K8S_CORE
+
+        async def _home_resize_prometheus_query(query):
+            url = f"{HOME_RESIZE_PROMETHEUS_URL}/api/v1/query?{urlencode({'query': query})}"
+            response = await AsyncHTTPClient().fetch(
+                HTTPRequest(url=url, method="GET", request_timeout=20)
+            )
+            payload = json.loads(response.body.decode("utf-8"))
+            if payload.get("status") != "success":
+                raise RuntimeError(f"Prometheus query failed: {payload}")
+            return payload.get("data", {}).get("result", [])
+
+        async def _home_resize_usage_by_pvc():
+            selector = (
+                f'namespace="{_home_resize_prometheus_escape(HOME_RESIZE_NAMESPACE)}",'
+                f'persistentvolumeclaim=~"{_home_resize_prometheus_escape(HOME_RESIZE_PVC_REGEX)}"'
+            )
+            used_query = f"kubelet_volume_stats_used_bytes{{{selector}}}"
+            capacity_query = f"kubelet_volume_stats_capacity_bytes{{{selector}}}"
+            used_results, capacity_results = await asyncio.gather(
+                _home_resize_prometheus_query(used_query),
+                _home_resize_prometheus_query(capacity_query),
+            )
+            used = {
+                item.get("metric", {}).get("persistentvolumeclaim"): float(item["value"][1])
+                for item in used_results
+                if item.get("metric", {}).get("persistentvolumeclaim")
+            }
+            capacity = {
+                item.get("metric", {}).get("persistentvolumeclaim"): float(item["value"][1])
+                for item in capacity_results
+                if item.get("metric", {}).get("persistentvolumeclaim")
+            }
+            usage = {}
+            for pvc_name, used_bytes in used.items():
+                capacity_bytes = capacity.get(pvc_name)
+                if not capacity_bytes:
+                    continue
+                usage[pvc_name] = {
+                    "used_bytes": used_bytes,
+                    "capacity_bytes": capacity_bytes,
+                    "percent": 100 * used_bytes / capacity_bytes,
+                }
+            return usage
+
+        async def _home_resize_patch_notice(pvc_name, annotations):
+            core = await _home_resize_core_v1()
+            await core.patch_namespaced_persistent_volume_claim(
+                name=pvc_name,
+                namespace=HOME_RESIZE_NAMESPACE,
+                body={"metadata": {"annotations": annotations}},
+            )
+
+        async def _home_resize_maybe_expand_pvc(core, pvc, stats):
+            pvc_name = pvc.metadata.name
+            annotations = dict(pvc.metadata.annotations or {})
+
+            if not re.match(HOME_RESIZE_PVC_REGEX, pvc_name):
+                _home_resize_emit_attempt(pvc_name, "skipped_name")
+                return False
+
+            if pvc.spec.storage_class_name not in HOME_RESIZE_STORAGE_CLASSES:
+                _home_resize_emit_attempt(pvc_name, "skipped_storage_class")
+                return False
+
+            try:
+                requested_quantity = pvc.spec.resources.requests.get("storage")
+                status_quantity = (pvc.status.capacity or {}).get("storage")
+                requested_bytes = _home_resize_parse_quantity(requested_quantity)
+                status_bytes = _home_resize_parse_quantity(status_quantity)
+                increment_bytes = _home_resize_parse_quantity(HOME_RESIZE_INCREMENT)
+                max_bytes = _home_resize_parse_quantity(HOME_RESIZE_MAX_SIZE)
+            except Exception as e:
+                app_log.warning(f"home_resize invalid_size pvc={pvc_name} error={e}")
+                _home_resize_emit_attempt(pvc_name, "invalid_size")
+                return False
+
+            if status_bytes and requested_bytes != status_bytes:
+                app_log.info(
+                    "home_resize skipped_pending pvc=%s requested=%s status=%s",
+                    pvc_name,
+                    requested_quantity,
+                    status_quantity,
+                )
+                _home_resize_emit_attempt(pvc_name, "skipped_pending")
+                return False
+
+            now = time.time()
+            try:
+                last_resize = float(annotations.get(HOME_RESIZE_LAST_RESIZE_ANNOTATION, "0") or 0)
+            except ValueError:
+                last_resize = 0
+            if last_resize and now - last_resize < HOME_RESIZE_COOLDOWN:
+                app_log.info("home_resize skipped_cooldown pvc=%s", pvc_name)
+                _home_resize_emit_attempt(pvc_name, "skipped_cooldown")
+                return False
+
+            if requested_bytes >= max_bytes:
+                app_log.warning(
+                    "home_resize max_size pvc=%s requested=%s usage_percent=%.2f",
+                    pvc_name,
+                    requested_quantity,
+                    stats["percent"],
+                )
+                _home_resize_emit_attempt(pvc_name, "max_size")
+                return False
+
+            target_bytes = min(requested_bytes + increment_bytes, max_bytes)
+            if target_bytes <= requested_bytes:
+                _home_resize_emit_attempt(pvc_name, "max_size")
+                return False
+
+            previous_size = str(requested_quantity)
+            new_size = _home_resize_format_gi(target_bytes)
+            notice_id = f"{pvc_name}:{int(now)}:{uuid.uuid4().hex[:8]}"
+            timestamp = datetime.now(timezone.utc).isoformat()
+            resize_annotations = {
+                HOME_RESIZE_PREVIOUS_SIZE_ANNOTATION: previous_size,
+                HOME_RESIZE_NEW_SIZE_ANNOTATION: new_size,
+                HOME_RESIZE_USAGE_ANNOTATION: f"{stats['percent']:.2f}",
+                HOME_RESIZE_TIMESTAMP_ANNOTATION: timestamp,
+                HOME_RESIZE_LAST_RESIZE_ANNOTATION: str(now),
+                HOME_RESIZE_NOTICE_ID_ANNOTATION: notice_id,
+                HOME_RESIZE_NOTICE_PENDING_ANNOTATION: "true",
+            }
+            patch = {
+                "metadata": {"annotations": resize_annotations},
+                "spec": {"resources": {"requests": {"storage": new_size}}},
+            }
+
+            try:
+                await core.patch_namespaced_persistent_volume_claim(
+                    name=pvc_name,
+                    namespace=HOME_RESIZE_NAMESPACE,
+                    body=patch,
+                )
+            except ApiException as e:
+                app_log.warning(
+                    "home_resize patch_failed pvc=%s status=%s reason=%s",
+                    pvc_name,
+                    getattr(e, "status", "unknown"),
+                    getattr(e, "reason", "unknown"),
+                )
+                _home_resize_emit_attempt(pvc_name, "patch_failed")
+                return False
+
+            app_log.warning(
+                "home_resize resized pvc=%s previous=%s new=%s usage_percent=%.2f",
+                pvc_name,
+                previous_size,
+                new_size,
+                stats["percent"],
+            )
+            HOME_RESIZE_LAST_SUCCESS.labels(
+                namespace=HOME_RESIZE_NAMESPACE,
+                pvc=pvc_name,
+            ).set(now)
+            HOME_RESIZE_NOTICE_PENDING.labels(
+                namespace=HOME_RESIZE_NAMESPACE,
+                pvc=pvc_name,
+            ).set(1)
+            _home_resize_emit_attempt(pvc_name, "resized")
+            return True
+
+        async def _home_resize_reconcile_once():
+            if not HOME_RESIZE_ENABLED:
+                return
+
+            try:
+                usage = await _home_resize_usage_by_pvc()
+            except Exception as e:
+                app_log.warning(f"home_resize prometheus_failed error={e}")
+                _home_resize_emit_attempt("all", "prometheus_failed")
+                return
+
+            candidates = [
+                (pvc_name, stats)
+                for pvc_name, stats in usage.items()
+                if stats["percent"] >= HOME_RESIZE_THRESHOLD
+            ]
+            candidates.sort(key=lambda item: item[1]["percent"], reverse=True)
+            if not candidates:
+                return
+
+            core = await _home_resize_core_v1()
+            for pvc_name, stats in candidates:
+                try:
+                    pvc = await core.read_namespaced_persistent_volume_claim(
+                        name=pvc_name,
+                        namespace=HOME_RESIZE_NAMESPACE,
+                    )
+                except ApiException as e:
+                    app_log.warning(
+                        "home_resize read_failed pvc=%s status=%s reason=%s",
+                        pvc_name,
+                        getattr(e, "status", "unknown"),
+                        getattr(e, "reason", "unknown"),
+                    )
+                    _home_resize_emit_attempt(pvc_name, "read_failed")
+                    continue
+
+                resized = await _home_resize_maybe_expand_pvc(core, pvc, stats)
+                if resized:
+                    return
+
+        async def _home_resize_reconcile_forever():
+            while True:
+                try:
+                    await _home_resize_reconcile_once()
+                except Exception as e:
+                    app_log.warning(f"home_resize unexpected_error error={e}")
+                    _home_resize_emit_attempt("all", "unexpected_error")
+                await asyncio.sleep(HOME_RESIZE_CHECK_INTERVAL)
+
+        def _home_resize_start_task():
+            # Must be called from within the running asyncio event loop. At
+            # extraConfig-exec time JupyterHub has not yet called asyncio.run(),
+            # so IOLoop.current()/call_later would schedule on a loop that is
+            # later discarded. We defer by no-op'ing until a running loop exists
+            # and re-invoke this from FriendlyKubeSpawner.__init__ (which runs
+            # inside the real loop via init_spawners / spawner creation).
+            global HOME_RESIZE_TASK_STARTED
+            if not HOME_RESIZE_ENABLED or HOME_RESIZE_TASK_STARTED:
+                return
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+            HOME_RESIZE_TASK_STARTED = True
+            async def _kickoff():
+                await asyncio.sleep(30)
+                await _home_resize_reconcile_forever()
+            loop.create_task(_kickoff())
+            app_log.info(
+                "home_resize enabled threshold=%s increment=%s max_size=%s interval=%s",
+                HOME_RESIZE_THRESHOLD,
+                HOME_RESIZE_INCREMENT,
+                HOME_RESIZE_MAX_SIZE,
+                HOME_RESIZE_CHECK_INTERVAL,
+            )
+
+        class FriendlyKubeSpawner(KubeSpawner):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._last_session_oom = False
+                self._last_seen_oom_key = None
+                # Ensure the home-resize background task is scheduled on the
+                # running asyncio loop; no-op after first successful start.
+                _home_resize_start_task()
+
+            def get_state(self):
+                """Save OOM state to JupyterHub database"""
+                state = super().get_state()
+                state['last_session_oom'] = getattr(self, '_last_session_oom', False)
+                state['last_seen_oom_key'] = getattr(self, '_last_seen_oom_key', None)
+                return state
+
+            def load_state(self, state):
+                """Restore OOM state from JupyterHub database"""
+                super().load_state(state)
+                self._last_session_oom = state.get('last_session_oom', False)
+                self._last_seen_oom_key = state.get('last_seen_oom_key')
+
+            def _emit_oom_metric(self, container, reason, exit_code):
+                """Expose JupyterHub-observed OOM kills for Prometheus alerting"""
+                try:
+                    SINGLEUSER_OOM_KILLS.labels(
+                        namespace=self.namespace,
+                        user=self.user.name,
+                        pod=self.pod_name,
+                        container=container.get("name", "notebook"),
+                        reason=reason or "unknown",
+                        exit_code=str(exit_code) if exit_code is not None else "unknown",
+                    ).inc()
+                except Exception as e:
+                    self.log.warning(f"Could not emit OOM metric: {e}")
+
+            async def _record_oom_from_pod_reflector(self):
+                """Record whether the notebook container terminated because of OOM"""
+                if getattr(self, '_last_session_oom', False) or not self.pod_name:
+                    return
+
+                await self._start_watching_pods()
+                pod = self.pod_reflector.pods.get(f"{self.namespace}/{self.pod_name}")
+                if not pod:
+                    return
+
+                container_statuses = pod.get("status", {}).get("containerStatuses") or []
+                for container in container_statuses:
+                    if container.get("name") != "notebook":
+                        continue
+
+                    terminated = container.get("state", {}).get("terminated")
+                    termination_source = "state"
+                    if not terminated:
+                        terminated = container.get("lastState", {}).get("terminated")
+                        termination_source = "lastState"
+                    if not terminated:
+                        return
+
+                    exit_code = terminated.get("exitCode")
+                    reason = terminated.get("reason") or ''
+
+                    # OOM detection: exit code 137 (128 + SIGKILL 9)
+                    # or reason contains 'OOMKilled'.
+                    is_oom = exit_code == 137 or 'oom' in reason.lower()
+
+                    if is_oom:
+                        oom_key = (
+                            f"{self.pod_name}:"
+                            f"{container.get('restartCount', 0)}:"
+                            f"{terminated.get('finishedAt', '')}:"
+                            f"{reason}:"
+                            f"{exit_code}"
+                        )
+                        if oom_key == getattr(self, '_last_seen_oom_key', None):
+                            return
+
+                        self.log.warning(
+                            f"User {self.user.name} pod was OOM killed. "
+                            f"Reason: {reason}, Exit code: {exit_code}, "
+                            f"Source: {termination_source}"
+                        )
+                        self._last_seen_oom_key = oom_key
+                        self._last_session_oom = True
+                        self._emit_oom_metric(container, reason, exit_code)
+                    return
+
+            async def poll(self):
+                """Check pod status and detect OOM kills"""
+                try:
+                    await self._record_oom_from_pod_reflector()
+                except Exception as e:
+                    self.log.warning(f"Could not check pod termination reason: {e}")
+
+                return await super().poll()
+
+            async def _home_resize_pvc_name(self):
+                method = getattr(self, "get_pvc_name", None)
+                if callable(method):
+                    value = method()
+                    if inspect.isawaitable(value):
+                        value = await value
+                    if value:
+                        return value
+
+                value = getattr(self, "pvc_name", None)
+                if isinstance(value, str) and value:
+                    return value
+
+                template = getattr(self, "pvc_name_template", None)
+                if template:
+                    for method_name in ("_expand_user_properties", "_expand_all"):
+                        expander = getattr(self, method_name, None)
+                        if callable(expander):
+                            try:
+                                return expander(template)
+                            except Exception:
+                                pass
+
+                server_name = getattr(self, "name", "") or ""
+                suffix = f"--{server_name}" if server_name else ""
+                return f"claim-{self.user.name}{suffix}"
+
+            async def _home_resize_notice(self):
+                if not HOME_RESIZE_ENABLED:
+                    return None
+                pvc_name = await self._home_resize_pvc_name()
+                try:
+                    core = await _home_resize_core_v1()
+                    pvc = await core.read_namespaced_persistent_volume_claim(
+                        name=pvc_name,
+                        namespace=self.namespace,
+                    )
+                except Exception as e:
+                    self.log.warning(f"Could not read home resize notice for PVC {pvc_name}: {e}")
+                    return None
+
+                annotations = pvc.metadata.annotations or {}
+                if annotations.get(HOME_RESIZE_NOTICE_PENDING_ANNOTATION) != "true":
+                    HOME_RESIZE_NOTICE_PENDING.labels(
+                        namespace=self.namespace,
+                        pvc=pvc_name,
+                    ).set(0)
+                    return None
+
+                return {
+                    "pvc_name": pvc_name,
+                    "notice_id": annotations.get(HOME_RESIZE_NOTICE_ID_ANNOTATION, ""),
+                    "previous_size": annotations.get(HOME_RESIZE_PREVIOUS_SIZE_ANNOTATION, "the previous size"),
+                    "new_size": annotations.get(HOME_RESIZE_NEW_SIZE_ANNOTATION, "the new size"),
+                    "usage_percent": annotations.get(HOME_RESIZE_USAGE_ANNOTATION, ""),
+                    "timestamp": annotations.get(HOME_RESIZE_TIMESTAMP_ANNOTATION, ""),
+                }
+
+            async def _ack_home_resize_notice(self):
+                if not HOME_RESIZE_ENABLED:
+                    return
+                notice = await self._home_resize_notice()
+                if not notice:
+                    return
+                annotations = {
+                    HOME_RESIZE_NOTICE_PENDING_ANNOTATION: "false",
+                    HOME_RESIZE_NOTICE_ACK_ANNOTATION: notice["notice_id"],
+                }
+                await _home_resize_patch_notice(notice["pvc_name"], annotations)
+                HOME_RESIZE_NOTICE_PENDING.labels(
+                    namespace=self.namespace,
+                    pvc=notice["pvc_name"],
+                ).set(0)
+
+            async def get_options_form(self):
+                """Generate spawn form with optional storage and OOM warnings"""
+                base_form = await super().get_options_form()
+                warnings = []
+
+                if getattr(self, '_last_session_oom', False):
+                    warnings.append('''
+                    <div style="
+                        background-color: #fff3cd;
+                        border: 1px solid #ffc107;
+                        border-radius: 4px;
+                        color: #856404;
+                        padding: 12px 20px;
+                        margin-bottom: 20px;
+                    ">
+                        <strong>Previous Session Ended Due to Out of Memory</strong><br>
+                        Your last session was terminated because it exceeded the available memory limit.
+                        Consider selecting a larger environment size with more RAM.
+                    </div>
+                    ''')
+
+                notice = await self._home_resize_notice()
+                if notice:
+                    previous_size = escape(notice["previous_size"])
+                    new_size = escape(notice["new_size"])
+                    usage_text = ""
+                    if notice["usage_percent"]:
+                        usage_text = f" ({escape(notice['usage_percent'])}% used)"
+                    warnings.append(f'''
+                    <div style="
+                        background-color: #fff3cd;
+                        border: 1px solid #ffc107;
+                        border-radius: 4px;
+                        color: #856404;
+                        padding: 12px 20px;
+                        margin-bottom: 20px;
+                    ">
+                        <strong>Home Directory Storage Increased Automatically</strong><br>
+                        Your home directory was nearly full{usage_text}, so its storage volume was increased
+                        from {previous_size} to {new_size}.
+                    </div>
+                    ''')
+
+                return ''.join(warnings) + (base_form or '')
+
+            def _apply_shared_teaching_mount(self):
+                if not SHARED_TEACHING_ENABLED:
+                    return
+                if getattr(self, "_shared_teaching_applied", False):
+                    return
+                self._shared_teaching_applied = True
+                # z2jh may assign volumes/volume_mounts as dicts keyed by name; normalize to list.
+                existing_volumes = self.volumes
+                if isinstance(existing_volumes, dict):
+                    existing_volumes = list(existing_volumes.values())
+                existing_mounts = self.volume_mounts
+                if isinstance(existing_mounts, dict):
+                    existing_mounts = list(existing_mounts.values())
+                volumes = list(existing_volumes or [])
+                mounts = list(existing_mounts or [])
+                if SHARED_TEACHING_LEGACY_MODE:
+                    volume_name = "shared-teaching"
+                    is_writer = (self.user.name or "").lower() in SHARED_TEACHING_WRITERS
+                    volumes.append({
+                        "name": volume_name,
+                        "persistentVolumeClaim": {
+                            "claimName": SHARED_TEACHING_CLAIM_NAME,
+                        },
+                    })
+                    mounts.append({
+                        "name": volume_name,
+                        "mountPath": SHARED_TEACHING_MOUNT_PATH,
+                        "readOnly": not is_writer,
+                    })
+                else:
+                    current_user = (self.user.name or "").lower()
+                    for instructor in SHARED_TEACHING_INSTRUCTORS:
+                        volumes.append({
+                            "name": instructor["volume_name"],
+                            "persistentVolumeClaim": {
+                                "claimName": instructor["claim_name"],
+                            },
+                        })
+                        mounts.append({
+                            "name": instructor["volume_name"],
+                            "mountPath": instructor["mount_path"],
+                            "readOnly": current_user != instructor["username"],
+                        })
+                self.volumes = volumes
+                self.volume_mounts = mounts
+
+            async def start(self, *args, **kwargs):
+                """Start the server and clear one-shot warning flags"""
+                # Clear the OOM flag so it only shows once
+                self._last_session_oom = False
+                result = await super().start(*args, **kwargs)
+                try:
+                    await self._ack_home_resize_notice()
+                except Exception as e:
+                    self.log.warning(f"Could not acknowledge home resize notice: {e}")
+                return result
+
+            async def stop(self, *args, **kwargs):
+                """Check for restarted notebook OOM before deleting the pod"""
+                try:
+                    await self._record_oom_from_pod_reflector()
+                except Exception as e:
+                    self.log.warning(f"Could not check pod termination reason before stop: {e}")
+
+                return await super().stop(*args, **kwargs)
+
+            async def progress(self):
+                async for event in super().progress():
+                    event['message'] = self._friendly_message(event.get('message', ''))
+                    if 'html_message' in event:
+                        event['html_message'] = self._friendly_message(event['html_message'])
+                    yield event
+
+            def _friendly_message(self, msg):
+                if not msg:
+                    return msg
+                lower = msg.lower()
+                if 'insufficient cpu' in lower or 'insufficient memory' in lower or 'nodes are available' in lower:
+                    return (
+                        'The cluster is currently at full capacity. '
+                        'Your session will start automatically when resources become available. '
+                        'If this persists, try selecting a smaller environment size or try again later.'
+                    )
+                if 'unschedulable' in lower:
+                    return (
+                        'The cluster is temporarily unable to start new sessions. '
+                        'Please try again in a few minutes.'
+                    )
+                if 'failedmount' in lower or 'mountvolume' in lower:
+                    return (
+                        'There was an issue attaching your storage. '
+                        'This usually resolves itself — please wait a moment.'
+                    )
+                if 'oomkilled' in lower or 'out of memory' in lower:
+                    return (
+                        'Your session ran out of memory. '
+                        'Try selecting a larger environment size with more RAM.'
+                    )
+                if 'imagepullbackoff' in lower or 'errimagepull' in lower:
+                    return (
+                        'The server image is temporarily unavailable. '
+                        'This is usually a transient issue — please try again shortly.'
+                    )
+                return msg
+
+        c.JupyterHub.spawner_class = FriendlyKubeSpawner
+
+        # Attach optional storage mounts after the singleuser pod has been fully
+        # rendered so we can mutate kubernetes V1Pod objects directly. This is
+        # also the safest place to override any stale spawner volume state that
+        # may have been restored from the Hub database.
+        def _prune_notebook_mounts(pod, match):
+            pod.spec.volumes = [
+                volume
+                for volume in list(pod.spec.volumes or [])
+                if not match(getattr(volume, "name", None))
+            ]
+            for container in (pod.spec.containers or []):
+                if container.name != "notebook":
+                    continue
+                container.volume_mounts = [
+                    mount
+                    for mount in list(container.volume_mounts or [])
+                    if not match(getattr(mount, "name", None))
+                ]
+
+        def _ensure_notebook_pvc_mount(pod, vol_name, claim_name, mount_path, read_only):
+            from kubernetes_asyncio import client as _k8s
+            _prune_notebook_mounts(pod, lambda name: name == vol_name)
+            volumes = list(pod.spec.volumes or [])
+            volumes.append(_k8s.V1Volume(
+                name=vol_name,
+                persistent_volume_claim=_k8s.V1PersistentVolumeClaimVolumeSource(
+                    claim_name=claim_name,
+                    read_only=read_only,
+                ),
+            ))
+            pod.spec.volumes = volumes
+            for container in (pod.spec.containers or []):
+                if container.name == "notebook":
+                    mounts = list(container.volume_mounts or [])
+                    mounts.append(_k8s.V1VolumeMount(
+                        name=vol_name,
+                        mount_path=mount_path,
+                        read_only=read_only,
+                    ))
+                    container.volume_mounts = mounts
+
+        async def _neurocloud_modify_pod(spawner, pod):
+            if SHARED_TEACHING_ENABLED:
+                _prune_notebook_mounts(
+                    pod,
+                    lambda name: bool(name) and (
+                        name == "shared-teaching" or name.startswith("shared-teaching-")
+                    ),
+                )
+                if SHARED_TEACHING_LEGACY_MODE:
+                    _ensure_notebook_pvc_mount(
+                        pod,
+                        "shared-teaching",
+                        SHARED_TEACHING_CLAIM_NAME,
+                        SHARED_TEACHING_MOUNT_PATH,
+                        ((spawner.user.name or "").lower() not in SHARED_TEACHING_WRITERS),
+                    )
+                else:
+                    current_user = (spawner.user.name or "").lower()
+                    for instructor in SHARED_TEACHING_INSTRUCTORS:
+                        _ensure_notebook_pvc_mount(
+                            pod,
+                            instructor["volume_name"],
+                            instructor["claim_name"],
+                            instructor["mount_path"],
+                            current_user != instructor["username"],
+                        )
+            if SHARED_GROUP_STORAGE_ENABLED:
+                _prune_notebook_mounts(
+                    pod,
+                    lambda name: bool(name) and name.startswith(f"{SHARED_GROUP_STORAGE_CLAIM_PREFIX}-"),
+                )
+                member_group_names = _shared_group_storage_group_names(spawner)
+                shares_to_mount = {}
+                for group_name in member_group_names:
+                    group_key = group_name.lower()
+                    canonical_name = SHARED_GROUP_STORAGE_PUBLIC_GROUP_BY_LOWER.get(
+                        group_key,
+                        group_name,
+                    )
+                    shares_to_mount[canonical_name.lower()] = (canonical_name, False)
+
+                for group_name in SHARED_GROUP_STORAGE_PUBLIC_GROUP_NAMES:
+                    group_key = group_name.lower()
+                    if group_key not in shares_to_mount:
+                        shares_to_mount[group_key] = (group_name, True)
+
+                for group_name, read_only in sorted(shares_to_mount.values(), key=lambda item: item[0].lower()):
+                    share = _shared_group_storage_share(group_name)
+                    await _shared_group_storage_ensure_ready(share)
+                    _ensure_notebook_pvc_mount(
+                        pod,
+                        share["volume_name"],
+                        share["claim_name"],
+                        share["mount_path"],
+                        read_only,
+                    )
+            if OPENNEURO_ENABLED:
+                _ensure_notebook_pvc_mount(
+                    pod,
+                    "openneuro",
+                    OPENNEURO_CLAIM,
+                    OPENNEURO_MOUNT_PATH,
+                    True,
+                )
+            return pod
+
+        c.KubeSpawner.modify_pod_hook = _neurocloud_modify_pod
+        # Kick off the home-resize background task from inside the running
+        # asyncio loop by wrapping JupyterHub.init_spawners (which is awaited
+        # during hub startup). A direct call here would schedule on a loop
+        # that gets discarded before asyncio.run() creates the real one.
+        from jupyterhub.app import JupyterHub as _JH
+        _orig_init_spawners = _JH.init_spawners
+        async def _init_spawners_with_home_resize(self, *a, **kw):
+            result = await _orig_init_spawners(self, *a, **kw)
+            try:
+                _home_resize_start_task()
+            except Exception as e:
+                app_log.warning(f"home_resize start failed: {e}")
+            return result
+        _JH.init_spawners = _init_spawners_with_home_resize
+
+  singleuser:
+    # ------------------------------------------------------------------------
+    # LIST REPLACE WARNING: extraVolumes/extraVolumeMounts below REPLACE the
+    # chart defaults wholesale. The cvmfs + shm-volume entries are RESTATED
+    # here on purpose; neurocloud additionally mounts the fluent-bit logger
+    # ConfigMap + a logs emptyDir for the sidecar. Keep cvmfs + shm-volume if
+    # you edit this list.
+    # ------------------------------------------------------------------------
+    storage:
+      # Real z2jh home-PVC StorageClass (global.storageClassName does not reach
+      # the subchart). Pair with jupyterhub.hub.db.pvc.storageClassName below.
+      dynamic:
+        storageClass: longhorn-storage-nodes
+      extraVolumes:
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs
+        - name: shm-volume
+          emptyDir:
+            medium: Memory
+        - name: logger-conf
+          configMap:
+            name: fluent-bit       # ConfigMap shipped by jupyterGlue.fluentbit
+        - name: logs
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: cvmfs
+          mountPath: /cvmfs
+          mountPropagation: HostToContainer
+        - name: shm-volume
+          mountPath: /dev/shm
+        - name: logs
+          mountPath: /var/log
+    extraPodConfig:
+      restartPolicy: Never
+      securityContext:
+        fsGroupChangePolicy: OnRootMismatch
+        appArmorProfile:
+          type: Localhost
+          localhostProfile: neurodesk-notebook   # = security.appArmor.profileName
+    nodeSelector:
+      node-type: worker
+
+# ============================================================================
+# The `cvmfs` PVC the notebooks mount (cvmfs.external=true: the chart does not
+# create it). Same spec as the chart's templates/cvmfs/cvmfs-pvc.yaml, bound to
+# the existing `cvmfs` automount StorageClass that the `mounts` app owns.
+# Namespaced, so it lands in this release's namespace. Drop it if that
+# namespace already has a `cvmfs` PVC.
+# ============================================================================
+extraManifests:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: cvmfs
+    spec:
+      accessModes: [ReadOnlyMany]
+      resources:
+        requests:
+          storage: "1"             # dummy: cvmfs-csi serves /cvmfs, not a volume
+      storageClassName: cvmfs

@@ -1,0 +1,11 @@
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    {{- with .Values.namespace.podSecurityLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

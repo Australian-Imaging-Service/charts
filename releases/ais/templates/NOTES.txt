@@ -9,11 +9,25 @@ The following subcharts are included:
 {{- if .Values.ctp.enabled }}
   - ctp
 {{- end }}
+{{- if and .Values.neurodesk .Values.neurodesk.enabled }}
+  - neurodesk (JupyterHub + Neurodesk notebooks)
+{{- end }}
 {{- if and .Values.aisEdgeTool01 .Values.aisEdgeTool01.enabled }}
   - aisEdgeTool01
 {{- end }}
 {{- if and .Values.aisEdgeTool02 .Values.aisEdgeTool02.enabled }}
   - aisEdgeTool02
+{{- end }}
+
+{{- if and .Values.neurodesk .Values.neurodesk.enabled .Values.xnat.enabled }}
+
+To launch Neurodesk notebooks from XNAT, set once in XNAT (Administer >
+Plugin Settings > JupyterHub):
+  JupyterHub API URL:  http://hub:8081/hub/api
+  JupyterHub host URL: the hub's public URL
+  JupyterHub token:    kubectl -n {{ .Release.Namespace }} get secret hub -o jsonpath='{.data.hub\.services\.xnat\.apiToken}' | base64 -d
+and add a compute environment with the notebook image. Details: the neurodesk
+chart's docs/xnat.md.
 {{- end }}
 
 To check the status of your release:

@@ -1,0 +1,17 @@
+{{- if and .Values.cvmfs.enabled .Values.global.cvmfs.squidEnabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cvmfs-squid-cache
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-squid
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  accessModes: [ ReadWriteOnce ]
+  # Explicit squid SC, else global.storageClassName, else cluster default.
+  storageClassName: {{ include "neurodesk.storageClass" (list . .Values.cvmfs.squid.storageClassName) }}
+  resources:
+    requests:
+      storage: {{ .Values.cvmfs.squid.cacheSize }}
+{{- end }}
