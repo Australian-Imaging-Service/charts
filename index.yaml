@@ -189,6 +189,25 @@ entries:
     version: 0.1.0
   xnat:
   - apiVersion: v2
+    appVersion: 1.10.2
+    created: "2026-10-15T05:15:11.641921662Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+      version: 15.5.38
+    description: XNAT imaging informatics platform
+    digest: 4d89996fc93c5444333df60e0a5386cfd44fe92949a134ddc7b828545307711c
+    maintainers:
+    - email: dean.taylor@sydney.edu.au
+      name: dean-taylor
+      url: https://au.linkedin.com/in/dean-taylor-a8699238
+    name: xnat
+    type: application
+    urls:
+    - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-2.0.4/xnat-2.0.4.tgz
+    version: 2.0.4
+  - apiVersion: v2
     appVersion: 1.10.1
     created: "2026-09-05T23:54:31.440996301Z"
     dependencies:
@@ -1074,4 +1093,4 @@ entries:
     urls:
     - https://github.com/Australian-Imaging-Service/charts/releases/download/xnat-0.3.0/xnat-0.3.0.tgz
     version: 0.3.0
-generated: "2026-09-05T23:54:31.441291694Z"
+generated: "2026-10-15T05:15:11.64211952Z"
