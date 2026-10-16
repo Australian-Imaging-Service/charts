@@ -13,7 +13,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "xnat-web.statefulsetLabels" $ | nindent 6 }}
+      {{- include "xnat-web.selectorLabels" $ | nindent 6 }}
   serviceName: {{ include "xnat-web.fullname" $ }}
   template:
     metadata:
