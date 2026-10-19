@@ -1,0 +1,25 @@
+# Default values for the AIS parent chart.
+# Values here can override subchart defaults using the subchart name as a key.
+
+# Global values shared across all subcharts
+global: {}
+
+# xnat subchart values (overrides xnat/values.yaml)
+xnat:
+  enabled: true
+  # xnat overrides below
+
+# ctp subchart values (overrides ctp/values.yaml)
+ctp:
+  enabled: true
+  # ctp overrides below
+
+# jupyterhub subchart values (overrides upstream values)
+jupyterhub:
+  enabled: true
+  # jupyterhub overrides below
+  fullnameOverride: null
+
+aisEdgeTool01:
+  enabled: false
+  # overrides below

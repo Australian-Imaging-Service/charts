@@ -1,6 +1,7 @@
 ---
 title: "Docker Swarm with XNAT"
 weight: 10
+draft: true
 ---
 
 # Setting up Docker Swarm
