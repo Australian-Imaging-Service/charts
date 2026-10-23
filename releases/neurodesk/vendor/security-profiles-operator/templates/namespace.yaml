@@ -1,0 +1,10 @@
+{{- if and .Values.operatorNamespace.create (ne .Release.Namespace (include "security-profiles-operator.runtimeNamespace" .)) }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "security-profiles-operator.runtimeNamespace" . }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+{{- end }}

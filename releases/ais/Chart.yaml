@@ -5,7 +5,7 @@ maintainers:
   - name: ais-admin
     email: ais-admin@sydney.edu.au
 type: application
-version: 1.0.1
+version: 2.0.0
 appVersion: 1.0.0 
 
 dependencies:
@@ -17,10 +17,13 @@ dependencies:
     condition: ctp.enabled
     version: "~1.1.0"
     repository: "file://../ctp"
-  - name: jupyterhub
-    condition: jupyterhub.enabled
-    version: "~4.3.2"
-    repository: "https://hub.jupyter.org/helm-chart/"
+  # Neurodesk: JupyterHub + neurodesktop notebooks + CVMFS + FUSE + AppArmor
+  # (bundled Security Profiles Operator), wired to the XNAT above. Replaces
+  # the plain `jupyterhub` dependency of ais 1.x.
+  - name: neurodesk
+    condition: neurodesk.enabled
+    version: "~0.3.0"
+    repository: "file://../neurodesk"
   # - name: aisEdgeTool01
   #   condition: aisEdgeTool01.enabled
   #   repository: "https://xxxxx"

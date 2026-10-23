@@ -1,0 +1,54 @@
+{{- /*
+Supplement the cvmfs-csi 2.6.0 provisioner RBAC. Its ClusterRole
+`<fullname>-controllerplugin-provisioner` grants persistentvolumes
+get/list/watch/create/delete but NOT patch, while the csi-provisioner v6.1.0
+sidecar it ships removes the `external-provisioner.volume.kubernetes.io/finalizer`
+from a PV with a PATCH after deleting the volume. Without this, deleting a
+`cvmfs` PVC (uninstall, namespace delete) leaves its PV stuck on that finalizer.
+Upstream external-provisioner's own RBAC has had PV `patch` since 2024-03.
+DELETE this file when cvmfs-csi ships the permission itself.
+
+The ServiceAccount name mirrors the subchart helpers
+`cvmfs-csi.serviceAccountName.controllerplugin` / `cvmfs-csi.controllerplugin.fullname`
+(cvmfs-csi 2.6.0 templates/_helpers.tpl). Re-check on any cvmfs-csi bump.
+*/ -}}
+{{- if .Values.cvmfs.enabled }}
+{{- $csi := index .Values "cvmfs-csi" | default dict }}
+{{- $cp := $csi.controllerplugin | default dict }}
+{{- $cpName := $cp.name | default "controllerplugin" }}
+{{- $chartName := $csi.nameOverride | default "cvmfs-csi" }}
+{{- $sa := "" }}
+{{- if $cp.fullnameOverride }}
+{{- $sa = $cp.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else if contains $chartName .Release.Name }}
+{{- $sa = printf "%s-%s" .Release.Name $cpName | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $sa = printf "%s-%s-%s" .Release.Name $chartName $cpName | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- with $cp.serviceAccount }}{{- if .serviceAccountName }}{{- $sa = .serviceAccountName }}{{- end }}{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "neurodesk.fullname" . }}-cvmfs-csi-pv-patch
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "neurodesk.fullname" . }}-cvmfs-csi-pv-patch
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "neurodesk.fullname" . }}-cvmfs-csi-pv-patch
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

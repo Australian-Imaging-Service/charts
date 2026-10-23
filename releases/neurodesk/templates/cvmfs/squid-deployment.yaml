@@ -1,0 +1,102 @@
+{{- if and .Values.cvmfs.enabled .Values.global.cvmfs.squidEnabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvmfs-squid
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-squid
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  # Single replica is enough — CVMFS_HTTP_PROXY uses "...;DIRECT", a failover
+  # chain (squid first, DIRECT only when squid fails), so a Squid outage falls
+  # through to direct WAN fetches. ("|" would be a load-balance group that
+  # silently bypasses squid.)
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cvmfs-squid
+  template:
+    metadata:
+      labels:
+        app: cvmfs-squid
+      annotations:
+        # Roll the pod when squid.conf or storeid.conf changes.
+        checksum/config: {{ include (print $.Template.BasePath "/cvmfs/squid-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.cvmfs.squid.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cvmfs.squid.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 13
+      initContainers:
+        - name: init-cache
+          image: {{ .Values.cvmfs.squid.image }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              if [ ! -d /var/spool/squid/00 ]; then
+                echo "Initializing squid cache directory…"
+                squid -N -z -f /etc/squid/squid.conf
+              fi
+          volumeMounts:
+            - { name: config, mountPath: /etc/squid/squid.conf, subPath: squid.conf }
+            - { name: config, mountPath: /etc/squid/storeid.conf, subPath: storeid.conf }
+            - { name: cache,  mountPath: /var/spool/squid }
+      containers:
+        - name: squid
+          image: {{ .Values.cvmfs.squid.image }}
+          command: [ squid, -N, -f, /etc/squid/squid.conf ]
+          ports:
+            - { containerPort: 3128, name: proxy }
+          volumeMounts:
+            - { name: config, mountPath: /etc/squid/squid.conf, subPath: squid.conf }
+            - { name: config, mountPath: /etc/squid/storeid.conf, subPath: storeid.conf }
+            - { name: cache,  mountPath: /var/spool/squid }
+            - { name: run,    mountPath: /var/run }
+            - { name: logs,   mountPath: /var/log/squid }
+          readinessProbe:
+            tcpSocket: { port: 3128 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 3128 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+{{ toYaml .Values.cvmfs.squid.resources | indent 12 }}
+        - name: log-tail
+          image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+          command:
+            - sh
+            - -c
+            - |
+              # Wait for squid to create its log files, then stream to stdout.
+              while ! [ -f /var/log/squid/access.log ]; do sleep 1; done
+              exec tail -F /var/log/squid/access.log /var/log/squid/cache.log
+          volumeMounts:
+            - { name: logs, mountPath: /var/log/squid, readOnly: true }
+          resources:
+            requests: { memory: 16Mi, cpu: 10m }
+            limits:   { memory: 64Mi, cpu: 100m }
+      volumes:
+        - name: config
+          configMap:
+            name: cvmfs-squid-config
+        - name: cache
+          persistentVolumeClaim:
+            claimName: cvmfs-squid-cache
+        - name: run
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+{{- end }}

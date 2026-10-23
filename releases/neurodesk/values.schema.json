@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "neurodesk chart values",
+  "description": "Validates this chart's OWN in-house blocks so a mistyped toggle (e.g. cvmfs.enable) fails fast instead of silently no-op'ing. The root stays permissive so the subchart passthrough keys (jupyterhub, cvmfs-csi, smarter-device-manager, security-profiles-operator, cert-manager) are not rejected.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domain": { "type": "string" },
+        "storageClassName": { "type": "string" },
+        "cvmfs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "server": { "type": "string" },
+            "squidEnabled": { "type": "boolean" }
+          }
+        },
+        "imagePullSecrets": { "type": "array" }
+      }
+    },
+    "infra": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "monitoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "serviceMonitors": { "type": "boolean" },
+            "serviceMonitorLabels": { "type": "object" }
+          }
+        }
+      }
+    },
+    "namespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "podSecurityLabels": { "type": "object" }
+      }
+    },
+    "cvmfs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "external": { "type": "boolean" },
+        "repositories": { "type": "array" },
+        "pvc": { "type": "object" },
+        "squid": { "type": "object" },
+        "probe": { "type": "object" },
+        "traceParser": { "type": "object" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "installOperator": { "type": "boolean" },
+        "assumeCrdsPresent": { "type": "boolean" },
+        "appArmor": { "type": "object" },
+        "seccomp": { "type": "object" }
+      }
+    },
+    "jupyterGlue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "homeResize": { "type": "object" },
+        "fluentbit": { "type": "object" },
+        "sharedTeaching": { "type": "object" },
+        "sharedGroupStorage": { "type": "object" }
+      }
+    },
+    "xnat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "server": { "type": "object" },
+        "uploadExtension": { "type": "object" },
+        "jupyterhub": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "url": { "type": "string" },
+            "credentialsSecret": { "type": "string" },
+            "usernameKey": { "type": "string" },
+            "passwordKey": { "type": "string" },
+            "archivePvc": { "type": "string" },
+            "archiveMountPath": { "type": "string" },
+            "archiveGid": { "type": "integer", "minimum": 0 },
+            "uid": { "type": "integer" },
+            "gid": { "type": "integer" },
+            "requestTimeoutSeconds": { "type": "integer", "minimum": 1 },
+            "failOpen": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storageClassNotBridged": { "type": "boolean" },
+        "fuseResourceWhenCvmfsOff": { "type": "boolean" },
+        "cvmfsVolumeWhenCvmfsOff": { "type": "boolean" },
+        "apparmorAttachWithoutProfile": { "type": "boolean" },
+        "apparmorNameMismatch": { "type": "boolean" },
+        "apparmorNoCrdProvider": { "type": "boolean", "description": "No effect since chart 0.2.0 (its guard was removed; the SPO API-discovery guard replaced it). Still accepted so existing overlays validate." },
+        "certManagerMissing": { "type": "boolean", "description": "Bypass the check that the bundled Security Profiles Operator has cert-manager (cert-manager.enabled=true, or cert-manager.io/v1 Certificate served by the cluster)." }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aaf": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "clientId": { "type": "string" },
+            "callbackUrl": { "type": "string" },
+            "usernamePrefix": { "type": "string" },
+            "usernameClaim": { "type": "string", "minLength": 1 },
+            "allowAll": { "type": "boolean" },
+            "issuer": { "type": "string" }
+          }
+        }
+      }
+    },
+    "uninstallCleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "pre-delete hook that removes this release's profiles, CVMFS probe/PVCs and the bundled operator's runtime objects while their controllers still run (templates/uninstall-cleanup-hook.yaml).",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "type": "string", "minLength": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 10 },
+        "resources": { "type": "object" }
+      }
+    },
+    "extraManifests": { "type": "array" }
+  }
+}

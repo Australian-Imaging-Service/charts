@@ -1,0 +1,49 @@
+Vendored from: https://github.com/kubernetes-sigs/security-profiles-operator
+Release: v1.0.0 (tag v1.0.0, published 2026-06-23)
+Source archive: https://github.com/kubernetes-sigs/security-profiles-operator/releases/download/v1.0.0/security-profiles-operator-1.0.0.tgz
+Source sha256: 01547076b054f4a77974e4d744ff55e3c6880f6e4831f986d6b03b254584522c
+(The archive's contents equal deploy/helm at tag v1.0.0 apart from Chart.yaml
+key order and quoting.)
+
+Re-vendor with:
+  curl -sL -o /tmp/spo.tgz <Source archive>
+  echo "<Source sha256>  /tmp/spo.tgz" | sha256sum -c
+  rm -rf vendor/security-profiles-operator
+  tar -xzf /tmp/spo.tgz -C vendor
+  then re-apply the LOCAL PATCHES below and restore this file.
+
+Why a vendored copy rather than the upstream OCI chart: the patches below are
+needed for the operator to work inside this chart's release at all.
+
+LOCAL PATCHES (re-apply after re-vendoring):
+
+P1 Fixed runtime namespace. Upstream 1.0.0 hard-codes namespace
+   `security-profiles-operator` in all 8 CRD conversion webhooks
+   (clientConfig.service.namespace) and in the cert-manager inject-ca-from
+   annotations - both in crds/ and in the webhook configurations the operator
+   writes at runtime (internal/pkg/manager/spod/bindata/webhook.go:183,:205).
+   So every namespaced resource and every RBAC subject must live there, not in
+   the parent release namespace. templates/_helpers.tpl defines
+   "security-profiles-operator.runtimeNamespace"; deployment.yaml, config.yaml
+   and static-resources.yaml use it for metadata.namespace and subject
+   namespaces.
+P2 Parent-release ownership. The meta.helm.sh/release-name literals
+   (`security-profiles-operator`, 20x) become '{{ .Release.Name }}'.
+   meta.helm.sh/release-namespace stays '{{ .Release.Namespace }}': those two
+   annotations name the OWNING release, not where the object runs.
+P3 templates/namespace.yaml (new): creates the runtime namespace with
+   pod-security enforce=privileged and helm.sh/resource-policy: keep, unless
+   operatorNamespace.create=false or the release itself is installed into
+   that namespace. values.yaml gains operatorNamespace.create (default true).
+P4 templates/apparmor-rbac.yaml (new): grants the OPERATOR ServiceAccount
+   apparmorprofiles (+ /finalizers, /status). Upstream 1.0.0 and 1.1.0 omit
+   it from the operator ClusterRole while the nodestatus controller reads
+   AppArmorProfiles; without it profiles never reconcile.
+
+P1-P3 were produced and render-checked by an independent reviewer
+(namespace-integration.patch; three release namespaces, 8 CRDs, 20 ownership
+annotations each) and applied unchanged.
+
+NOT patched, deliberately: upstream issue #3471 (operator ClusterRole lacks
+profilebindings) affects 1.0.1; no 1.0.0 operator controller uses
+ProfileBinding. Re-check P4 and #3471 on every re-vendor.

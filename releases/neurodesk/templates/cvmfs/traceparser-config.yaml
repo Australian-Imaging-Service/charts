@@ -1,0 +1,25 @@
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.traceParser.enabled }}
+# Telegraf sidecar config: ingests CVMFS InfluxDB-line metrics over UDP and
+# re-exposes them in Prometheus format on :9001 for the parser to read/merge.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-trace-parser
+    {{- include "neurodesk.labels" . | nindent 4 }}
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "30s"
+      hostname = "cvmfs-metrics"
+
+    [[inputs.socket_listener]]
+      service_address = "udp://:8092"
+      data_format = "influx"
+
+    [[outputs.prometheus_client]]
+      listen = ":9001"
+      metric_version = 2
+{{- end }}

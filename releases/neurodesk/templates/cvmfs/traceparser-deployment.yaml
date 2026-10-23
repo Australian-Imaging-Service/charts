@@ -1,0 +1,80 @@
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.traceParser.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvmfs-trace-parser
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-trace-parser
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.cvmfs.traceParser.replicas }}
+  selector:
+    matchLabels:
+      app: cvmfs-trace-parser
+  template:
+    metadata:
+      labels:
+        app: cvmfs-trace-parser
+      annotations:
+        # Roll when parser.py changes.
+        checksum/script: {{ include (print $.Template.BasePath "/cvmfs/traceparser-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: cvmfs-file-retriever
+      containers:
+      - name: parser
+        image: {{ .Values.cvmfs.traceParser.image }}
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          set -e
+          apt-get update && apt-get install -y curl
+          case "$(uname -m)" in
+            x86_64) KARCH=amd64 ;;
+            aarch64|arm64) KARCH=arm64 ;;
+            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+          KVER={{ .Values.cvmfs.traceParser.kubectlVersion | quote }}
+          curl -fsSLo kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${KARCH}/kubectl"
+          curl -fsSLo kubectl.sha256 "https://dl.k8s.io/release/${KVER}/bin/linux/${KARCH}/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c -
+          chmod +x kubectl && mv kubectl /usr/local/bin/ && rm -f kubectl.sha256
+          pip install "requests=={{ .Values.cvmfs.traceParser.requestsVersion }}"
+          exec python3 /app/parser.py
+        ports:
+        - containerPort: 9002
+          name: metrics
+        volumeMounts:
+        - name: parser-script
+          mountPath: /app
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        # parser.py uses NAMESPACE to locate the cvmfs-csi nodeplugin pods; it
+        # must point at the namespace cvmfs-csi is installed in (this release).
+        - name: NAMESPACE
+          value: {{ include "neurodesk.namespace" . }}
+
+      - name: telegraf
+        image: telegraf:1.40.1-alpine@sha256:6606553b5019151de171984e9ce938eac859d6987aa5329c420597737bf1a9a0
+        ports:
+        - containerPort: 8092
+          name: influx-udp
+          protocol: UDP
+        - containerPort: 9001
+          name: prom-telegraf
+        volumeMounts:
+        - name: telegraf-config
+          mountPath: /etc/telegraf/telegraf.conf
+          subPath: telegraf.conf
+
+      volumes:
+      - name: parser-script
+        configMap:
+          name: parser-script
+          defaultMode: 0755
+      - name: telegraf-config
+        configMap:
+          name: telegraf-config
+{{- end }}
