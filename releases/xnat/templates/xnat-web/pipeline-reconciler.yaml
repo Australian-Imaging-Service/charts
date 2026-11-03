@@ -1,0 +1,80 @@
+{{- $web := index .Values "xnat-web" -}}
+{{- with $web.pipelineReconciler -}}
+{{- if .enabled -}}
+{{- $tag := required "xnat-web.pipelineReconciler.image.tag is required when the pipeline reconciler is enabled" .image.tag -}}
+{{- $secret := required "xnat-web.pipelineReconciler.existingSecret is required when the pipeline reconciler is enabled (keys: XNAT_USER and XNAT_PASS)" .existingSecret -}}
+{{- $name := printf "%s-pipeline-reconciler" (include "xnat-web.fullname" $ | trunc 32 | trimSuffix "-") -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: pipeline-reconciler
+data:
+  config.yaml: |
+    {{- toYaml .config | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "xnat-web.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: pipeline-reconciler
+spec:
+  schedule: {{ .schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ $name }}
+            app.kubernetes.io/instance: {{ $.Release.Name }}
+            app.kubernetes.io/component: pipeline-reconciler
+        spec:
+          automountServiceAccountToken: false
+          {{- with $web.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          restartPolicy: Never
+          containers:
+            - name: pipeline-reconciler
+              image: {{ printf "%s:%s" .image.repository $tag | quote }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              env:
+                - name: XNAT_HOST
+                  value: {{ default (printf "http://%s:%v" (include "xnat-web.fullname" $) $web.service.port) .xnatHost | quote }}
+                - name: XNAT_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secret | quote }}
+                      key: XNAT_USER
+                - name: XNAT_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secret | quote }}
+                      key: XNAT_PASS
+                - name: PIPELINE_RECONCILER_CONFIG
+                  value: /etc/pipeline-reconciler/config.yaml
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/pipeline-reconciler
+                  readOnly: true
+          volumes:
+            - name: config
+              configMap:
+                name: {{ $name }}
+{{- end }}
+{{- end }}
