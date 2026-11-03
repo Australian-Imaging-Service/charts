@@ -73,6 +73,19 @@ xnat-web:
   nameOverride: "xnat-web"
   fullnameOverride: ""
 
+  pipelineReconciler:
+    enabled: false
+    image:
+      repository: ghcr.io/australian-imaging-service/pipelines-reconciler
+      tag: "26.10.0"
+    schedule: "0 2 * * 0"
+    # Defaults to http://<xnat-web Service name>:<service.port>.
+    xnatHost: ""
+    # Existing Secret in the release namespace with XNAT_USER and XNAT_PASS keys.
+    existingSecret: ""
+    # Reconciler include / exclude patterns and enablement (approval or auto).
+    config: {}
+
   serviceAccount:
     # Specifies whether a service account should be created
     create: true

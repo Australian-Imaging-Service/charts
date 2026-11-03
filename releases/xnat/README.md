@@ -73,3 +73,92 @@ The following tables list the configuration parameters of the XNAT Chart and the
 | `postgresqlExternalIPs`                     | Hostname of an external database if `postgresql.enabled`=`false`                      | `nil` |
 | `xnat-web.volumes.archive.existingClaim`    | | |
 | `xnat-web.volumes.prearchive.existingClaim` | | |
+
+## Pipeline reconciler
+
+The optional pipeline reconciler synchronises pipeline commands from the AIS
+pipeline catalogue into XNAT. It is disabled by default.
+
+The pipeline reconciler requires:
+
+- Kubernetes 1.21+
+- The XNAT Container Service plugin and a configured Container Service backend
+- An XNAT account with permission to manage Container Service commands
+- Outbound access to `github.com`, release-download redirect hosts, and `ghcr.io`
+
+| Parameter (under `xnat-web.pipelineReconciler`) | Description | Default |
+| --- | --- | --- |
+| `enabled` | Render the CronJob and its configuration ConfigMap | `false` |
+| `image.repository` | Reconciler container image | `ghcr.io/australian-imaging-service/pipelines-reconciler` |
+| `image.tag` | Reconciler image tag | `"26.10.0"` |
+| `schedule` | Cron schedule, in the controller's timezone | `"0 2 * * 0"` |
+| `xnatHost` | XNAT URL override, reachable from the Pod | `http://<xnat-web Service name>:<service.port>` |
+| `existingSecret` | Required Secret containing `XNAT_USER` and `XNAT_PASS` | `""` |
+| `config` | YAML configuration: `include`, `exclude`, and `enablement` | `{}` |
+
+Enable the Container Service plugin in the XNAT values file:
+
+```yaml
+xnat-web:
+  plugins:
+    container-service: []
+```
+
+Create a Secret containing the XNAT credentials in the same namespace as the
+XNAT release:
+
+```bash
+$ read -r -p "XNAT username: " XNAT_USER
+$ read -r -s -p "XNAT password: " XNAT_PASS
+$ printf '\n'
+
+$ kubectl --namespace xnat apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: xnat-reconciler-auth
+type: Opaque
+stringData:
+  XNAT_USER: "${XNAT_USER}"
+  XNAT_PASS: "${XNAT_PASS}"
+EOF
+
+$ unset XNAT_USER XNAT_PASS
+```
+
+Configure the pipeline reconciler in the XNAT values file:
+
+```yaml
+xnat-web:
+  plugins:
+    container-service: []
+  pipelineReconciler:
+    enabled: true
+    image:
+      tag: "26.10.0"
+    schedule: "0 2 * * 0"
+    existingSecret: xnat-reconciler-auth
+    config:
+      enablement: approval
+```
+
+The default schedule checks the pipeline catalogue each Sunday at 02:00 in the
+Kubernetes controller's timezone. The `approval` enablement setting imports new
+commands without enabling them. Set it to `auto` to enable imported commands
+automatically.
+
+The `config.include` and `config.exclude` values are lists of pipeline ID glob
+patterns. If neither value is specified, all catalogue pipelines are selected.
+
+To run the reconciler immediately and follow its logs:
+
+```bash
+$ CRONJOB_NAME="$(kubectl --namespace xnat get cronjob \
+  --selector app.kubernetes.io/component=pipeline-reconciler \
+  --output jsonpath='{.items[0].metadata.name}')"
+$ JOB_NAME="${CRONJOB_NAME}-manual-$(date +%s)"
+$ kubectl --namespace xnat create job \
+  --from="cronjob/${CRONJOB_NAME}" \
+  "${JOB_NAME}"
+$ kubectl --namespace xnat logs --follow --pod-running-timeout=2m "job/${JOB_NAME}"
+```
