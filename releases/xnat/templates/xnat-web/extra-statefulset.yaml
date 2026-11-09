@@ -34,7 +34,7 @@ spec:
   replicas: {{ $replicas }}
   selector:
     matchLabels:
-      {{- include "xnat-web.statefulsetLabels" $ | nindent 6 }}
+      {{- include "xnat-web.selectorLabels" $ | nindent 6 }}
       role: {{ $groupName }}
   serviceName: {{ $name }}
   template:
