@@ -98,3 +98,10 @@ GID under which containers are run
 {{- define "xnat-web.runasgroup" -}}
 {{- default "1000" (index .Values "xnat-web" "podSecurityContext" "runAsGroup") }}
 {{- end }}
+
+{{/*
+Space-separated, sorted list of plugin names from xnat-web.plugins
+*/}}
+{{- define "xnat-web.pluginList" -}}
+{{- join " " (keys (default dict (index .Values "xnat-web" "plugins")) | sortAlpha) }}
+{{- end }}
