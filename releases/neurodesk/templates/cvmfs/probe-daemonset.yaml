@@ -1,0 +1,128 @@
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.probe.enabled }}
+# Dedicated CVMFS PVC for the probe. The CSI driver bind-mounts this with the
+# same autofs/FUSE visibility user pods get — that's what we need to actually
+# see the same /cvmfs the users see (a hostPath mount would only expose the
+# underlying directory inode, missing the autofs and FUSE layers stacked on
+# top). Uses the same cvmfs-csi automount StorageClass as the user `cvmfs` PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cvmfs-probe
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-probe
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  accessModes: [ ReadOnlyMany ]
+  storageClassName: {{ .Values.cvmfs.pvc.storageClassName }}
+  resources:
+    requests:
+      storage: "1"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cvmfs-probe
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-probe
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: cvmfs-probe
+  template:
+    metadata:
+      labels:
+        app: cvmfs-probe
+      annotations:
+        # Roll when probe.py changes
+        checksum/script: {{ include (print $.Template.BasePath "/cvmfs/probe-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.cvmfs.probe.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cvmfs.probe.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: probe
+          image: {{ .Values.cvmfs.probe.image }}
+          command: [ python3, /opt/probe/probe.py ]
+          env:
+            - name: NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+            - name: CVMFS_REPOS
+              value: {{ join "," .Values.cvmfs.repositories | quote }}
+            - name: PROBE_INTERVAL_SECONDS
+              value: {{ .Values.cvmfs.probe.intervalSeconds | quote }}
+            - name: CVMFS_MOUNT
+              value: /cvmfs
+          ports:
+            - { containerPort: 9100, name: metrics }
+          volumeMounts:
+            - { name: script, mountPath: /opt/probe }
+            # HostToContainer propagation lets the probe see autofs / FUSE
+            # mounts that the cvmfs-csi nodeplugin sets up at runtime.
+            - { name: cvmfs,  mountPath: /cvmfs, mountPropagation: HostToContainer, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /metrics, port: 9100 }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /metrics, port: 9100 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: { memory: 32Mi, cpu: 10m }
+            limits:   { memory: 128Mi, cpu: 200m }
+      volumes:
+        - name: script
+          configMap:
+            name: cvmfs-probe-script
+            defaultMode: 0755
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs-probe
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cvmfs-probe
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-probe
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None    # headless — one endpoint per node pod
+  selector:
+    app: cvmfs-probe
+  ports:
+    - { name: metrics, port: 9100, targetPort: 9100, protocol: TCP }
+{{- if and .Values.infra.monitoring.serviceMonitors (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cvmfs-probe
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-probe
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    {{- with .Values.infra.monitoring.serviceMonitorLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: cvmfs-probe
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+{{- end }}
+{{- end }}

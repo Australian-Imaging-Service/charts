@@ -1,0 +1,64 @@
+# ============================================================================
+# examples/external-cvmfs-values.yaml — BRING YOUR OWN CVMFS
+# ----------------------------------------------------------------------------
+# Use this when YOU run CVMFS yourself (your own cvmfs-csi / device plugin) and
+# want everything else in this chart (JupyterHub, security, glue, XNAT) to work
+# against your CVMFS exactly as it would against the chart's managed one.
+#
+# This chart then installs NO CVMFS machinery (no cvmfs-csi, no
+# smarter-device-manager, no `cvmfs` PVC, no squid/probe/trace-parser) but the
+# notebooks KEEP the /cvmfs mount + FUSE request and consume what you provide.
+#
+# YOUR cluster must already provide, in the release namespace:
+#   1. a PVC named `cvmfs` mounting /cvmfs into pods (or override the claimName
+#      under jupyterhub.singleuser.storage.extraVolumes below);
+#   2. the `smarter-devices/fuse` extended resource (your own
+#      smarter-device-manager + the `smarter-device-manager=enabled` node label);
+#   3. the automount StorageClass your `cvmfs` PVC binds to.
+# Set these up "as they are supposed to be" and the rest just works.
+# ============================================================================
+
+cvmfs:
+  enabled: false     # do NOT install the chart's CVMFS machinery
+  external: true     # an external CVMFS provides /cvmfs + FUSE; keep the wiring
+
+# Everything else stays on and works against YOUR CVMFS:
+security:
+  enabled: true
+  # Bundled SPO needs cert-manager (pre-installed, or cert-manager.enabled=true).
+  # To bring your own SPO too: installOperator: false (needs SPO >= 1.0.0).
+  installOperator: true
+
+# The hub DB + home StorageClass: leave both UNSET for the cluster default, or
+# set your RWO class. Never "": for the hub DB an empty storageClassName means
+# "no StorageClass", so the PVC never binds on a cluster that relies on its
+# default class and the Hub stays Pending.
+jupyterhub:
+  hub:
+    config:
+      JupyterHub:
+        authenticator_class: dummy   # OVERRIDE with your real auth
+      Authenticator:
+        admin_users: []
+    # db:
+    #   pvc:
+    #     storageClassName: my-rwo-class
+  # singleuser:  (uncomment the key only together with a real setting below;
+  #               a bare `singleuser:` is null and deletes the chart defaults)
+  #   storage:
+  #     dynamic:
+  #       storageClass: my-rwo-class
+  #
+  # The default singleuser block already mounts the `cvmfs` PVC at /cvmfs and
+  # requests smarter-devices/fuse — kept as-is so it binds to YOUR CVMFS. If
+  # your PVC has a different name, restate the whole extraVolumes list under
+  # jupyterhub.singleuser.storage (Helm REPLACES lists) with your claimName,
+  # plus the shm-volume:
+  #
+  #   storage:
+  #     extraVolumes:
+  #       - { name: cvmfs, persistentVolumeClaim: { claimName: my-cvmfs } }
+  #       - { name: shm-volume, emptyDir: { medium: Memory } }
+  #     extraVolumeMounts:
+  #       - { name: cvmfs, mountPath: /cvmfs, mountPropagation: HostToContainer }
+  #       - { name: shm-volume, mountPath: /dev/shm }

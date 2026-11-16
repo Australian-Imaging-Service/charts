@@ -1,0 +1,509 @@
+{{- /*
+================================================================================
+pre-delete hook: tear down, while their controllers are still running, the
+objects that a single `helm uninstall` pass would otherwise strand.
+
+`helm uninstall` deletes every release object at once. Two controllers bundled
+by this chart must outlive the objects they manage:
+
+  * SPO: each AppArmorProfile/SeccompProfile carries a per-node finalizer
+    (`<node>-deleted`) that only the spod daemon removes. Helm deletes the SPOD
+    CR (and so, via GC, spod) in the same pass, so the profile is left
+    Terminating forever. Upstream's documented uninstall is "remove the
+    profiles before removing the rest of the operator".
+  * cvmfs-csi: the node plugin must still be registered when kubelet unmounts a
+    CVMFS volume. Helm deletes the cvmfs-probe DaemonSet and the node plugin
+    DaemonSet together, so the probe pod is stuck unmounting and its PVC stays
+    Terminating.
+
+Two stages, ordered by hook weight (Helm stops at the first failed hook):
+  1. weight -30/-20: a CHECK Job with read-only pod access refuses while any
+     user server (component=singleuser-server) exists in the release namespace.
+     Deleting the profile unloads it from the kernel, and a notebook confined by
+     it can then no longer start any process (verified), so a running server
+     must block the uninstall. On refusal `helm uninstall` stops before
+     anything is deleted; the failed check Job stays for its logs (and, before
+     Helm 3.19, its read-only SA/Role too - Helm >= 3.19 deletes those).
+  2. weight -10/0: the cleanup RBAC and Job, created only after the check
+     passed, remove exactly the objects above, waiting for each to be gone.
+     Each step is its own initContainer because the kubectl image has no shell.
+Stop every user server (and keep new logins out), then retry.
+`helm uninstall --no-hooks` skips this and accepts the stranding described above.
+
+Only objects this release owns are touched. Profiles are deleted by name; with
+an EXTERNAL operator or CVMFS (installOperator=false / cvmfs.enabled=false) the
+controllers are not removed by this uninstall, so those steps are skipped - but
+the no-user-servers precondition still runs whenever the release owns a
+profile, because Helm deletes that profile and the external operator unloads it.
+================================================================================
+*/ -}}
+{{- $sec := and .Values.security.enabled .Values.security.installOperator -}}
+{{- $aa := and $sec .Values.security.appArmor.enabled -}}
+{{- $sc := and $sec .Values.security.seccomp.enabled -}}
+{{- $cv := .Values.cvmfs.enabled -}}
+{{- $probe := and $cv .Values.cvmfs.probe.enabled -}}
+{{- /* Bundled operator: after the profiles are gone, remove what the operator
+       created at RUNTIME (no ownerReferences, so neither Helm nor GC deletes it;
+       upstream's own uninstall relies on deleting the whole namespace). Names
+       are fixed in SPO 1.0.0 (internal/pkg/manager/spod/bindata); re-check on
+       every SPO re-vendor. */ -}}
+{{- $op := .Values.security.installOperator -}}
+{{- /* The helper lives in the SPO subchart, which is not loaded when installOperator=false. */ -}}
+{{- $spoNs := "" -}}
+{{- if $op }}{{- $spoNs = include "security-profiles-operator.runtimeNamespace" . -}}{{- end }}
+{{- /* Any profile this release owns: even with an EXTERNAL operator, Helm deletes it on
+       uninstall and that operator unloads it under running notebooks, so the
+       no-user-servers precondition must run whenever a profile exists. */ -}}
+{{- $prof := and .Values.security.enabled (or .Values.security.appArmor.enabled .Values.security.seccomp.enabled) -}}
+{{- $sm := .Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor" -}}
+{{- /* nil-safe: values carried over from 0.1.x by `helm upgrade --reuse-values`
+       have no uninstallCleanup block; validate.yaml explains that case. */ -}}
+{{- $uc := .Values.uninstallCleanup | default dict -}}
+{{- /* Anything to delete? Otherwise (external operator + external CVMFS) only the check renders. */ -}}
+{{- $del := or $aa $sc $cv $op -}}
+{{- if and (dig "enabled" false $uc) (or $prof $del) }}
+{{- /* Truncate the BASE, then suffix, so the two names stay distinct at any length:
+       the operator-namespace Role/RoleBinding must not collide with the release
+       namespace ones when the release itself is installed into that namespace. */ -}}
+{{- $base := include "neurodesk.fullname" . | trunc 45 | trimSuffix "-" -}}
+{{- $name := printf "%s-pre-delete" $base -}}
+{{- $spoRbac := printf "%s-pre-delete-spo" $base -}}
+{{- $check := printf "%s-pre-delete-check" $base -}}
+{{- $ns := include "neurodesk.namespace" . -}}
+{{- $timeout := printf "--timeout=%vs" $uc.timeoutSeconds -}}
+{{- $cvPvcs := list -}}
+{{- if $cv }}{{- $cvPvcs = append $cvPvcs (.Values.cvmfs.pvc.name | default "cvmfs") -}}{{- end }}
+{{- if $probe }}{{- $cvPvcs = append $cvPvcs "cvmfs-probe" -}}{{- end }}
+{{- /* ===== stage 1: read-only check ===== */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $check }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-30"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $check }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-30"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $check }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-30"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $check }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $check }}
+    namespace: {{ $ns }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $check }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-20"
+    # Kept on failure so `kubectl logs` shows which server blocked the uninstall.
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "neurodesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pre-delete-check
+    spec:
+      serviceAccountName: {{ $check }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # `wait --for=delete` returns at once when nothing matches and times
+        # out (non-zero) while a user server exists.
+        - name: require-no-user-servers
+          image: {{ $uc.image }}
+          args: ["-n", {{ $ns | quote }}, "wait", "--for=delete", "pod", "-l", "component=singleuser-server", "--timeout=10s"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml (dig "resources" (dict) $uc) | nindent 12 }}
+{{- if $del }}
+{{- /* ===== stage 2: cleanup (only reached when the check passed) ===== */}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+{{- if or $aa $sc $op }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  # Read (kubectl delete --wait watches the object) ...
+  - apiGroups: ["security-profiles-operator.x-k8s.io"]
+    resources: ["apparmorprofiles", "seccompprofiles"]
+    verbs: ["get", "list", "watch"]
+  # ... but delete only this release's own profiles.
+  {{- if $aa }}
+  - apiGroups: ["security-profiles-operator.x-k8s.io"]
+    resources: ["apparmorprofiles"]
+    resourceNames: [{{ .Values.security.appArmor.profileName | quote }}]
+    verbs: ["delete"]
+  {{- end }}
+  {{- if $sc }}
+  - apiGroups: ["security-profiles-operator.x-k8s.io"]
+    resources: ["seccompprofiles"]
+    resourceNames: [{{ .Values.security.seccomp.profileName | quote }}]
+    verbs: ["delete"]
+  {{- end }}
+  {{- if $op }}
+  # The operator's runtime ValidatingWebhookConfiguration (failurePolicy Fail).
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    resourceNames: ["spo-validating-webhook-configuration"]
+    verbs: ["delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $ns }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  {{- if $cv }}
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  {{- if $probe }}
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    resourceNames: ["cvmfs-probe"]
+    verbs: ["delete"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    resourceNames: {{ toJson $cvPvcs }}
+    verbs: ["delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $ns }}
+{{- if $op }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $spoRbac }}
+  namespace: {{ $spoNs }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    resourceNames: ["security-profiles-operator"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["security-profiles-operator-webhook"]
+    verbs: ["delete"]
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["webhook-service", "metrics"]
+    verbs: ["delete"]
+  # delete only (no read: these hold the webhook TLS keys)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["webhook-server-cert", "metrics-server-cert"]
+    verbs: ["delete"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "issuers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    resourceNames: ["webhook-cert", "metrics-cert"]
+    verbs: ["delete"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["issuers"]
+    resourceNames: ["selfsigned-issuer"]
+    verbs: ["delete"]
+  {{- if $sm }}
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    resourceNames: ["security-profiles-operator-monitor"]
+    verbs: ["delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $spoRbac }}
+  namespace: {{ $spoNs }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $spoRbac }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $ns }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "0"
+    # Kept on failure so `kubectl logs` shows which step blocked the uninstall.
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "neurodesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pre-delete
+    spec:
+      serviceAccountName: {{ $name }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      {{- $step := dict "image" $uc.image "resources" $uc.resources }}
+      initContainers:
+        # Re-check: closes the window for a server started between the stages.
+        - name: require-no-user-servers
+          image: {{ $step.image }}
+          args: ["-n", {{ $ns | quote }}, "wait", "--for=delete", "pod", "-l", "component=singleuser-server", "--timeout=10s"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- if $aa }}
+        - name: delete-apparmorprofile
+          image: {{ $step.image }}
+          args: ["delete", "apparmorprofiles.security-profiles-operator.x-k8s.io", {{ .Values.security.appArmor.profileName | quote }}, "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- end }}
+        {{- if $sc }}
+        - name: delete-seccompprofile
+          image: {{ $step.image }}
+          args: ["delete", "seccompprofiles.security-profiles-operator.x-k8s.io", {{ .Values.security.seccomp.profileName | quote }}, "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- end }}
+        {{- if $probe }}
+        # Foreground: the DaemonSet object stays until its pods (and their CVMFS
+        # mounts) are gone, so --wait covers the unmount.
+        - name: delete-cvmfs-probe
+          image: {{ $step.image }}
+          args: ["-n", {{ $ns | quote }}, "delete", "daemonset", "cvmfs-probe", "--cascade=foreground", "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- end }}
+        {{- if $cv }}
+        # Blocks (pvc-protection) while any pod still mounts /cvmfs, e.g. a user
+        # server that was not stopped.
+        - name: delete-cvmfs-pvcs
+          image: {{ $step.image }}
+          args: ["-n", {{ $ns | quote }}, "delete", "persistentvolumeclaim", {{- range $cvPvcs }} {{ . | quote }},{{- end }} "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- end }}
+        {{- if $op }}
+        # Profiles are gone: stop the operator so nothing below is recreated ...
+        - name: stop-operator
+          image: {{ $step.image }}
+          args: ["-n", {{ $spoNs | quote }}, "scale", "deployment", "security-profiles-operator", "--replicas=0"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        - name: wait-operator-stopped
+          image: {{ $step.image }}
+          args: ["-n", {{ $spoNs | quote }}, "wait", "--for=delete", "pod", "-l", "name=security-profiles-operator", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        # ... then remove what it created at runtime (no ownerReferences).
+        - name: delete-operator-runtime-objects
+          image: {{ $step.image }}
+          args: ["-n", {{ $spoNs | quote }}, "delete", "deployment/security-profiles-operator-webhook", "service/webhook-service", "service/metrics", "certificates.cert-manager.io/webhook-cert", "certificates.cert-manager.io/metrics-cert", "issuers.cert-manager.io/selfsigned-issuer",{{ if $sm }} "servicemonitors.monitoring.coreos.com/security-profiles-operator-monitor",{{ end }} "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        - name: delete-operator-runtime-secrets
+          image: {{ $step.image }}
+          args: ["-n", {{ $spoNs | quote }}, "delete", "secret", "webhook-server-cert", "metrics-server-cert", "--ignore-not-found", "--wait=false"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        - name: delete-operator-validating-webhook
+          image: {{ $step.image }}
+          args: ["delete", "validatingwebhookconfiguration", "spo-validating-webhook-configuration", "--ignore-not-found", "--wait=true", {{ $timeout | quote }}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+        {{- end }}
+      containers:
+        - name: done
+          image: {{ $step.image }}
+          args: ["version", "--client"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources: {{- toYaml $step.resources | nindent 12 }}
+{{- end }}
+{{- end }}

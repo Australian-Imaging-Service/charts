@@ -1,0 +1,13 @@
+# Patterns to ignore when packaging the chart.
+.git/
+.github/
+.gitignore
+ci/
+docs/
+examples/
+*.tmpl.bak
+.DS_Store
+*.swp
+# NOTE: do NOT add "*.tgz" here — Helm's loader applies .helmignore when
+# loading a chart from a directory, and the vendored subchart tarballs live in
+# charts/*.tgz. Ignoring them makes Helm see zero dependencies.

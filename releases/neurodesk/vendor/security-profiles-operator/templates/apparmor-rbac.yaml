@@ -1,0 +1,50 @@
+{{- /*
+LOCAL PATCH (neurodesk) - grant the OPERATOR identity AppArmorProfile access.
+
+Upstream v1.0.0 (and v1.1.0) give `apparmorprofiles` to the spod and spo-webhook
+ClusterRoles but not to the security-profiles-operator ClusterRole, while the
+operator's nodestatus controller reads the owning AppArmorProfile
+(internal/pkg/manager/nodestatus/nodestatus.go:298). Without this the operator
+logs "apparmorprofiles ... is forbidden" in a loop, the profile keeps
+`status: {}` (observed with chart 0.1.0: 150 s after install, still empty). spod
+can still load the profile onto nodes, so the visible damage is the status and
+the operator's error loop, not necessarily failed spawns.
+Verbs mirror what the same ClusterRole grants for seccompprofiles.
+
+Upstream issue #3471 (profilebindings missing from this role) affects 1.0.1, not
+1.0.0: none of the 1.0.0 operator controllers (nodestatus, spod,
+workloadannotator, recordingmerger) touch ProfileBinding, and a live 1.0.0
+operator without that permission reports no forbidden errors. Do not add it
+here; re-check both gaps when re-vendoring.
+*/ -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-profiles-operator-apparmor
+  labels:
+    app: security-profiles-operator
+rules:
+- apiGroups: ["security-profiles-operator.x-k8s.io"]
+  resources: ["apparmorprofiles"]
+  verbs: ["create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["security-profiles-operator.x-k8s.io"]
+  resources: ["apparmorprofiles/finalizers"]
+  verbs: ["delete", "get", "patch", "update"]
+- apiGroups: ["security-profiles-operator.x-k8s.io"]
+  resources: ["apparmorprofiles/status"]
+  verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: security-profiles-operator-apparmor
+  labels:
+    app: security-profiles-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: security-profiles-operator-apparmor
+subjects:
+- kind: ServiceAccount
+  name: security-profiles-operator
+  namespace: {{ include "security-profiles-operator.runtimeNamespace" . }}

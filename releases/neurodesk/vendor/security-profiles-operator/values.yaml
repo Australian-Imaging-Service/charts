@@ -1,0 +1,97 @@
+# Default values for security-profiles-operator.
+replicaCount: 3
+
+spoImage:
+  registry: gcr.io
+  repository: k8s-staging-sp-operator/security-profiles-operator
+  tag: latest
+
+selinuxdImage:
+  default:
+    registry: quay.io
+    repository: security-profiles-operator/selinuxd
+    tag: latest
+  el8:
+    registry: quay.io
+    repository: security-profiles-operator/selinuxd-el8
+    tag: latest
+  el9:
+    registry: quay.io
+    repository: security-profiles-operator/selinuxd-el9
+    tag: latest
+  fedora:
+    registry: quay.io
+    repository: security-profiles-operator/selinuxd-fedora
+    tag: latest
+
+enableSelinux: false
+enableLogEnricher: false
+enableJsonEnricher: false
+enableAppArmor: false
+enableBpfRecorder: false
+enableProfiling: false
+verbosity: 0
+
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 250m
+    memory: 50Mi
+
+daemon:
+  affinity: {}
+  tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
+    operator: Exists
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+  resources:
+    limits:
+      memory: 128Mi
+      ephemeral-storage: 200Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+      ephemeral-storage: 50Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  # targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Explicitly false when the fixed namespace is already managed externally.
+operatorNamespace:
+  create: true

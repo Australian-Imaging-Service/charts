@@ -1,0 +1,1526 @@
+{{- /*
+XNAT Upload Extension ConfigMap (notebook-side, OPTIONAL).
+
+Holds the JupyterLab xnat-upload server extension source (handlers.py,
+__init__.py, neurodesk_server.py, xnat_icon.svg). The singleuser notebook
+mounts this ConfigMap; the JupyterHub overlay's pre_spawn_hook / init
+container installs it into the running server (see examples/devstack).
+
+The XNAT *server* and its server-side jars live elsewhere (ais-devstack) and
+are intentionally not part of this chart. No secrets are embedded here: the
+"alias"/"secret" handled below are XNAT alias tokens the END USER types into
+the UI at runtime, never shipped credentials.
+*/ -}}
+{{- if and .Values.xnat.enabled .Values.xnat.uploadExtension.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xnat-upload-extension
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    component: xnat-upload
+data:
+  # Server extension handlers
+  handlers.py: |
+    """
+    XNAT Upload REST API Handlers
+    Provides endpoints for uploading files to XNAT from JupyterLab.
+    """
+    import json
+    import os
+    from pathlib import Path
+    from jupyter_server.base.handlers import APIHandler
+    from jupyter_server.utils import url_path_join
+    import tornado.web
+
+    # Import xnat library
+    try:
+        import xnat
+    except ImportError:
+        xnat = None
+
+    # Import fileformats library for intelligent file type detection
+    try:
+        from fileformats.core import from_paths, FileSet
+        from fileformats.medimage import Nifti1, NiftiGz, NiftiX, NiftiGzX, Analyze
+        from fileformats.medimage import DicomSeries, DicomDir, DicomCollection
+        from fileformats.generic import File
+        FILEFORMATS_AVAILABLE = True
+    except ImportError:
+        FILEFORMATS_AVAILABLE = False
+
+    class XNATUploadError(Exception):
+        pass
+
+    # Allowed paths for external directory browsing
+    ALLOWED_PATHS = ['/workspace', '/home/jovyan', '/neurodesktop-storage', '/data', '/tmp']
+
+    class BaseXNATHandler(APIHandler):
+        _uploaders = {}
+
+        def get_current_username(self):
+            return os.environ.get('JUPYTERHUB_USER', 'anonymous')
+
+        def get_uploader(self):
+            username = self.get_current_username()
+            if username not in self._uploaders:
+                self._uploaders[username] = {
+                    'session': None,
+                    'alias': None,
+                    'secret': None,
+                    'authenticated_user': None
+                }
+            return self._uploaders[username]
+
+        def get_workspace_path(self):
+            username = self.get_current_username()
+            for path in [Path(f'/workspace/{username}'), Path('/workspace'), Path('/home/jovyan')]:
+                if path.exists():
+                    return path
+            return Path.home()
+
+        def is_path_allowed(self, file_path):
+            """Check if path is within allowed directories"""
+            try:
+                resolved = str(file_path.resolve())
+                for allowed in ALLOWED_PATHS:
+                    if resolved.startswith(allowed):
+                        return True
+                if resolved.startswith(str(Path.home().resolve())):
+                    return True
+                return False
+            except Exception:
+                return False
+
+        def get_allowed_roots(self):
+            """Get list of allowed root directories that exist"""
+            roots = []
+            for path in ALLOWED_PATHS:
+                if Path(path).exists():
+                    roots.append(path)
+            return roots
+
+        def write_json(self, data, status=200):
+            self.set_status(status)
+            self.set_header('Content-Type', 'application/json')
+            self.finish(json.dumps(data))
+
+        def get_user_role_in_project(self, session, project_id):
+            """Get the user's role in a specific project"""
+            try:
+                username = session.logged_in_user
+                # Query XNAT REST API for user's role in project
+                data = session.get_json(f'/data/projects/{project_id}/users/{username}')
+                results = data.get('ResultSet', {}).get('Result', [])
+                for result in results:
+                    if result.get('login') == username:
+                        return result.get('displayname')  # Returns 'Owners', 'Members', 'Collaborators', or 'Guests'
+                return None
+            except Exception:
+                return None
+
+        def user_can_upload_to_project(self, session, project_id):
+            """Check if user has upload permissions for a project (Owners, Members, or Collaborators)"""
+            role = self.get_user_role_in_project(session, project_id)
+            return role in ['Owners', 'Members', 'Collaborators']
+
+        def detect_format(self, filepath):
+            """Detect file format using fileformats library with extension fallback"""
+            # Try fileformats library first for accurate detection
+            if FILEFORMATS_AVAILABLE:
+                try:
+                    # Try to match against known medical imaging formats
+                    fspath = str(filepath)
+                    name_lower = filepath.name.lower()
+
+                    # Check NIfTI formats (most common in neuroimaging)
+                    if name_lower.endswith('.nii.gz'):
+                        try:
+                            NiftiGz(fspath)
+                            return 'NIFTI'
+                        except:
+                            pass
+                    elif name_lower.endswith('.nii'):
+                        try:
+                            Nifti1(fspath)
+                            return 'NIFTI'
+                        except:
+                            pass
+
+                    # Check DICOM
+                    if name_lower.endswith('.dcm') or name_lower.endswith('.dicom'):
+                        return 'DICOM'
+
+                    # Check if directory contains DICOM series
+                    if filepath.is_dir():
+                        try:
+                            DicomDir(fspath)
+                            return 'DICOM_DIR'
+                        except:
+                            pass
+
+                    # Try generic detection via fileformats
+                    try:
+                        detected = from_paths(fspath)
+                        if detected:
+                            class_name = detected.__class__.__name__
+                            if 'Nifti' in class_name:
+                                return 'NIFTI'
+                            elif 'Dicom' in class_name:
+                                return 'DICOM'
+                            elif 'Analyze' in class_name:
+                                return 'ANALYZE'
+                    except:
+                        pass
+                except Exception:
+                    pass  # Fall through to extension-based detection
+
+            # Fallback to extension-based detection
+            name = filepath.name.lower()
+            if name.endswith('.nii.gz') or name.endswith('.nii'):
+                return 'NIFTI'
+            ext_map = {
+                '.dcm': 'DICOM', '.dicom': 'DICOM', '.ima': 'DICOM',
+                '.hdr': 'ANALYZE', '.img': 'ANALYZE',
+                '.mgz': 'MGZ', '.mgh': 'MGH',
+                '.mnc': 'MINC', '.nrrd': 'NRRD', '.nhdr': 'NRRD',
+                '.csv': 'CSV', '.tsv': 'TSV', '.json': 'JSON',
+                '.txt': 'TEXT', '.pdf': 'PDF', '.png': 'PNG',
+                '.jpg': 'JPEG', '.jpeg': 'JPEG', '.gif': 'GIF',
+                '.zip': 'ZIP', '.tar': 'TAR', '.gz': 'GZIP',
+                '.mat': 'MATLAB', '.npy': 'NUMPY', '.npz': 'NUMPY'
+            }
+            return ext_map.get(filepath.suffix.lower(), 'OTHER')
+
+    class AuthHandler(BaseXNATHandler):
+        @tornado.web.authenticated
+        async def post(self):
+            if not xnat:
+                return self.write_json({'valid': False, 'error': 'xnat library not installed'}, 500)
+            try:
+                data = json.loads(self.request.body)
+                alias, secret = data.get('alias', '').strip(), data.get('secret', '').strip()
+                if not alias or not secret:
+                    return self.write_json({'valid': False, 'error': 'Alias and secret required'}, 400)
+
+                xnat_url = os.environ.get('XNAT_URL', 'http://{{ include "neurodesk.xnatHost" . }}')
+                session = xnat.connect(xnat_url, user=alias, password=secret)
+                username = session.logged_in_user
+
+                uploader = self.get_uploader()
+                uploader['session'] = session
+                uploader['alias'] = alias
+                uploader['secret'] = secret
+                uploader['authenticated_user'] = username
+
+                self.write_json({'valid': True, 'username': username, 'xnat_url': xnat_url})
+            except Exception as e:
+                self.write_json({'valid': False, 'error': str(e)}, 401)
+
+    class ProjectsHandler(BaseXNATHandler):
+        @tornado.web.authenticated
+        async def get(self):
+            uploader = self.get_uploader()
+            session = uploader.get('session')
+            if not session:
+                return self.write_json({'error': 'Not authenticated'}, 401)
+            try:
+                projects = []
+                for proj in session.projects.values():
+                    # Check user's role in this project
+                    role = self.get_user_role_in_project(session, proj.id)
+                    # Only include projects where user has upload permissions
+                    if role in ['Owners', 'Members', 'Collaborators']:
+                        projects.append({'id': proj.id, 'name': proj.name, 'role': role})
+                self.write_json({'projects': projects})
+            except Exception as e:
+                self.write_json({'error': str(e)}, 500)
+
+    class FilesHandler(BaseXNATHandler):
+        @tornado.web.authenticated
+        async def get(self):
+            try:
+                workspace = self.get_workspace_path()
+                subpath = self.get_argument('path', '')
+                absolute = self.get_argument('absolute', 'false').lower() == 'true'
+
+                # Handle absolute paths for external directories
+                if absolute and subpath:
+                    full_path = Path(subpath)
+                    if not self.is_path_allowed(full_path):
+                        return self.write_json({'error': 'Path not allowed'}, 400)
+                    is_absolute = True
+                else:
+                    full_path = (workspace / subpath) if subpath else workspace
+                    if not str(full_path.resolve()).startswith(str(workspace.resolve())):
+                        return self.write_json({'error': 'Invalid path'}, 400)
+                    is_absolute = False
+
+                if not full_path.exists():
+                    return self.write_json({'error': 'Path does not exist'}, 404)
+
+                files = []
+                for item in sorted(full_path.iterdir()):
+                    if item.name.startswith('.'):
+                        continue
+                    # For absolute paths, store absolute path; otherwise workspace-relative
+                    if is_absolute:
+                        item_path = str(item)
+                    else:
+                        item_path = str(item.relative_to(workspace))
+                    info = {'name': item.name, 'path': item_path,
+                            'type': 'directory' if item.is_dir() else 'file'}
+                    if item.is_file():
+                        info['size'] = item.stat().st_size
+                        info['format'] = self.detect_format(item)
+                    files.append(info)
+
+                self.write_json({
+                    'files': files,
+                    'path': str(full_path),
+                    'workspace': str(workspace),
+                    'is_absolute': is_absolute,
+                    'allowed_roots': self.get_allowed_roots()
+                })
+            except Exception as e:
+                self.write_json({'error': str(e)}, 500)
+
+    # Map session type codes to XNAT xsiTypes and class names
+    SESSION_TYPE_MAP = {
+        'MR': {'xsi': 'xnat:mrSessionData', 'scan_xsi': 'xnat:mrScanData', 'class': 'MrSessionData'},
+        'CT': {'xsi': 'xnat:ctSessionData', 'scan_xsi': 'xnat:ctScanData', 'class': 'CtSessionData'},
+        'PET': {'xsi': 'xnat:petSessionData', 'scan_xsi': 'xnat:petScanData', 'class': 'PetSessionData'},
+        'US': {'xsi': 'xnat:usSessionData', 'scan_xsi': 'xnat:usScanData', 'class': 'UsSessionData'},
+        'XA': {'xsi': 'xnat:xaSessionData', 'scan_xsi': 'xnat:xaScanData', 'class': 'XaSessionData'},
+        'MG': {'xsi': 'xnat:mgSessionData', 'scan_xsi': 'xnat:mgScanData', 'class': 'MgSessionData'},
+        'OPT': {'xsi': 'xnat:optSessionData', 'scan_xsi': 'xnat:optScanData', 'class': 'OptSessionData'},
+    }
+
+    class UploadHandler(BaseXNATHandler):
+        @tornado.web.authenticated
+        async def post(self):
+            uploader = self.get_uploader()
+            session = uploader.get('session')
+            if not session:
+                return self.write_json({'error': 'Not authenticated'}, 401)
+
+            try:
+                from urllib.parse import quote
+                data = json.loads(self.request.body)
+                files = data.get('files', [])
+                project_id = data.get('project_id', '').strip()
+
+                # Security check: Verify user has upload permissions for this project
+                if not self.user_can_upload_to_project(session, project_id):
+                    return self.write_json({'error': 'Permission denied: You do not have upload access to this project'}, 403)
+                subject_id = data.get('subject_id', '').strip() or None
+                session_id = data.get('session_id', '').strip() or None
+                scan_id = data.get('scan_id', '').strip() or None
+                session_type = data.get('session_type', 'MR').strip().upper()
+                scan_type_label = data.get('scan_type', '').strip() or 'OTHER'
+                resource_label = data.get('resource_label', 'FILES').strip()
+
+                if not files or not project_id:
+                    return self.write_json({'error': 'files and project_id required'}, 400)
+
+                workspace = self.get_workspace_path()
+                project = session.projects[project_id]
+                results = []
+
+                # Get type info from mapping
+                type_info = SESSION_TYPE_MAP.get(session_type, SESSION_TYPE_MAP['MR'])
+                session_xsi = type_info['xsi']
+                scan_xsi = type_info['scan_xsi']
+                session_class_name = type_info['class']
+
+                for file_path_str in files:
+                    file_path = Path(file_path_str)
+                    if not file_path.is_absolute():
+                        file_path = workspace / file_path_str
+
+                    # Validate file access
+                    if not file_path.exists():
+                        results.append({'file': file_path.name, 'status': 'failed', 'error': 'File not found'})
+                        continue
+
+                    if not self.is_path_allowed(file_path):
+                        results.append({'file': file_path.name, 'status': 'failed', 'error': 'Path not allowed'})
+                        continue
+
+                    try:
+                        filename = file_path.name
+                        parent_obj = project  # Default to project level
+
+                        # Build hierarchy
+                        if subject_id:
+                            # Get or create subject
+                            if subject_id not in project.subjects:
+                                session.classes.SubjectData(parent=project, label=subject_id)
+                            subj = project.subjects[subject_id]
+                            parent_obj = subj
+
+                            if session_id:
+                                # Get or create experiment/session
+                                if session_id not in subj.experiments:
+                                    if hasattr(session.classes, session_class_name):
+                                        session_class = getattr(session.classes, session_class_name)
+                                        session_class(parent=subj, label=session_id)
+                                    else:
+                                        # Fallback: create via REST
+                                        uri = f'/data/projects/{project_id}/subjects/{subject_id}/experiments/{session_id}'
+                                        session.put(uri, query={'xsiType': session_xsi})
+                                exp = subj.experiments[session_id]
+                                parent_obj = exp
+
+                                if scan_id:
+                                    # Create scan via REST API (xnatpy doesn't have direct scan creation)
+                                    scan_uri = f'{exp.uri}/scans/{scan_id}'
+                                    try:
+                                        # Try to create scan - may already exist
+                                        session.put(scan_uri, query={'xsiType': scan_xsi, 'type': scan_type_label})
+                                    except Exception:
+                                        pass  # Scan may already exist
+
+                                    # Clear cache and get scan
+                                    exp.clearcache()
+                                    if scan_id in exp.scans:
+                                        parent_obj = exp.scans[scan_id]
+                                    else:
+                                        # Upload directly to scan resource URI
+                                        resource_uri = f"{exp.uri}/scans/{scan_id}/resources/{resource_label}/files/{quote(filename)}"
+                                        session.upload_file(resource_uri, str(file_path))
+                                        results.append({'file': filename, 'status': 'success', 'location': f'scan/{scan_id}/{resource_label}'})
+                                        continue
+
+                        # Upload file to resource
+                        resource_uri = f"{parent_obj.uri}/resources/{resource_label}/files/{quote(filename)}"
+                        session.upload_file(resource_uri, str(file_path))
+
+                        # Build location description
+                        if scan_id:
+                            location = f'scan/{scan_id}/{resource_label}'
+                        elif session_id:
+                            location = f'session/{session_id}/{resource_label}'
+                        elif subject_id:
+                            location = f'subject/{subject_id}/{resource_label}'
+                        else:
+                            location = f'project/{resource_label}'
+
+                        results.append({'file': filename, 'status': 'success', 'location': location})
+
+                    except Exception as e:
+                        results.append({'file': file_path.name, 'status': 'failed', 'error': str(e)})
+
+                success = sum(1 for r in results if r['status'] == 'success')
+                self.write_json({'results': results, 'summary': {'total': len(files), 'success': success, 'failed': len(files) - success}})
+            except Exception as e:
+                self.write_json({'error': str(e)}, 500)
+
+    class DisconnectHandler(BaseXNATHandler):
+        @tornado.web.authenticated
+        async def post(self):
+            uploader = self.get_uploader()
+            if uploader.get('session'):
+                try:
+                    uploader['session'].disconnect()
+                except:
+                    pass
+            uploader.clear()
+            self.write_json({'success': True})
+
+    class UIHandler(tornado.web.RequestHandler):
+        """Serve the XNAT Upload UI"""
+        def get(self):
+            self.set_header('Content-Type', 'text/html')
+            self.finish(UPLOAD_UI_HTML)
+
+    def setup_handlers(web_app):
+        base_url = web_app.settings.get("base_url", "/")
+        handlers = [
+            (url_path_join(base_url, "xnat-upload", "auth"), AuthHandler),
+            (url_path_join(base_url, "xnat-upload", "projects"), ProjectsHandler),
+            (url_path_join(base_url, "xnat-upload", "files"), FilesHandler),
+            (url_path_join(base_url, "xnat-upload", "upload"), UploadHandler),
+            (url_path_join(base_url, "xnat-upload", "disconnect"), DisconnectHandler),
+            (url_path_join(base_url, "xnat-upload", "ui"), UIHandler),
+            (url_path_join(base_url, "xnat-upload") + "/?", UIHandler),
+        ]
+        web_app.add_handlers(".*$", handlers)
+
+    # HTML UI Template (embedded)
+    UPLOAD_UI_HTML = '''<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>XNAT Upload</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 24px; }
+        h1 { color: #1976d2; margin-bottom: 8px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 24px; }
+        .section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #eee; }
+        .section:last-child { border-bottom: none; margin-bottom: 0; }
+        h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 12px; }
+        input:focus, select:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.2); }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .btn-primary { background: #1976d2; color: white; }
+        .btn-primary:hover { background: #1565c0; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-success:hover { background: #43a047; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-danger:hover { background: #e53935; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status { padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 14px; }
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
+        .status.info { background: #e3f2fd; color: #1565c0; }
+        .file-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 12px; }
+        .file-item { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #eee; gap: 8px; }
+        .file-item:last-child { border-bottom: none; }
+        .file-item.dir { cursor: pointer; background: #fafafa; }
+        .file-item.dir:hover { background: #f0f0f0; }
+        .file-item input { margin: 0; }
+        .file-name { flex: 1; font-size: 13px; }
+        .file-meta { font-size: 11px; color: #999; }
+        .file-format { padding: 2px 6px; border-radius: 3px; font-size: 10px; color: white; background: #9e9e9e; }
+        .file-format.NIFTI { background: #4caf50; }
+        .file-format.DICOM { background: #2196f3; }
+        .file-format.DICOM_DIR { background: #1976d2; }
+        .file-format.ANALYZE { background: #8bc34a; }
+        .file-format.MGZ, .file-format.MGH { background: #009688; }
+        .file-format.MINC { background: #00bcd4; }
+        .file-format.NRRD { background: #03a9f4; }
+        .file-format.CSV, .file-format.TSV { background: #ff9800; }
+        .file-format.JSON { background: #ffc107; color: #333; }
+        .file-format.MATLAB { background: #795548; }
+        .file-format.NUMPY { background: #607d8b; }
+        .file-format.ZIP, .file-format.TAR, .file-format.GZIP { background: #9c27b0; }
+        .breadcrumbs { font-size: 13px; margin-bottom: 8px; color: #666; }
+        .breadcrumbs span { cursor: pointer; color: #1976d2; }
+        .breadcrumbs span:hover { text-decoration: underline; }
+        .row { display: flex; gap: 12px; }
+        .row > * { flex: 1; }
+        .results { margin-top: 16px; }
+        .result-item { padding: 8px 12px; margin-bottom: 4px; border-radius: 4px; font-size: 13px; }
+        .result-item.success { background: #e8f5e9; }
+        .result-item.failed { background: #ffebee; }
+        .hidden { display: none; }
+        .help { font-size: 12px; color: #666; margin-top: 4px; }
+        .quick-access { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .quick-label { font-size: 13px; color: #666; }
+        .btn-small { padding: 4px 10px; font-size: 12px; background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .btn-small:hover { background: #bbdefb; }
+        .btn-small.active { background: #1976d2; color: white; border-color: #1976d2; }
+        .manual-path { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
+        .manual-path label { margin-bottom: 6px; }
+        .selected-files-section { margin-top: 12px; }
+        .selected-files-list { max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+        .selected-files-list:empty { display: none; }
+        .selected-file-item { display: flex; align-items: center; padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 12px; gap: 8px; }
+        .selected-file-item:last-child { border-bottom: none; }
+        .selected-file-item .file-path { flex: 1; word-break: break-all; color: #333; }
+        .selected-file-item .remove-btn { background: #ffebee; color: #c62828; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .selected-file-item .remove-btn:hover { background: #ffcdd2; }
+        .btn-clear { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+        .btn-clear:hover { background: #ffe0b2; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>XNAT Upload</h1>
+        <p class="subtitle">Upload files from JupyterHub to XNAT</p>
+
+        <!-- Auth Section -->
+        <div class="section" id="auth-section">
+          <h2>1. Authentication</h2>
+          <div id="auth-form">
+            <label>Alias Token</label>
+            <input type="text" id="alias" placeholder="Enter your XNAT alias token">
+            <label>Secret</label>
+            <input type="password" id="secret" placeholder="Enter your secret">
+            <button class="btn btn-primary" onclick="authenticate()">Connect to XNAT</button>
+          </div>
+          <div id="auth-status"></div>
+        </div>
+
+        <!-- Project Section -->
+        <div class="section hidden" id="project-section">
+          <h2>2. Select Project & Location</h2>
+          <select id="project-select"><option value="">Loading projects...</option></select>
+          <div class="row">
+            <div><label>Subject ID</label><input type="text" id="subject-id" placeholder="e.g., SUBJ001"></div>
+            <div><label>Session ID</label><input type="text" id="session-id" placeholder="e.g., SESS001"></div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Modality</label>
+              <select id="session-type">
+                <option value="MR">MR (MRI)</option>
+                <option value="CT">CT</option>
+                <option value="PET">PET</option>
+                <option value="US">Ultrasound</option>
+                <option value="XA">X-Ray Angio</option>
+                <option value="MG">Mammography</option>
+                <option value="OPT">Optical</option>
+              </select>
+              <p class="help">Imaging modality for session</p>
+            </div>
+            <div><label>Scan ID</label><input type="text" id="scan-id" placeholder="e.g., 1, SCAN01"><p class="help">Leave empty for session-level upload</p></div>
+          </div>
+          <div class="row">
+            <div><label>Scan Type</label><input type="text" id="scan-type" placeholder="e.g., T1, T2, FLAIR, DWI"><p class="help">Label describing the scan</p></div>
+            <div><label>Resource Label</label><input type="text" id="resource-label" value="FILES" placeholder="e.g., FILES, NIFTI"><p class="help">Container name for files</p></div>
+          </div>
+          <p class="help" style="margin-top:8px"><strong>Hierarchy:</strong> Project → Subject → Session → Scan (leave fields empty for higher-level upload)</p>
+        </div>
+
+        <!-- Files Section -->
+        <div class="section hidden" id="files-section">
+          <h2>3. Select Files</h2>
+          <div class="quick-access" id="quick-access">
+            <span class="quick-label">Browse:</span>
+            <button class="btn btn-small" onclick="loadFiles('', false)">Workspace</button>
+          </div>
+          <div class="breadcrumbs" id="breadcrumbs"></div>
+          <div class="file-list" id="file-list"></div>
+          <div class="manual-path">
+            <label>Or enter path manually:</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="manual-path" placeholder="/neurodesktop-storage/path/to/file.nii.gz" style="flex:1;margin-bottom:0">
+              <button class="btn btn-primary" onclick="addManualPath()">Add</button>
+            </div>
+          </div>
+          <div class="selected-files-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <label><span id="selected-count">0</span> file(s) selected</label>
+              <button class="btn btn-small btn-clear" onclick="clearAllFiles()" id="clear-all-btn" style="display:none">Clear All</button>
+            </div>
+            <div class="selected-files-list" id="selected-files-list"></div>
+          </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="section hidden" id="upload-section">
+          <h2>4. Upload</h2>
+          <button class="btn btn-success" id="upload-btn" onclick="uploadFiles()">Upload Selected Files</button>
+          <button class="btn btn-danger" onclick="disconnect()">Disconnect</button>
+          <div class="results" id="results"></div>
+        </div>
+      </div>
+
+      <script>
+        let currentPath = "";
+        let selectedFiles = new Set();
+        let isAbsolute = false;
+        let allowedRoots = [];
+        let workspacePath = "";
+        // Get base URL from current page location
+        const baseUrl = window.location.pathname.replace(/\/ui\/?$/, "").replace(/\/?$/, "");
+
+        function getXsrfToken() {
+          const m = document.cookie.match(/(?:^|;\s*)_xsrf=([^;]*)/);
+          return m ? decodeURIComponent(m[1]) : "";
+        }
+
+        async function api(endpoint, method = "GET", body = null) {
+          const opts = { method, credentials: "same-origin", headers: { "Content-Type": "application/json", "X-XSRFToken": getXsrfToken() } };
+          if (body) opts.body = JSON.stringify(body);
+          const res = await fetch(baseUrl + "/" + endpoint, opts);
+          return res.json();
+        }
+
+        async function authenticate() {
+          const alias = document.getElementById("alias").value;
+          const secret = document.getElementById("secret").value;
+          if (!alias || !secret) return showStatus("auth-status", "Please enter alias and secret", "error");
+
+          showStatus("auth-status", "Connecting...", "info");
+          const res = await api("auth", "POST", { alias, secret });
+
+          if (res.valid) {
+            showStatus("auth-status", "Connected as: " + res.username, "success");
+            document.getElementById("project-section").classList.remove("hidden");
+            document.getElementById("files-section").classList.remove("hidden");
+            document.getElementById("upload-section").classList.remove("hidden");
+            loadProjects();
+            loadFiles("", false);
+          } else {
+            showStatus("auth-status", "Failed: " + res.error, "error");
+          }
+        }
+
+        async function loadProjects() {
+          const res = await api("projects");
+          const select = document.getElementById("project-select");
+          if (res.projects) {
+            select.innerHTML = "<option value=''>-- Select Project --</option>" +
+              res.projects.map(p => "<option value='" + p.id + "'>" + p.id + " - " + p.name + "</option>").join("");
+          }
+        }
+
+        async function loadFiles(pathOrEl, absolute = null) {
+          var path;
+          if (typeof pathOrEl === "string") {
+            path = pathOrEl;
+            if (absolute !== null) isAbsolute = absolute;
+          } else if (pathOrEl && pathOrEl.dataset) {
+            path = pathOrEl.dataset.path;
+            if (pathOrEl.dataset.absolute !== undefined) isAbsolute = pathOrEl.dataset.absolute === "true";
+          } else {
+            path = "";
+            isAbsolute = false;
+          }
+          currentPath = path;
+
+          const queryParams = "path=" + encodeURIComponent(path) + (isAbsolute ? "&absolute=true" : "");
+          const res = await api("files?" + queryParams);
+          const list = document.getElementById("file-list");
+          const crumbs = document.getElementById("breadcrumbs");
+          const quickAccess = document.getElementById("quick-access");
+
+          // Store workspace and allowed roots from response
+          if (res.workspace) workspacePath = res.workspace;
+          if (res.allowed_roots) {
+            allowedRoots = res.allowed_roots;
+            // Update quick access buttons
+            let qaHtml = '<span class="quick-label">Browse:</span>';
+            qaHtml += '<button class="btn btn-small' + (!isAbsolute ? ' active' : '') + '" onclick="loadFiles(\\'\\', false)">Workspace</button>';
+            allowedRoots.filter(r => r !== '/workspace' && r !== '/tmp').forEach(root => {
+              const active = isAbsolute && currentPath.startsWith(root) ? ' active' : '';
+              qaHtml += '<button class="btn btn-small' + active + '" onclick="loadFiles(\\'' + root + '\\', true)">' + root.replace(/^\\//, '') + '</button>';
+            });
+            quickAccess.innerHTML = qaHtml;
+          }
+
+          // Breadcrumbs
+          if (isAbsolute) {
+            const parts = path.split("/").filter(p => p);
+            crumbs.innerHTML = parts.map((p, i) => {
+              var pth = "/" + parts.slice(0, i + 1).join("/");
+              return '<span onclick="loadFiles(this)" data-path="' + pth + '" data-absolute="true">' + p + '</span>';
+            }).join(" / ");
+          } else {
+            const parts = path.split("/").filter(p => p);
+            crumbs.innerHTML = '<span onclick="loadFiles(this)" data-path="" data-absolute="false">workspace</span>' +
+              parts.map((p, i) => {
+                var pth = parts.slice(0, i + 1).join("/");
+                return ' / <span onclick="loadFiles(this)" data-path="' + pth + '" data-absolute="false">' + p + '</span>';
+              }).join("");
+          }
+
+          // File list
+          let parentPath;
+          if (isAbsolute) {
+            const parts = path.split("/").filter(p => p);
+            parentPath = parts.length > 1 ? "/" + parts.slice(0, -1).join("/") : "";
+          } else {
+            parentPath = path.split("/").slice(0, -1).join("/");
+          }
+
+          let html = "";
+          if (path) {
+            if (isAbsolute && parentPath) {
+              html = '<div class="file-item dir" onclick="loadFiles(this)" data-path="' + parentPath + '" data-absolute="true">📁 ..</div>';
+            } else if (!isAbsolute) {
+              html = '<div class="file-item dir" onclick="loadFiles(this)" data-path="' + parentPath + '" data-absolute="false">📁 ..</div>';
+            }
+          }
+
+          if (res.files) {
+            res.files.filter(f => f.type === "directory").forEach(f => {
+              html += '<div class="file-item dir" onclick="loadFiles(this)" data-path="' + f.path + '" data-absolute="' + isAbsolute + '">📁 <span class="file-name">' + f.name + '</span></div>';
+            });
+            res.files.filter(f => f.type === "file").forEach(f => {
+              const checked = selectedFiles.has(f.path) ? "checked" : "";
+              const size = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " MB" : (f.size / 1024).toFixed(1) + " KB";
+              html += '<div class="file-item"><input type="checkbox" ' + checked + ' data-path="' + f.path + '" onchange="toggleFile(this)">' +
+                '📄 <span class="file-name">' + f.name + '</span><span class="file-format ' + f.format + '">' + f.format + '</span><span class="file-meta">' + size + '</span></div>';
+            });
+          }
+          list.innerHTML = html || "<div class='file-item'>No files</div>";
+        }
+
+        function addManualPath() {
+          const input = document.getElementById("manual-path");
+          const path = input.value.trim();
+          if (!path) return;
+          selectedFiles.add(path);
+          input.value = "";
+          updateSelectedFilesList();
+        }
+
+        function toggleFile(el) {
+          var path = el.dataset.path;
+          var checked = el.checked;
+          if (checked) selectedFiles.add(path); else selectedFiles.delete(path);
+          updateSelectedFilesList();
+        }
+
+        function removeFile(path) {
+          selectedFiles.delete(path);
+          // Uncheck checkbox if visible in file browser
+          const checkbox = document.querySelector('input[data-path="' + path + '"]');
+          if (checkbox) checkbox.checked = false;
+          updateSelectedFilesList();
+        }
+
+        function clearAllFiles() {
+          selectedFiles.clear();
+          // Uncheck all checkboxes
+          document.querySelectorAll('#file-list input[type="checkbox"]').forEach(cb => cb.checked = false);
+          updateSelectedFilesList();
+        }
+
+        function updateSelectedFilesList() {
+          const count = selectedFiles.size;
+          document.getElementById("selected-count").textContent = count;
+          const clearBtn = document.getElementById("clear-all-btn");
+          clearBtn.style.display = count > 0 ? "inline-block" : "none";
+
+          const listEl = document.getElementById("selected-files-list");
+          if (count === 0) {
+            listEl.innerHTML = "";
+            return;
+          }
+
+          let html = "";
+          Array.from(selectedFiles).forEach(path => {
+            const fileName = path.split("/").pop();
+            html += '<div class="selected-file-item">' +
+              '<span class="file-path" title="' + path + '">' + fileName + '</span>' +
+              '<button class="remove-btn" onclick="removeFile(\\'' + path.replace(/'/g, "\\\\'") + '\\')">Remove</button>' +
+              '</div>';
+          });
+          listEl.innerHTML = html;
+        }
+
+        async function uploadFiles() {
+          const project = document.getElementById("project-select").value;
+          if (!project) return alert("Please select a project");
+          if (selectedFiles.size === 0) return alert("Please select files");
+
+          const btn = document.getElementById("upload-btn");
+          btn.disabled = true;
+          btn.textContent = "Uploading...";
+
+          const res = await api("upload", "POST", {
+            files: Array.from(selectedFiles),
+            project_id: project,
+            subject_id: document.getElementById("subject-id").value,
+            session_id: document.getElementById("session-id").value,
+            scan_id: document.getElementById("scan-id").value,
+            session_type: document.getElementById("session-type").value,
+            scan_type: document.getElementById("scan-type").value,
+            resource_label: document.getElementById("resource-label").value || "FILES"
+          });
+
+          btn.disabled = false;
+          btn.textContent = "Upload Selected Files";
+
+          const results = document.getElementById("results");
+          if (res.results) {
+            results.innerHTML = "<h3>Results: " + res.summary.success + "/" + res.summary.total + " successful</h3>" +
+              res.results.map(r => "<div class='result-item " + r.status + "'>" + (r.status === "success" ? "✓" : "✗") + " " + r.file +
+                (r.error ? " - " + r.error : "") + "</div>").join("");
+            if (res.summary.failed === 0) selectedFiles.clear();
+            updateSelectedFilesList();
+            loadFiles(currentPath, isAbsolute);
+          } else {
+            results.innerHTML = "<div class='status error'>" + (res.error || "Upload failed") + "</div>";
+          }
+        }
+
+        async function disconnect() {
+          await api("disconnect", "POST");
+          location.reload();
+        }
+
+        function showStatus(id, msg, type) {
+          document.getElementById(id).innerHTML = "<div class='status " + type + "'>" + msg + "</div>";
+        }
+      </script>
+    </body>
+    </html>'''
+
+  # Extension entry point
+  __init__.py: |
+    from .handlers import setup_handlers
+
+    def _jupyter_server_extension_points():
+        return [{"module": "xnat_upload_extension"}]
+
+    def _load_jupyter_server_extension(server_app):
+        setup_handlers(server_app.web_app)
+        server_app.log.info("XNAT Upload extension loaded")
+
+  # SVG icon for the JupyterLab launcher
+  xnat_icon.svg: |
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#1976d2"/>
+          <stop offset="100%" style="stop-color:#0d47a1"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="15" fill="url(#grad)"/>
+      <text x="50" y="40" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="16" font-weight="bold">XNAT</text>
+      <path d="M30 55 L50 75 L70 55" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="50" y1="45" x2="50" y2="70" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+
+  # Standalone server for ServerProxy launcher integration
+  neurodesk_server.py: |
+    #!/usr/bin/env python3
+    """
+    Standalone XNAT Upload Server for JupyterLab ServerProxy integration.
+    This server is launched by ServerProxy and provides the XNAT Upload UI.
+    """
+    import os
+    import sys
+    import json
+    import argparse
+    from pathlib import Path
+    from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
+    from urllib.parse import urlparse, parse_qs, quote
+
+    # Try to import xnat library
+    try:
+        import xnat
+    except ImportError:
+        print("Warning: xnat library not available. Run: pip install xnat")
+        xnat = None
+
+    # Try to import fileformats for better detection
+    try:
+        from fileformats.core import from_paths
+        from fileformats.medimage import Nifti1, NiftiGz
+        FILEFORMATS_AVAILABLE = True
+    except ImportError:
+        FILEFORMATS_AVAILABLE = False
+
+    DEFAULT_PORT = 5050
+
+    def resolve_user_path(p):
+        """THE single place an incomplete path is completed. Anything relative is
+        resolved against the user's HOME - never the process CWD, which the
+        ServerProxy child inherits from the notebook (/workspace/<username>)."""
+        p = Path(os.path.expanduser(str(p)))
+        if not p.is_absolute():
+            p = Path.home() / p
+        return p.resolve()
+    ALLOWED_PATHS = ['/workspace', '/home/jovyan', '/neurodesktop-storage', '/data', '/tmp']
+
+    # Global state
+    xnat_session = None
+    authenticated_user = None
+
+    class XNATHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            print(f"[XNAT] {format % args}")
+
+        def send_json(self, data, status=200):
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode())
+
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.end_headers()
+
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            if parsed.path in ['/', '/index.html']:
+                self.serve_html()
+            elif parsed.path == '/api/projects':
+                self.get_projects()
+            elif parsed.path == '/api/files':
+                self.list_files(parse_qs(parsed.query))
+            else:
+                self.send_error(404)
+
+        def do_POST(self):
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                body = json.loads(self.rfile.read(length)) if length else {}
+            except (ValueError, TypeError) as e:
+                return self.send_json({'error': 'Malformed request body: ' + str(e)}, 400)
+            parsed = urlparse(self.path)
+
+            if parsed.path == '/api/auth':
+                self.authenticate(body)
+            elif parsed.path == '/api/upload':
+                self.upload_files(body)
+            elif parsed.path == '/api/disconnect':
+                self.disconnect()
+            else:
+                self.send_error(404)
+
+        def is_path_allowed(self, path):
+            try:
+                resolved = resolve_user_path(path)
+                for root in list(ALLOWED_PATHS) + [str(Path.home())]:
+                    try:
+                        root_p = Path(root).resolve()
+                    except OSError:
+                        continue
+                    if resolved == root_p or root_p in resolved.parents:
+                        return True
+                return False
+            except Exception:
+                return False
+
+        def detect_format(self, path):
+            name = path.name.lower()
+            if name.endswith('.nii.gz') or name.endswith('.nii'):
+                return 'NIFTI'
+            if name.endswith('.dcm') or name.endswith('.dicom'):
+                return 'DICOM'
+            ext_map = {'.csv': 'CSV', '.json': 'JSON', '.txt': 'TEXT', '.pdf': 'PDF',
+                       '.png': 'PNG', '.jpg': 'JPEG', '.zip': 'ZIP', '.mat': 'MATLAB'}
+            return ext_map.get(path.suffix.lower(), 'OTHER')
+
+        def authenticate(self, data):
+            global xnat_session, authenticated_user
+            alias, secret = data.get('alias', '').strip(), data.get('secret', '').strip()
+            if not alias or not secret:
+                return self.send_json({'valid': False, 'error': 'Credentials required'}, 400)
+            if not xnat:
+                return self.send_json({'valid': False, 'error': 'xnat library not installed'}, 500)
+            try:
+                xnat_url = os.environ.get('XNAT_URL', 'http://{{ include "neurodesk.xnatHost" . }}')
+                xnat_session = xnat.connect(xnat_url, user=alias, password=secret)
+                authenticated_user = xnat_session.logged_in_user
+                self.send_json({'valid': True, 'username': authenticated_user, 'xnat_url': xnat_url})
+            except Exception as e:
+                self.send_json({'valid': False, 'error': str(e)}, 401)
+
+        def get_user_role_in_project(self, project_id):
+            """Get user's role in a project"""
+            global xnat_session
+            try:
+                username = xnat_session.logged_in_user
+                data = xnat_session.get_json(f'/data/projects/{project_id}/users/{username}')
+                results = data.get('ResultSet', {}).get('Result', [])
+                for result in results:
+                    if result.get('login') == username:
+                        return result.get('displayname')
+                return None
+            except:
+                return None
+
+        def user_can_upload(self, project_id):
+            """Check if user has upload permissions"""
+            role = self.get_user_role_in_project(project_id)
+            return role in ['Owners', 'Members', 'Collaborators']
+
+        def get_projects(self):
+            global xnat_session
+            if not xnat_session:
+                return self.send_json({'error': 'Not authenticated'}, 401)
+            try:
+                projects = []
+                for p in xnat_session.projects.values():
+                    role = self.get_user_role_in_project(p.id)
+                    # Only include projects where user has upload permissions
+                    if role in ['Owners', 'Members', 'Collaborators']:
+                        projects.append({'id': p.id, 'name': p.name, 'role': role})
+                self.send_json({'projects': projects})
+            except Exception as e:
+                self.send_json({'error': str(e)}, 500)
+
+        def list_files(self, params):
+            path = params.get('path', [''])[0]
+            full_path = resolve_user_path(path) if path else Path.home()
+
+            if not self.is_path_allowed(full_path):
+                return self.send_json({'error': 'Path not allowed'}, 400)
+            if not full_path.exists():
+                return self.send_json({'error': 'Path not found'}, 404)
+
+            files = []
+            try:
+                entries = sorted(full_path.iterdir())
+            except OSError as e:
+                return self.send_json({'error': 'Cannot read directory: ' + str(e)}, 403)
+            for item in entries:
+                if item.name.startswith('.'):
+                    continue
+                # ALWAYS emit complete (absolute) paths - one representation everywhere,
+                # so no consumer ever has to guess how to complete them.
+                try:
+                    info = {'name': item.name, 'path': str(item), 'type': 'directory' if item.is_dir() else 'file'}
+                    if item.is_file():
+                        try:
+                            info['size'] = item.stat().st_size
+                            info['format'] = self.detect_format(item)
+                        except OSError:
+                            pass
+                except OSError:
+                    continue
+                files.append(info)
+            # Only advertise roots that exist on THIS pod, so the UI cannot render a
+            # Browse button that goes nowhere.
+            roots = [r for r in ALLOWED_PATHS if Path(r).is_dir()]
+            self.send_json({'files': files, 'path': str(full_path), 'home': str(Path.home()), 'allowed_roots': roots})
+
+        def upload_files(self, data):
+            global xnat_session
+            if not xnat_session:
+                return self.send_json({'error': 'Not authenticated'}, 401)
+
+            files = data.get('files', [])
+            project_id = data.get('project_id', '')
+            subject_id = data.get('subject_id') or None
+            session_id = data.get('session_id') or None
+            scan_id = data.get('scan_id') or None
+            session_type = data.get('session_type', 'MR').upper()
+            scan_type = data.get('scan_type', 'OTHER')
+            resource_label = data.get('resource_label', 'FILES')
+
+            if not files or not project_id:
+                return self.send_json({'error': 'files and project_id required'}, 400)
+
+            # Security check: Verify user has upload permissions
+            if not self.user_can_upload(project_id):
+                return self.send_json({'error': 'Permission denied: You do not have upload access to this project'}, 403)
+
+            # Session type mapping
+            type_map = {
+                'MR': ('xnat:mrSessionData', 'xnat:mrScanData', 'MrSessionData'),
+                'CT': ('xnat:ctSessionData', 'xnat:ctScanData', 'CtSessionData'),
+                'PET': ('xnat:petSessionData', 'xnat:petScanData', 'PetSessionData'),
+            }
+            session_xsi, scan_xsi, session_class = type_map.get(session_type, type_map['MR'])
+
+            results = []
+            try:
+                project = xnat_session.projects[project_id]
+            except Exception:
+                return self.send_json({'error': "Project '" + str(project_id) + "' not found or not accessible"}, 404)
+
+            seen_names = {}
+            for file_path in files:
+                try:
+                    fp = resolve_user_path(file_path)
+                    if not self.is_path_allowed(fp):
+                        results.append({'file': fp.name, 'status': 'failed', 'error': 'Path not allowed'})
+                        continue
+                    if not fp.is_file():
+                        msg = 'Not a regular file' if fp.exists() else 'File not found'
+                        results.append({'file': fp.name, 'status': 'failed', 'error': msg})
+                        continue
+                except (TypeError, ValueError, OSError) as e:
+                    results.append({'file': str(file_path)[:80], 'status': 'failed', 'error': 'Invalid path: ' + str(e)})
+                    continue
+                prev = seen_names.get(fp.name)
+                if prev is not None and prev != str(fp):
+                    results.append({'file': fp.name, 'status': 'failed', 'error': 'Duplicate filename - would overwrite ' + prev})
+                    continue
+                seen_names[fp.name] = str(fp)
+
+                try:
+                    parent_obj = project
+                    if subject_id:
+                        if subject_id not in project.subjects:
+                            xnat_session.classes.SubjectData(parent=project, label=subject_id)
+                        parent_obj = project.subjects[subject_id]
+
+                        if session_id:
+                            if session_id not in parent_obj.experiments:
+                                if hasattr(xnat_session.classes, session_class):
+                                    getattr(xnat_session.classes, session_class)(parent=parent_obj, label=session_id)
+                                else:
+                                    xnat_session.put(f'{parent_obj.uri}/experiments/{session_id}', query={'xsiType': session_xsi})
+                            parent_obj = parent_obj.experiments[session_id]
+
+                            if scan_id:
+                                xnat_session.put(f'{parent_obj.uri}/scans/{scan_id}', query={'xsiType': scan_xsi, 'type': scan_type})
+                                parent_obj.clearcache()
+                                if scan_id in parent_obj.scans:
+                                    parent_obj = parent_obj.scans[scan_id]
+
+                    # Upload
+                    uri = f"{parent_obj.uri}/resources/{resource_label}/files/{quote(fp.name)}"
+                    xnat_session.upload_file(uri, str(fp))
+                    results.append({'file': fp.name, 'status': 'success', 'location': resource_label})
+                except Exception as e:
+                    results.append({'file': fp.name, 'status': 'failed', 'error': str(e)})
+
+            success = sum(1 for r in results if r['status'] == 'success')
+            self.send_json({'results': results, 'summary': {'total': len(files), 'success': success, 'failed': len(files) - success}})
+
+        def disconnect(self):
+            global xnat_session, authenticated_user
+            if xnat_session:
+                try:
+                    xnat_session.disconnect()
+                except:
+                    pass
+            xnat_session = None
+            authenticated_user = None
+            self.send_json({'success': True})
+
+        def serve_html(self):
+            html = '''<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>XNAT Upload</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 24px; }
+        h1 { color: #1976d2; margin-bottom: 8px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 24px; }
+        .section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #eee; }
+        .section:last-child { border-bottom: none; margin-bottom: 0; }
+        h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 12px; }
+        input:focus, select:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.2); }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .btn-primary { background: #1976d2; color: white; }
+        .btn-primary:hover { background: #1565c0; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-success:hover { background: #43a047; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-danger:hover { background: #e53935; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status { padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 14px; }
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
+        .status.info { background: #e3f2fd; color: #1565c0; }
+        .file-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 12px; }
+        .file-item { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #eee; gap: 8px; }
+        .file-item:last-child { border-bottom: none; }
+        .file-item.dir { cursor: pointer; background: #fafafa; }
+        .file-item.dir:hover { background: #f0f0f0; }
+        .file-item input { margin: 0; }
+        .file-name { flex: 1; font-size: 13px; }
+        .file-meta { font-size: 11px; color: #999; }
+        .file-format { padding: 2px 6px; border-radius: 3px; font-size: 10px; color: white; background: #9e9e9e; }
+        .file-format.NIFTI { background: #4caf50; }
+        .file-format.DICOM { background: #2196f3; }
+        .file-format.ANALYZE { background: #8bc34a; }
+        .file-format.CSV, .file-format.TSV { background: #ff9800; }
+        .file-format.JSON { background: #ffc107; color: #333; }
+        .file-format.ZIP, .file-format.TAR { background: #9c27b0; }
+        .breadcrumbs { font-size: 13px; margin-bottom: 8px; color: #666; }
+        .breadcrumbs span { cursor: pointer; color: #1976d2; }
+        .breadcrumbs span:hover { text-decoration: underline; }
+        .row { display: flex; gap: 12px; }
+        .row > * { flex: 1; }
+        .results { margin-top: 16px; }
+        .result-item { padding: 8px 12px; margin-bottom: 4px; border-radius: 4px; font-size: 13px; }
+        .result-item.success { background: #e8f5e9; }
+        .result-item.failed { background: #ffebee; }
+        .hidden { display: none; }
+        .help { font-size: 12px; color: #666; margin-top: 4px; }
+        .quick-access { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .quick-label { font-size: 13px; color: #666; }
+        .btn-small { padding: 4px 10px; font-size: 12px; background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+        .btn-small:hover { background: #bbdefb; }
+        .btn-small.active { background: #1976d2; color: white; border-color: #1976d2; }
+        .manual-path { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
+        .selected-files-section { margin-top: 12px; }
+        .selected-files-list { max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+        .selected-files-list:empty { display: none; }
+        .collision-warn { margin: 8px 0; padding: 8px 10px; border-radius: 4px; background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; font-size: 12px; }
+        .collision-warn:empty { display: none; }
+        .selected-file-item { display: flex; align-items: center; padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 12px; gap: 8px; }
+        .selected-file-item:last-child { border-bottom: none; }
+        .selected-file-item .file-path { flex: 1; word-break: break-all; color: #333; }
+        .selected-file-item .remove-btn { background: #ffebee; color: #c62828; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .selected-file-item .remove-btn:hover { background: #ffcdd2; }
+        .btn-clear { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+        .btn-clear:hover { background: #ffe0b2; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>XNAT Upload</h1>
+        <p class="subtitle">Upload files from JupyterHub to XNAT</p>
+
+        <div class="section" id="auth-section">
+          <h2>1. Authentication</h2>
+          <label>Alias Token</label>
+          <input type="text" id="alias" placeholder="Enter your XNAT alias token">
+          <label>Secret</label>
+          <input type="password" id="secret" placeholder="Enter your secret">
+          <button class="btn btn-primary" onclick="authenticate()">Connect to XNAT</button>
+          <div id="auth-status"></div>
+        </div>
+
+        <div class="section hidden" id="project-section">
+          <h2>2. Select Project & Location</h2>
+          <select id="project-select"><option value="">Loading projects...</option></select>
+          <div class="row">
+            <div><label>Subject ID</label><input type="text" id="subject-id" placeholder="e.g., SUBJ001"></div>
+            <div><label>Session ID</label><input type="text" id="session-id" placeholder="e.g., SESS001"></div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Modality</label>
+              <select id="session-type">
+                <option value="MR">MR (MRI)</option>
+                <option value="CT">CT</option>
+                <option value="PET">PET</option>
+              </select>
+            </div>
+            <div><label>Scan ID</label><input type="text" id="scan-id" placeholder="e.g., 1, SCAN01"><p class="help">Leave empty for session-level</p></div>
+          </div>
+          <div class="row">
+            <div><label>Scan Type</label><input type="text" id="scan-type" placeholder="e.g., T1, T2, FLAIR"></div>
+            <div><label>Resource Label</label><input type="text" id="resource-label" value="FILES" placeholder="e.g., FILES, NIFTI"></div>
+          </div>
+        </div>
+
+        <div class="section hidden" id="files-section">
+          <h2>3. Select Files</h2>
+          <div class="quick-access" id="quick-access"><span class="quick-label">Browse:</span></div>
+          <div class="breadcrumbs" id="breadcrumbs"></div>
+          <div class="file-list" id="file-list"></div>
+          <div class="manual-path">
+            <label>Or enter path manually:</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="manual-path" placeholder="/neurodesktop-storage/path/to/file.nii.gz" style="flex:1;margin-bottom:0">
+              <button class="btn btn-primary" onclick="addManualPath()">Add</button>
+            </div>
+          </div>
+          <div class="selected-files-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <label><span id="selected-count">0</span> file(s) selected</label>
+              <button class="btn btn-small btn-clear" onclick="clearAllFiles()" id="clear-all-btn" style="display:none">Clear All</button>
+            </div>
+            <div class="collision-warn" id="collision-warn"></div>
+            <div class="selected-files-list" id="selected-files-list"></div>
+          </div>
+        </div>
+
+        <div class="section hidden" id="upload-section">
+          <h2>4. Upload</h2>
+          <button class="btn btn-success" id="upload-btn" onclick="uploadFiles()">Upload Selected Files</button>
+          <button class="btn btn-danger" onclick="disconnect()">Disconnect</button>
+          <div class="results" id="results"></div>
+        </div>
+      </div>
+
+      <script>
+        let currentPath = "";
+        let selectedFiles = new Set();
+        let allowedRoots = [];
+        let homeDir = "";
+
+        // HTML-escape anything interpolated into markup. Filenames are attacker-influenced
+        // on shared mounts (/data, /neurodesktop-storage).
+        function esc(s) {
+          return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+        const baseUrl = window.location.pathname.replace(/\\/$/, "");
+
+        async function api(endpoint, method = "GET", body = null) {
+          const opts = { method, headers: { "Content-Type": "application/json" } };
+          if (body) opts.body = JSON.stringify(body);
+          const res = await fetch(baseUrl + "/api/" + endpoint, opts);
+          return res.json();
+        }
+
+        async function authenticate() {
+          const alias = document.getElementById("alias").value;
+          const secret = document.getElementById("secret").value;
+          if (!alias || !secret) return showStatus("auth-status", "Please enter alias and secret", "error");
+          showStatus("auth-status", "Connecting...", "info");
+          const res = await api("auth", "POST", { alias, secret });
+          if (res.valid) {
+            showStatus("auth-status", "Connected as: " + res.username, "success");
+            document.getElementById("project-section").classList.remove("hidden");
+            document.getElementById("files-section").classList.remove("hidden");
+            document.getElementById("upload-section").classList.remove("hidden");
+            loadProjects();
+            loadFiles("");
+          } else {
+            showStatus("auth-status", "Failed: " + res.error, "error");
+          }
+        }
+
+        async function loadProjects() {
+          const res = await api("projects");
+          const select = document.getElementById("project-select");
+          if (res.projects) {
+            select.innerHTML = "<option value=''>-- Select Project --</option>" +
+              res.projects.map(p => "<option value='" + p.id + "'>" + p.id + " - " + p.name + (p.role ? " (" + p.role + ")" : "") + "</option>").join("");
+          }
+        }
+
+        async function loadFiles(path) {
+          const res = await api("files?path=" + encodeURIComponent(path));
+          if (res.error) return alert(res.error);
+          if (res.home) homeDir = res.home;
+          if (res.path) path = res.path;      // trust the server's resolved absolute path
+          currentPath = path;
+
+          const list = document.getElementById("file-list");
+          const crumbs = document.getElementById("breadcrumbs");
+          const quickAccess = document.getElementById("quick-access");
+
+          if (res.allowed_roots) {
+            allowedRoots = res.allowed_roots;
+            let qaHtml = '<span class="quick-label">Browse:</span>';
+            allowedRoots.filter(r => r !== '/tmp').forEach(root => {
+              const active = (currentPath === root || currentPath.indexOf(root + '/') === 0) ? ' active' : '';
+              const label = (root === homeDir) ? 'Home' : root.replace(/^\\//, '');
+              qaHtml += '<button class="btn btn-small' + active + '" data-path="' + esc(root) + '" onclick="loadFiles(this.dataset.path)">' + esc(label) + '</button>';
+            });
+            quickAccess.innerHTML = qaHtml;
+          }
+
+          // ONE breadcrumb renderer. Paths are always absolute, so crumbs are just the real
+          // path segments - there is no hardcoded label left to double up.
+          const parts = path.split("/").filter(p => p);
+          crumbs.innerHTML = parts.map((p, i) => {
+            const upto = "/" + parts.slice(0, i + 1).join("/");
+            return '<span data-path="' + esc(upto) + '" onclick="loadFiles(this.dataset.path)">' + esc(p) + '</span>';
+          }).join(" / ");
+
+          const inAllowed = (q) => allowedRoots.some(r => q === r || q.indexOf(r + '/') === 0);
+          let html = "";
+          const parentPath = "/" + parts.slice(0, -1).join("/");
+          if (path && allowedRoots.indexOf(path) === -1 && inAllowed(parentPath)) {
+            html = '<div class="file-item dir" data-path="' + esc(parentPath) + '" onclick="loadFiles(this.dataset.path)">📁 ..</div>';
+          }
+
+          if (res.files) {
+            res.files.filter(f => f.type === "directory").forEach(f => {
+              html += '<div class="file-item dir" data-path="' + esc(f.path) + '" onclick="loadFiles(this.dataset.path)">📁 <span class="file-name">' + esc(f.name) + '</span></div>';
+            });
+            res.files.filter(f => f.type === "file").forEach(f => {
+              const checked = selectedFiles.has(f.path) ? "checked" : "";
+              const size = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " MB" : (f.size / 1024).toFixed(1) + " KB";
+              const fmt = f.format || "OTHER";
+              html += '<div class="file-item"><input type="checkbox" ' + checked + ' data-path="' + esc(f.path) + '" onchange="toggleFile(this)">📄 <span class="file-name">' + esc(f.name) + '</span><span class="file-format ' + esc(fmt) + '">' + esc(fmt) + '</span><span class="file-meta">' + size + '</span></div>';
+            });
+          }
+          list.innerHTML = html || "<div class='file-item'>No files</div>";
+        }
+
+        function toggleFile(el) {
+          const path = el.dataset.path;
+          if (el.checked) selectedFiles.add(path); else selectedFiles.delete(path);
+          updateSelectedFilesList();
+        }
+
+        function addManualPath() {
+          const input = document.getElementById("manual-path");
+          const path = input.value.trim();
+          if (path) { selectedFiles.add(path); input.value = ""; updateSelectedFilesList(); }
+        }
+
+        function removeFile(path) {
+          selectedFiles.delete(path);
+          const cb = document.querySelector('input[data-path="' + path + '"]');
+          if (cb) cb.checked = false;
+          updateSelectedFilesList();
+        }
+
+        function clearAllFiles() {
+          selectedFiles.clear();
+          document.querySelectorAll('#file-list input[type="checkbox"]').forEach(cb => cb.checked = false);
+          updateSelectedFilesList();
+        }
+
+        function updateSelectedFilesList() {
+          const count = selectedFiles.size;
+          document.getElementById("selected-count").textContent = count;
+          document.getElementById("clear-all-btn").style.display = count > 0 ? "inline-block" : "none";
+          const listEl = document.getElementById("selected-files-list");
+
+          // Live name-clash warning. XNAT stores files by name inside a resource, so two
+          // selected files sharing a basename collide. Recomputed on every selection change,
+          // so it appears and clears itself as you tick/untick.
+          const warnEl = document.getElementById("collision-warn");
+          const byName = {};
+          selectedFiles.forEach(p => {
+            const n = p.split("/").pop();
+            if (!byName[n]) byName[n] = [];
+            byName[n].push(p);
+          });
+          const clashes = Object.keys(byName).filter(n => byName[n].length > 1);
+          warnEl.innerHTML = clashes.length
+            ? '<strong>Name clash:</strong> XNAT stores files by name, so only one copy of ' +
+              clashes.map(esc).join(", ") + ' can be kept. Unselect one of each.'
+            : "";
+
+          if (count === 0) { listEl.innerHTML = ""; return; }
+          let html = "";
+          selectedFiles.forEach(path => {
+            const fileName = path.split("/").pop();
+            html += '<div class="selected-file-item"><span class="file-path" title="' + esc(path) + '">' + esc(fileName) + '</span><button class="remove-btn" data-path="' + esc(path) + '" onclick="removeFile(this.dataset.path)">Remove</button></div>';
+          });
+          listEl.innerHTML = html;
+        }
+
+        async function uploadFiles() {
+          const project = document.getElementById("project-select").value;
+          if (!project) return alert("Please select a project");
+          if (selectedFiles.size === 0) return alert("Please select files");
+          const btn = document.getElementById("upload-btn");
+          btn.disabled = true; btn.textContent = "Uploading...";
+
+          const res = await api("upload", "POST", {
+            files: Array.from(selectedFiles),
+            project_id: project,
+            subject_id: document.getElementById("subject-id").value,
+            session_id: document.getElementById("session-id").value,
+            scan_id: document.getElementById("scan-id").value,
+            session_type: document.getElementById("session-type").value,
+            scan_type: document.getElementById("scan-type").value,
+            resource_label: document.getElementById("resource-label").value || "FILES"
+          });
+
+          btn.disabled = false; btn.textContent = "Upload Selected Files";
+          const results = document.getElementById("results");
+          if (res.results) {
+            results.innerHTML = "<h3>Results: " + res.summary.success + "/" + res.summary.total + " successful</h3>" +
+              res.results.map(r => "<div class='result-item " + r.status + "'>" + (r.status === "success" ? "✓" : "✗") + " " + r.file + (r.error ? " - " + r.error : "") + "</div>").join("");
+            if (res.summary.failed === 0) { selectedFiles.clear(); updateSelectedFilesList(); }
+            loadFiles(currentPath);
+          } else {
+            results.innerHTML = "<div class='status error'>" + (res.error || "Upload failed") + "</div>";
+          }
+        }
+
+        async function disconnect() {
+          await api("disconnect", "POST");
+          location.reload();
+        }
+
+        function showStatus(id, msg, type) {
+          document.getElementById(id).innerHTML = "<div class='status " + type + "'>" + msg + "</div>";
+        }
+      </script>
+    </body>
+    </html>'''
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write(html.encode())
+
+    if __name__ == '__main__':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+        args = parser.parse_args()
+        os.chdir(Path.home())
+        print(f"XNAT Upload Server starting on port {args.port}")
+        ThreadingHTTPServer(('0.0.0.0', args.port), XNATHandler).serve_forever()
+{{- end }}

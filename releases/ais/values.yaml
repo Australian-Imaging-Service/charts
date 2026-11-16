@@ -8,17 +8,83 @@ global: {}
 xnat:
   enabled: true
   # xnat overrides below
+  xnat-web:
+    plugins:
+      # XNAT's JupyterHub plugin and the Container Service it builds on. Both
+      # ship in the AIS XNAT image but are only activated when listed here.
+      # They let XNAT launch Neurodesk notebooks on the hub below; remove them
+      # if you set neurodesk.enabled=false.
+      container-service: []
+      xnat-jupyterhub-plugin: []
+    volumes:
+      # The JupyterHub plugin writes each launch's options under
+      # /data/xnat/workspaces before it asks the hub to start the server. The
+      # xnat chart does not mount that path and its root filesystem is
+      # read-only, so every XNAT launch fails without this volume.
+      workspaces:
+        accessMode: ReadWriteMany
+        existingClaim: ""
+        mountPath: /data/xnat/workspaces
+        size: 10Gi
 
 # ctp subchart values (overrides ctp/values.yaml)
 ctp:
   enabled: true
   # ctp overrides below
 
-# jupyterhub subchart values (overrides upstream values)
-jupyterhub:
+# neurodesk subchart values (overrides neurodesk/values.yaml; see
+# releases/neurodesk/docs). It brings its own JupyterHub (z2jh 4.4), so the
+# ais 1.x `jupyterhub:` block no longer applies: move hub/singleuser settings
+# under `neurodesk.jupyterhub:`.
+neurodesk:
   enabled: true
-  # jupyterhub overrides below
-  fullnameOverride: null
+  # Prerequisites when enabled: Kubernetes >= 1.30, AppArmor on the nodes,
+  # cert-manager (already on the cluster, or `neurodesk.cert-manager.enabled:
+  # true` to install it with this release), a default StorageClass. The
+  # Security Profiles Operator is a cluster singleton: only one release per
+  # cluster may bundle it (else `neurodesk.security.installOperator: false`).
+
+  # Notebooks launched from XNAT (XNAT's JupyterHub plugin) are wired to the
+  # XNAT above automatically: its in-cluster Service <release>-xnat-web, its
+  # archive PVC <release>-xnat-web-archive (mounted read-only) and its admin
+  # Secret. Still to do once, in XNAT (Administer > Plugin Settings >
+  # JupyterHub): hub API URL http://hub:8081/hub/api, the hub's public URL, the
+  # `xnat` service token below, and a compute environment with the notebook
+  # image (releases/neurodesk/docs/xnat.md). XNAT's archive, prearchive and
+  # workspaces volumes need a ReadWriteMany StorageClass.
+  xnat:
+    enabled: true
+    jupyterhub:
+      enabled: true
+  jupyterhub:
+    hub:
+      services:
+        # z2jh generates this token and keeps it in Secret `hub`, key
+        # hub.services.xnat.apiToken. Enter it in XNAT's JupyterHub plugin.
+        xnat: {}
+      loadRoles:
+        xnat-role:
+          description: XNAT launches and manages users' notebook servers
+          scopes:
+            - admin:servers
+            - admin:users
+            - admin:groups
+            - tokens
+            - list:services
+            - read:hub
+            - access:servers
+            - access:services
+            - proxy
+          services:
+            - xnat
+  # AAF login (matches XNAT's OpenID usernames aaf_<sub>). Needs Secret
+  # `neurodesk-aaf` (key client-secret) in the release namespace.
+  # auth:
+  #   aaf:
+  #     enabled: true
+  #     clientId: <client id>
+  #     callbackUrl: https://<hub host>/hub/oauth_callback
+  # neurodesk overrides below
 
 aisEdgeTool01:
   enabled: false

@@ -1,0 +1,643 @@
+# ============================================================================
+# neurodesk — consolidated JupyterHub application chart
+# ============================================================================
+# This file is the single control surface. For every component it does two
+# jobs:
+#   1. WHETHER it deploys   -> the `enabled` toggle (wired to Chart.yaml
+#      `condition:` for remote subcharts, or to `{{- if }}` in this chart's
+#      own templates for in-house pieces).
+#   2. HOW it deploys        -> the nested config block, passed verbatim to the
+#      subchart (for remote deps) or read by this chart's templates.
+#
+# Infrastructure is NOT installed here. The chart consumes existing cluster
+# infra by name via the `global` / `infra` blocks: StorageClass, ingress
+# controller, cert-manager Issuer, and the Prometheus Operator (for the
+# optional ServiceMonitors). See docs/ for details.
+# ============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Shared cluster handles — names of pre-existing infrastructure this chart
+# references but does not create.
+# ---------------------------------------------------------------------------
+global:
+  # External hostname for the Hub ingress (e.g. neurodesk.example.org).
+  domain: ""
+  # StorageClass for THIS CHART'S OWN in-house PVCs (e.g. the Squid cache).
+  # "" => cluster default. NOTE: this does NOT control the JupyterHub hub DB or
+  # singleuser HOME PVCs — those belong to the z2jh subchart and Helm cannot
+  # template a subchart's values from here. Set those on the z2jh keys directly:
+  #   jupyterhub.hub.db.pvc.storageClassName
+  #   jupyterhub.singleuser.storage.dynamic.storageClass
+  # (See docs/install.md. The storageClassNotBridged validation guard catches the
+  # common mistake of setting only global.storageClassName.)
+  storageClassName: ""
+  # --- CVMFS single source of truth ---------------------------------------
+  # These live under `global:` ON PURPOSE: Helm injects `global` into EVERY
+  # subchart's scope, so the cvmfs-csi subchart's tpl'd ConfigMaps read the
+  # SAME values this chart's own squid templates do. Set these ONCE; there is
+  # no longer a cvmfs-csi.server / cvmfs.squid.enabled to keep in sync.
+  cvmfs:
+    # Stratum-1 server URL(s). @fqrn@ is expanded per-repository by CVMFS.
+    server: "http://cvmfs-jetstream.neurodesk.org/cvmfs/@fqrn@;http://s1fnal-cvmfs.openhtc.io/cvmfs/@fqrn@;http://s1osggoc-cvmfs.openhtc.io/cvmfs/@fqrn@;http://s1bnl-cvmfs.openhtc.io/cvmfs/@fqrn@"
+    # Run the in-cluster Squid HTTP cache and point CVMFS_HTTP_PROXY at it.
+    # Single toggle for BOTH the squid Deployment (this chart) AND the
+    # cvmfs-csi proxy config (subchart).
+    squidEnabled: false
+
+infra:
+  # NOTE: Ingress/TLS is configured on z2jh's own `jupyterhub.ingress.*`
+  # (ingressClassName, annotations incl cert-manager issuer, hosts, tls) — this
+  # chart does not add a separate Ingress. See examples/*-values.yaml.
+  monitoring:
+    # Emit ServiceMonitors/dashboards for an EXISTING Prometheus Operator.
+    # Leave false unless the monitoring.coreos.com CRDs are present.
+    serviceMonitors: false
+    # Label Prometheus selects ServiceMonitors by (release of your kube-prom-stack).
+    serviceMonitorLabels: {}
+
+# ---------------------------------------------------------------------------
+# Namespace + Pod Security. The chart installs into the Helm release namespace
+# (-n / --create-namespace). Optionally stamp PodSecurity labels on it.
+# ---------------------------------------------------------------------------
+namespace:
+  # If true, render a Namespace object (use with care under --create-namespace).
+  create: false
+  name: ""                 # "" => release namespace
+  # e.g. { pod-security.kubernetes.io/enforce: privileged }. NOT baseline/restricted
+  # while cvmfs.enabled: the cvmfs-csi node plugin is privileged and
+  # smarter-device-manager uses hostNetwork, both in the release namespace.
+  podSecurityLabels: {}
+
+# ============================================================================
+# JupyterHub (upstream Zero-to-JupyterHub z2jh) — key: jupyterhub
+# condition: jupyterhub.enabled
+# Everything under this key is the z2jh values tree, passed through unchanged.
+# The defaults below are the neurodesk-COMMON baseline (neurodesktop image,
+# /cvmfs mount, FUSE device, /dev/shm). Layer your own auth/ingress/secrets
+# with `-f my-values.yaml`. See examples/ for devstack (XNAT) and neurocloud
+# (GitHub) overlays.
+# ============================================================================
+jupyterhub:
+  enabled: true
+
+  singleuser:
+    defaultUrl: /lab
+    # First spawn pulls a ~2.6 GB image (pre-pullers are off by default).
+    startTimeout: 600
+    image:
+      # Upstream moved the image here from ghcr.io/neurodesk/neurodesktop/neurodesktop
+      # (that path has no tags after 2026-06-09). Dated tags can be re-pushed
+      # upstream, so the digest is pinned too; KubeSpawner renders name:tag
+      # verbatim. Keep the date part equal to Chart.yaml appVersion.
+      name: ghcr.io/neurodesk/neurodesktop
+      tag: "2026-09-23@sha256:0eddaf36b1d39daacc821796e915bdcbc4ac8c507f3bd068520bafefc4f6e549"
+      pullPolicy: IfNotPresent
+    # FUSE device for CVMFS — provided by smarter-device-manager (cvmfs.enabled).
+    # If you disable cvmfs, remove this block in your overlay.
+    extraResource:
+      limits:
+        smarter-devices/fuse: "1"
+      guarantees:
+        smarter-devices/fuse: "1"
+    storage:
+      capacity: 50Gi
+      dynamic:
+        # ONE home per user, shared by all of that user's servers. With z2jh's
+        # default (claim-{user_server}) every named server gets its own empty
+        # home, and KubeSpawner >= 7.1 DELETES it when the server is removed.
+        # XNAT launches a new timestamped named server each time and removes it
+        # when it stops, so work done there was lost. KubeSpawner never deletes
+        # a home shared this way on named-server removal. Default servers keep
+        # their existing PVC: claim-{username} == claim-{user_server} for them.
+        # With ReadWriteOnce homes a user's concurrent servers need the same node.
+        # Switching an existing install back to a {user_server} template can
+        # DELETE shared homes: set KubeSpawner.delete_pvc=false first
+        # (docs/migration.md, "One home per user").
+        pvcNameTemplate: claim-{username}
+      # `cvmfs` PVC is created by this chart's templates when cvmfs.enabled.
+      extraVolumes:
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs
+        - name: shm-volume
+          emptyDir:
+            medium: Memory
+      extraVolumeMounts:
+        - name: cvmfs
+          mountPath: /cvmfs
+          mountPropagation: HostToContainer
+        - name: shm-volume
+          mountPath: /dev/shm
+    # AppArmor/Seccomp attachment. The PROFILES are created by the `security`
+    # block below (via SPO). Attachment here references them by name. Because
+    # plain Helm cannot mutate this subchart block from the security toggles at
+    # render time, keep these in sync with security.* (or override in an
+    # overlay). See docs/security.md.
+    extraPodConfig:
+      securityContext:
+        # IMPORTANT: setting securityContext here REPLACES z2jh's own pod
+        # securityContext (which derives fsGroup from singleuser.fsGid=100), so
+        # we must restate fsGroup or the home PVC stays root-owned and the
+        # notebook (uid 1000) cannot write /home/jovyan -> server never starts.
+        fsGroup: 100
+        fsGroupChangePolicy: OnRootMismatch
+        appArmorProfile:
+          type: Localhost
+          localhostProfile: notebook
+
+  proxy:
+    service:
+      type: ClusterIP
+
+  hub:
+    # 0 = never restart the Hub after N consecutive spawn failures (z2jh default
+    # 5 turns a slow user-pod pull into a misleading Hub CrashLoopBackOff).
+    consecutiveFailureLimit: 0
+    # Placeholder authenticator — OVERRIDE in your overlay (GitHub / generic
+    # OAuth / OIDC). Never commit real client secrets to values; use
+    # `existingSecret` or your secrets manager. See docs/secrets.md.
+    config:
+      JupyterHub:
+        authenticator_class: dummy
+      Authenticator:
+        admin_users: []
+      KubeSpawner:
+        http_timeout: 120
+    # Neurodesk integrations (XNAT-launched servers, AAF login). The chart
+    # renders ConfigMap `neurodesk-hub-integration` only when xnat.jupyterhub or
+    # auth.aaf is enabled, and the mount is optional, so this is inert
+    # otherwise. hub.extraVolumes/extraVolumeMounts are LISTS: an overlay that
+    # sets its own replaces these entries, so re-add them there.
+    extraVolumes:
+      - name: neurodesk-integration
+        configMap:
+          name: neurodesk-hub-integration
+          optional: true
+    extraVolumeMounts:
+      - name: neurodesk-integration
+        mountPath: /etc/neurodesk/integration
+        readOnly: true
+    extraEnv:
+      NEURODESK_AAF_CLIENT_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: neurodesk-aaf
+            key: client-secret
+            optional: true
+    extraConfig:
+      10-neurodesk-integrations: |
+        import os
+        _ndi_path = "/etc/neurodesk/integration/neurodesk_integrations.py"
+        if os.path.exists(_ndi_path):
+            exec(compile(open(_ndi_path).read(), _ndi_path, "exec"))
+    # Hub state DB PVC StorageClass. Left UNSET here (=> cluster default). This
+    # is the REAL knob for the hub DB (global.storageClassName does NOT reach
+    # it). Do not default it to "": z2jh renders any string verbatim, and an
+    # empty storageClassName means "no StorageClass", so on a cluster relying on
+    # its default class the PVC never binds and the Hub stays Pending (0.1.x did
+    # exactly that).
+    # db:
+    #   pvc:
+    #     storageClassName: my-storage-class
+
+  # Ingress is z2jh's own (this chart does not add a separate Ingress). Set
+  # className/annotations/hosts/tls here. Example in examples/*-values.yaml.
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    hosts: []
+    annotations: {}
+    tls: []
+
+  cull:
+    enabled: true
+    timeout: 10800
+
+  # The z2jh hook image-puller is a pre-install Job/DaemonSet that BLOCKS
+  # `helm install` until the (multi-GB) neurodesktop image is pulled on every
+  # node — minutes of stall, or a rollback on slow/airgapped registries.
+  # Disabled by default so install returns promptly; pods pull on first spawn.
+  # Re-enable if you want pre-warmed nodes. (devstack also ships this disabled.)
+  prePuller:
+    hook:
+      enabled: false
+    continuous:
+      enabled: false
+
+# ============================================================================
+# CVMFS access — in-house settings (key: cvmfs) + two remote subcharts
+# (keys: cvmfs-csi, smarter-device-manager).
+# condition for both subcharts: cvmfs.enabled
+# ============================================================================
+cvmfs:
+  # `enabled` = this chart MANAGES CVMFS (installs cvmfs-csi + smarter-device-
+  # manager + the `cvmfs` PVC + squid/probe/trace-parser). Default on.
+  enabled: true
+
+  # `external` = BRING YOUR OWN CVMFS. Set this with enabled=false when you run
+  # CVMFS yourself (your own cvmfs-csi / device plugin), and want the notebooks
+  # to consume it exactly as they would the chart's. It keeps the singleuser
+  # `/cvmfs` mount + FUSE request and suppresses the "cvmfs is off but the pod
+  # still references it" guards (which exist to catch the *accidental* case).
+  #
+  # When external=true your cluster MUST already provide, in the release
+  # namespace, everything the chart's CVMFS did:
+  #   1. a PVC named `cvmfs` (or override jupyterhub.singleuser.storage
+  #      .extraVolumes[].persistentVolumeClaim.claimName) mounting /cvmfs;
+  #   2. the `smarter-devices/fuse` extended resource (your own
+  #      smarter-device-manager + the `smarter-device-manager=enabled` node
+  #      label);
+  #   3. the automount StorageClass your `cvmfs` PVC binds to.
+  # If those are set up correctly, everything else in this chart works
+  # unchanged. See docs/disabling-components.md ("Bring your own CVMFS").
+  external: false
+
+  # NOTE: the server URL and the squid on/off toggle now live under
+  # `global.cvmfs.server` / `global.cvmfs.squidEnabled` (single source of truth
+  # shared with the cvmfs-csi subchart). See the `global:` block above.
+
+  # Repositories the `cvmfs` PVC / automount exposes under /cvmfs.
+  repositories:
+    - neurodesk.ardc.edu.au
+  # The PVC mounted into singleuser pods at /cvmfs.
+  pvc:
+    name: cvmfs
+    storageClassName: cvmfs       # automount SC created by cvmfs-csi
+
+  # In-cluster Squid HTTP cache fronting the Stratum-1 mirrors. Optional.
+  # Toggle it with global.cvmfs.squidEnabled; these are the deploy settings.
+  squid:
+    image: ubuntu/squid:6.6-24.04_edge@sha256:8a3baed477e2c282ab8aa5edad442f69873246964f225c5c2ae8364b6610963c
+    storageClassName: ""          # "" => global.storageClassName / cluster default
+    cacheSize: 60Gi
+    cacheDirSizeMB: 50000
+    cacheMemMB: 256
+    # Upper bound for squid's file-descriptor table (squid.conf
+    # max_filedescriptors). Without it squid uses the container's NOFILE limit
+    # and fails to start where that is huge (e.g. 1073741816 under kind).
+    maxFileDescriptors: 65536
+    maxObjectSizeMB: 1024
+    # Who may use the proxy. Squid is a ClusterIP Service, so only in-cluster
+    # clients can reach it anyway; the private ranges cover the pod networks of
+    # k3s (10.42/16), k0s and kubeadm (10.244/16) and most managed clusters.
+    # (0.1.x defaulted to the k3s ranges only: squid answered 403 elsewhere and
+    # CVMFS silently fell back to DIRECT, uncached.)
+    clientCidrs:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+    # The cache index costs ~10 MB per GB of cache_dir (cacheDirSizeMB 50000 =>
+    # ~500 MB) on top of cacheMemMB; an OOM loop takes the Recreate/RWO proxy
+    # fully offline. Scale the memory limit with cacheDirSizeMB.
+    resources:
+      requests: {memory: 1Gi, cpu: 200m}
+      limits: {memory: 2Gi, cpu: "1"}
+    # Pin squid (RWO cache volume) off autoscaled/drainable nodes if needed.
+    nodeSelector: {}
+    tolerations: []
+
+  # Per-node CVMFS health probe DaemonSet (detection-only; emits
+  # cvmfs_mount_healthy gauge). Needs infra.monitoring.serviceMonitors for
+  # scraping.
+  probe:
+    enabled: true
+    image: python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+    intervalSeconds: 30
+    # Schedule the probe only where CVMFS is actually expected. By default it
+    # does NOT tolerate all taints (avoids false-positive cvmfs_mount_healthy=0
+    # alerts on control-plane / non-CVMFS nodes). Restrict with a nodeSelector
+    # and/or add tolerations to match your CVMFS node pool.
+    nodeSelector: {}
+    tolerations: []
+
+  # CVMFS trace-parser telemetry sidecar stack (WIP analytics; from devstack).
+  # Off by default; needs a Prometheus Operator for its ServiceMonitor.
+  traceParser:
+    enabled: false
+    image: python:3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+    replicas: 1
+    # Tools the parser container downloads at start (pinned; they used to
+    # float). kubectl must be within +/-1 minor of the cluster apiserver.
+    kubectlVersion: v1.35.9
+    requestsVersion: "2.34.2"
+
+# Remote subchart: cvmfs-csi (CERN). Values passed through verbatim.
+# The extraConfigMaps below are tpl'd by the cvmfs-csi SUBCHART. They read
+# `.Values.global.cvmfs.*` — Helm injects `global` into the subchart scope, so
+# the server URL and squid proxy come from the SINGLE source in the top-level
+# `global:` block. No per-subchart duplication / no double-toggle to keep in
+# sync. (See docs/cvmfs.md.)
+cvmfs-csi:
+  automountStorageClass: {create: true}
+  cache:
+    local:
+      cvmfsQuotaLimit: 40000
+      location: /cvmfs-localcache
+  # Prevent "Transport endpoint not connected" errors by never unmounting.
+  automountDaemonUnmountTimeout: 0
+  extraConfigMaps:
+    cvmfs-csi-config-d:
+      neurodesk.ardc.edu.au.conf: |
+        CVMFS_SERVER_URL="{{ .Values.global.cvmfs.server }}"
+        CVMFS_PUBLIC_KEY='/etc/cvmfs/config.d/neurodesk.ardc.edu.au.pub'
+      neurodesk.ardc.edu.au.pub: |
+        -----BEGIN PUBLIC KEY-----
+        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwUPEmxDp217SAtZxaBep
+        Bi2TQcLoh5AJ//HSIz68ypjOGFjwExGlHb95Frhu1SpcH5OASbV+jJ60oEBLi3sD
+        qA6rGYt9kVi90lWvEjQnhBkPb0uWcp1gNqQAUocybCzHvoiG3fUzAe259CrK09qR
+        pX8sZhgK3eHlfx4ycyMiIQeg66AHlgVCJ2fKa6fl1vnh6adJEPULmn6vZnevvUke
+        I6U1VcYTKm5dPMrOlY/fGimKlyWvivzVv1laa5TAR2Dt4CfdQncOz+rkXmWjLjkD
+        87WMiTgtKybsmMLb2yCGSgLSArlSWhbMA0MaZSzAwE9PJKCCMvTANo5644zc8jBe
+        NQIDAQAB
+        -----END PUBLIC KEY-----
+    cvmfs-csi-default-local:
+      default.local: |
+        CVMFS_USE_GEOAPI=no
+        CVMFS_HTTP_PROXY="{{- if .Values.global.cvmfs.squidEnabled -}}http://cvmfs-squid.{{ .Release.Namespace }}.svc.cluster.local:3128;DIRECT{{- else -}}DIRECT{{- end -}}"
+        CVMFS_QUOTA_LIMIT={{ .Values.cache.local.cvmfsQuotaLimit }}
+        CVMFS_CACHE_BASE={{ .Values.cache.local.location }}
+
+        # Connection tuning
+        CVMFS_MAX_RETRIES=2
+        CVMFS_TIMEOUT=30
+        CVMFS_TIMEOUT_DIRECT=30
+        CVMFS_HOST_RESET_AFTER=1800
+
+        CVMFS_MAX_PARALLEL_DOWNLOADS=6
+        CVMFS_LOW_SPEED_LIMIT=1024
+
+        # Resilience settings to prevent "Transport endpoint not connected" errors
+        CVMFS_SHARED_CACHE=no
+        CVMFS_RELOAD_SOCKETS=/var/run/cvmfs
+        CVMFS_NFILES=130560
+        CVMFS_MAX_TTL=120
+        CVMFS_KCACHE_TIMEOUT=60
+
+        # Disable telemetry and trace buffer to reduce I/O overhead
+        CVMFS_TELEMETRY_SEND=OFF
+        CVMFS_TRACEBUFFER=0
+
+# Remote subchart: smarter-device-manager. Exposes /dev/fuse to pods.
+smarter-device-manager:
+  # Run the FUSE device plugin on every (untainted) Linux node. Without a
+  # nodeSelector the upstream chart falls back to a hard-coded
+  # `smarter-device-manager: enabled` selector, which made every install label
+  # its nodes by hand. Keys you set in an overlay are ADDED to this one (a node
+  # must match all of them), e.g. {smarter-device-manager: enabled} restores
+  # the old label gate. The upstream chart tolerates only the taint
+  # smarter.type=edge, so nodes with other NoSchedule taints are skipped.
+  nodeSelector:
+    kubernetes.io/os: linux
+  config:
+    - devicematch: ^fuse$
+      nummaxdevices: 150
+
+# ============================================================================
+# Security profiles for singleuser pods — key: security
+# AppArmor + Seccomp profile CRs (parent templates) + the bundled Security
+# Profiles Operator (SPO) subchart that loads them onto every node.
+# condition (SPO subchart): security.installOperator
+# ============================================================================
+security:
+  enabled: true
+  # Install the bundled Security Profiles Operator (upstream
+  # kubernetes-sigs v1.0.0, vendored under vendor/security-profiles-operator).
+  # ON by default: the chart is a complete install.
+  #
+  # The operator ALWAYS runs in namespace `security-profiles-operator`,
+  # whatever namespace this release uses. Upstream 1.0.0 hard-codes that
+  # namespace in its CRD conversion webhooks and in the CA-injection
+  # annotations the operator writes at runtime, so no other namespace works.
+  # This release creates and owns that namespace (see
+  # security-profiles-operator.operatorNamespace below).
+  #
+  # SPO needs cert-manager for its webhook certificates. Either the cluster
+  # already runs cert-manager, or set `cert-manager.enabled=true` (below) to
+  # install it with this release. The chart refuses to render if neither holds.
+  #
+  # Set installOperator=false only when the cluster ALREADY runs SPO >= 1.0.0
+  # (the v1 API) — for example a second release of this chart, or a platform
+  # that manages SPO itself. SPO is a cluster singleton: two copies collide.
+  installOperator: true
+  # Only consulted when installOperator=false. The chart checks API discovery
+  # for security-profiles-operator.x-k8s.io/v1 AppArmorProfile/SeccompProfile
+  # and fails with instructions when the kinds are missing. Set true to skip
+  # that check when rendering WITHOUT a cluster (plain `helm template`); you
+  # are then asserting that SPO >= 1.0.0 is installed. Equivalent:
+  #   --api-versions security-profiles-operator.x-k8s.io/v1/AppArmorProfile
+  assumeCrdsPresent: false
+  appArmor:
+    enabled: true
+    # Name of the cluster-scoped AppArmorProfile, and of the kernel profile
+    # SPO loads on every node. MUST equal the localhostProfile set in
+    # jupyterhub.singleuser.extraPodConfig above (a validation guard enforces
+    # it). Profiles are cluster-scoped: a second release on the same cluster
+    # must choose a different name in BOTH places.
+    profileName: notebook
+  seccomp:
+    # NOTE: even when enabled, the profile is defaultAction SCMP_ACT_LOG
+    # (audit-only, enforces nothing) AND this chart does NOT auto-attach it to
+    # the singleuser securityContext. To use it, add
+    #   seccompProfile: {type: Localhost, localhostProfile: operator/<profileName>.json}
+    # to jupyterhub.singleuser.extraPodConfig in your overlay. See docs/security.md.
+    enabled: false
+    profileName: log
+
+# Bundled subchart: security-profiles-operator (upstream v1.0.0, vendored with
+# the local patches listed in vendor/security-profiles-operator/PROVENANCE.txt).
+# condition: security.installOperator. Passed through to the SPO chart.
+security-profiles-operator:
+  # Upstream's chart defaults to a moving staging tag
+  # (gcr.io/k8s-staging-sp-operator/...:latest); pin the released image.
+  spoImage:
+    registry: registry.k8s.io
+    repository: security-profiles-operator/security-profiles-operator
+    tag: v1.0.0
+  # Upstream default is 3 (leader-elected). One replica is what neurocloud
+  # runs in production; raise it for operator HA.
+  replicaCount: 1
+  # Upstream sets no pod securityContext on the operator.
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  # MUST be true, or the spod daemon never loads the AppArmorProfile and every
+  # notebook is rejected by the kubelet (profile not found).
+  enableAppArmor: true
+  enableSelinux: false
+  enableLogEnricher: false
+  # The release creates namespace `security-profiles-operator` (kept on
+  # uninstall, pod-security enforce=privileged: spod is privileged). Set false
+  # when that namespace is managed outside this release.
+  operatorNamespace:
+    create: true
+
+# ============================================================================
+# cert-manager — key: cert-manager   condition: cert-manager.enabled
+# Required by SPO (webhook + metrics certificates, CRD conversion CA). OFF by
+# default because most clusters already run it, and cert-manager is a cluster
+# singleton: two installs fight over the same CRDs and webhooks. Turn it ON for
+# a cluster with no cert-manager so this one release installs everything:
+#   helm install neurodesk ... --set cert-manager.enabled=true
+# This release then owns cert-manager's lifecycle; do not enable it on a
+# cluster that already has one (the chart never adopts an existing install).
+# ============================================================================
+cert-manager:
+  enabled: false
+  crds:
+    enabled: true
+    # Keep the cert-manager CRDs (and so every Certificate in the cluster) if
+    # this release is uninstalled.
+    keep: true
+
+# ============================================================================
+# Login presets — key: auth
+# aaf: Australian Access Federation OpenID Connect. Sets the authenticator,
+# endpoints and a username prefix matching XNAT's OpenID plugin (<provider>_<sub>,
+# so hub and XNAT agree on usernames). Supply the client secret yourself as
+# Secret `neurodesk-aaf` key `client-secret` in the release namespace.
+# ============================================================================
+auth:
+  aaf:
+    enabled: false
+    clientId: ""
+    callbackUrl: ""          # https://<hub host>/hub/oauth_callback (include jupyterhub.hub.baseUrl)
+    # Hub username = <usernamePrefix><usernameClaim>, case kept. It MUST equal
+    # the username XNAT's OpenID plugin gives the same person (by default
+    # <provider id>_<sub>): XNAT starts servers for its own username, and a
+    # different hub name means a second hub user and a 403.
+    usernamePrefix: aaf_
+    usernameClaim: sub
+    # Any AAF user may log in (as in the other AIS hub deployments). false:
+    # nobody may until you list them, e.g.
+    # jupyterhub.hub.config.AAFOAuthenticator.allowed_users.
+    allowAll: true
+
+# ============================================================================
+# Neurodesk JupyterHub glue — key: jupyterGlue (in-house parent templates)
+# RBAC + ConfigMaps for home auto-resize, fluent-bit logging sidecar, and
+# shared storage. These provision the cluster-side objects; the spawner-side
+# wiring lives in the jupyterhub.hub.extraConfig overlay (see examples/).
+# ============================================================================
+jupyterGlue:
+  # Auto-grow nearly-full home PVCs (RBAC + reads Prometheus). The spawner
+  # logic ships in the neurocloud overlay; this only grants the Hub RBAC.
+  homeResize:
+    enabled: false
+    rbac: true
+  # Fluent-bit logging sidecar ConfigMap mounted into singleuser pods.
+  fluentbit:
+    enabled: false
+  # Shared teaching directories (instructor RWX PVCs) — RBAC + optional PVCs.
+  # StorageClass must pre-exist (infra).
+  sharedTeaching:
+    enabled: false
+    storageClassName: ""
+  # Per-group shared RWX storage reconciled by the Hub at spawn — RBAC only.
+  sharedGroupStorage:
+    enabled: false
+    rbac: true
+
+# ============================================================================
+# XNAT integration — key: xnat (in-house parent templates, optional)
+# Notebook-side integration: the jupyterlab XNAT-upload extension ConfigMap +
+# supporting RBAC. The XNAT SERVER and its server-side plugins are NOT deployed
+# here (they remain in ais-devstack). Enabling this provisions the in-cluster
+# objects; pair it with the XNAT jupyterhub overlay (examples/devstack).
+# ============================================================================
+xnat:
+  enabled: false
+  server:
+    # XNAT host as seen from inside the cluster. "" => <release>-xnat-web, the
+    # Service of the AIS xnat chart installed in the SAME release (the AIS
+    # umbrella chart). Set it for an XNAT elsewhere.
+    host: ""
+    # XNAT's namespace when it is NOT this release's namespace (egress policy
+    # then allows that whole namespace). "" => same namespace: policies target
+    # the XNAT pods below on `port`.
+    namespace: ""
+    podLabels:
+      app.kubernetes.io/name: xnat-web
+    port: 8080
+  # Hub side: servers launched BY XNAT (XNAT's JupyterHub plugin). The hub asks
+  # XNAT for each launch's image, resources and archive mounts at spawn time
+  # (files/hub/neurodesk_integrations.py). XNAT itself must still be set up:
+  # JupyterHub plugin installed, hub URL and the `xnat` service token entered
+  # in XNAT (docs/xnat.md). This block does not configure XNAT.
+  jupyterhub:
+    enabled: false
+    url: ""                  # "" => http://<xnat.server.host>
+    # Secret holding the XNAT account the hub reads launch options with.
+    # "" => <release>-xnat-web-admin, the AIS xnat chart's admin Secret.
+    credentialsSecret: ""
+    usernameKey: username
+    passwordKey: password
+    # PVC with XNAT's archive and the XNAT path it is mounted at; launch mounts
+    # under that path become read-only subPaths of it. "" => <release>-xnat-web-archive.
+    archivePvc: ""
+    archiveMountPath: /data/xnat/archive
+    # XNAT writes its archive 0750/0640 as 65534:65534 (the AIS xnat chart's
+    # runAsUser/fsGroup). A pod given an archive mount gets this group as a
+    # supplemental group so the notebook user (1000) can read it.
+    archiveGid: 65534
+    uid: 1000                # NB_UID/NB_GID for non-Neurodesk XNAT images
+    gid: 100
+    requestTimeoutSeconds: 10
+    # XNAT unreachable or erroring: false = fail the spawn, true = spawn the
+    # chart defaults. A 404 (server not launched through XNAT, e.g. a direct
+    # hub login) always spawns the chart defaults.
+    failOpen: false
+  uploadExtension:
+    enabled: true
+    # The init-container image that installs the extension's deps is chosen by
+    # the SPAWNER, not by this chart: set jupyterhub.hub.extraEnv
+    # .XNAT_EXT_INSTALLER_IMAGE (see examples/devstack-values.yaml). Its Python
+    # MINOR must equal the neurodesktop image's (3.13 as of 2026-09-23): deps are
+    # pip-installed with --target and imported by the notebook's own CPython.
+    # (0.1.x had an `installerImage` key here that reached no manifest; setting
+    # it now fails the render - see templates/validate.yaml.)
+
+# ============================================================================
+# Render-time consistency guards (templates/validate.yaml). Each fails the
+# render with an actionable message when a parent toggle and the jupyterhub
+# subchart block disagree (the desync plain Helm cannot prevent automatically).
+# Set a flag true ONLY to deliberately bypass that one check.
+# ============================================================================
+validation:
+  storageClassNotBridged: false     # global.storageClassName set but hub/home z2jh SC keys unset
+  fuseResourceWhenCvmfsOff: false   # cvmfs off but singleuser still requests smarter-devices/fuse
+  cvmfsVolumeWhenCvmfsOff: false    # cvmfs off but singleuser still mounts the cvmfs PVC
+  apparmorAttachWithoutProfile: false  # pod pins an AppArmor profile but security.appArmor is off
+  apparmorNameMismatch: false       # pod's localhostProfile != security.appArmor.profileName
+  certManagerMissing: false         # bundled SPO but no cert-manager (neither cert-manager.enabled nor served by the cluster)
+  # apparmorNoCrdProvider: removed in 0.2.0 (accepted, no effect): a missing SPO
+  # now fails the render (guards 5a/5b) instead of silently skipping the profile.
+
+# ============================================================================
+# Uninstall cleanup — a pre-delete hook Job (templates/uninstall-cleanup-hook.yaml)
+# that removes this release's AppArmor/Seccomp profiles and its CVMFS probe and
+# PVCs while the bundled SPO daemon and cvmfs-csi driver are still running.
+# Without it `helm uninstall` strands the profile (Terminating on its per-node
+# finalizer) and the probe pod (CVMFS volume that can no longer unmount). If a
+# user server is still running the Job times out and the uninstall stops before
+# changing anything: stop every server first.
+# ============================================================================
+uninstallCleanup:
+  enabled: true
+  # kubectl, matching the minor of the clusters this chart is tested on.
+  image: registry.k8s.io/kubectl:v1.35.9@sha256:436cbaa8a019152063d638f412cf9d73ec29e56061529d28cbc231c6ab1b37a4
+  # Per step. Helm's own `helm uninstall --timeout` (default 5m) covers the
+  # WHOLE hook Job, so steps x timeoutSeconds beyond it only matter on failure;
+  # pass a larger --timeout if a step is expected to be slow.
+  timeoutSeconds: 120
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {memory: 128Mi}
+
+# ============================================================================
+# Escape hatch — arbitrary user-supplied manifests rendered as-is. Use instead
+# of out-of-band `kubectl apply` so everything stays in the Helm release.
+# ============================================================================
+extraManifests: []

@@ -1,0 +1,20 @@
+{{- if .Values.cvmfs.enabled }}
+# The `cvmfs` PVC mounted into singleuser pods at /cvmfs. Backed by the
+# cvmfs-csi automount StorageClass (.Values.cvmfs.pvc.storageClassName) rather
+# than a real volume — the CSI driver bind-mounts the shared /cvmfs view, so
+# the requested storage is a required-but-ignored dummy value.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.cvmfs.pvc.name }}
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: "1"  # dummy — actual storage comes from CVMFS via cvmfs-csi
+  storageClassName: {{ .Values.cvmfs.pvc.storageClassName }}
+{{- end }}

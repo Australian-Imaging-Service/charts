@@ -1,0 +1,67 @@
+# ============================================================================
+# ci/ct-values-minimal.yaml
+# ----------------------------------------------------------------------------
+# Smallest COHERENT profile for the helm lint/template/install matrix: a bare
+# JupyterHub with CVMFS, security and XNAT all OFF. Because cvmfs/security are
+# off, the singleuser block is overridden to drop the FUSE device request, the
+# /cvmfs volume and the AppArmor attachment — otherwise the validate.yaml guards
+# (correctly) fail the render for referencing things that no longer exist. This
+# file therefore doubles as the canonical "turn CVMFS off the right way" example.
+# Renders with NO real secrets and pulls no cvmfs/SPO subcharts.
+# ============================================================================
+
+global:
+  domain: neurodesk.ci.example.org
+  storageClassName: ""
+
+infra:
+  monitoring:
+    serviceMonitors: false
+
+# Remote subcharts off (condition: cvmfs.enabled / security.installOperator).
+cvmfs:
+  enabled: false
+
+security:
+  enabled: false
+  installOperator: false
+
+xnat:
+  enabled: false
+
+jupyterGlue:
+  homeResize: {enabled: false}
+  fluentbit: {enabled: false}
+  sharedTeaching: {enabled: false}
+  sharedGroupStorage: {enabled: false}
+
+# CVMFS + security are off, so strip the bits of the singleuser pod that depend
+# on them (Helm REPLACES lists — restate the ones you keep, here just /dev/shm).
+jupyterhub:
+  singleuser:
+    # Maps MERGE in Helm (unlike lists, which replace). Nulling the LEAF key
+    # (smarter-devices/fuse: null) does NOT remove it across the subchart
+    # boundary — it survives into the hub config as an invalid `null` quantity
+    # and breaks the spawn. Null the whole SUBMAP instead → renders
+    # `extraResource: {}` (clean). See docs/disabling-components.md.
+    extraResource:
+      limits: null
+      guarantees: null
+    storage:
+      extraVolumes:
+        - name: shm-volume
+          emptyDir:
+            medium: Memory
+      extraVolumeMounts:
+        - name: shm-volume
+          mountPath: /dev/shm
+    extraPodConfig:
+      securityContext:
+        fsGroupChangePolicy: OnRootMismatch
+        appArmorProfile: null   # delete the inherited attach (security is off)
+  hub:
+    config:
+      JupyterHub:
+        authenticator_class: dummy
+      Authenticator:
+        admin_users: []

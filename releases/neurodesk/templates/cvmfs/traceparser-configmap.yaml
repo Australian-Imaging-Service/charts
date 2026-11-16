@@ -1,0 +1,16 @@
+{{- if and .Values.cvmfs.enabled .Values.cvmfs.traceParser.enabled }}
+# parser.py is kept as a standalone source file under files/cvmfs/ and loaded
+# verbatim here via .Files.Get so it stays editable/lintable outside the chart
+# templating layer.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parser-script
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-trace-parser
+    {{- include "neurodesk.labels" . | nindent 4 }}
+data:
+  parser.py: |
+{{ .Files.Get "files/cvmfs/parser.py" | indent 4 }}
+{{- end }}

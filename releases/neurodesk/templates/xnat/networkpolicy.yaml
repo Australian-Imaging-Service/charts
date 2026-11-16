@@ -1,0 +1,57 @@
+{{- /*
+Optional NetworkPolicy: allow JupyterHub singleuser pods egress to the
+EXTERNAL XNAT server's namespace so the xnat-upload extension can reach it.
+
+Rendered when xnat is enabled. With xnat.server.namespace set it allows that
+whole namespace; without it (XNAT in the same namespace, as in the AIS
+umbrella) only the XNAT web pods (xnat.server.podLabels) on xnat.server.port.
+The XNAT server itself is NOT deployed by this chart.
+
+singleuser pods are labelled by z2jh (the jupyterhub subchart) with
+`component: singleuser-server`; we select them by that label rather than the
+neurodesk.selectorLabels (which the subchart's pods do not carry).
+
+Only rendered while z2jh's own singleuser NetworkPolicy is on: this policy only
+ADDS an allowance to it. Alone it would cut the notebooks' egress down to DNS
+and XNAT.
+*/ -}}
+{{- if and .Values.xnat.enabled (dig "singleuser" "networkPolicy" "enabled" true (.Values.jupyterhub | default dict)) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: singleuser-egress-xnat
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+    component: xnat-upload
+spec:
+  podSelector:
+    matchLabels:
+      # z2jh label on every spawned singleuser server pod.
+      component: singleuser-server
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS resolution (kube-dns / CoreDNS) so the XNAT host name resolves.
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.xnat.server.namespace }}
+    # XNAT in another namespace: allow that namespace.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.xnat.server.namespace | quote }}
+    {{- else }}
+    # XNAT in this namespace (the AIS umbrella): only its web pods, only its
+    # HTTP port - not the rest of the namespace (e.g. XNAT's PostgreSQL).
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.xnat.server.podLabels | nindent 14 }}
+      ports:
+        - port: {{ .Values.xnat.server.port }}
+    {{- end }}
+{{- end }}

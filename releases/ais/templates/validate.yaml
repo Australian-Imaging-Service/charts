@@ -1,0 +1,71 @@
+{{- /*
+Render-time guards for the AIS umbrella (fail fast instead of a silently
+different install).
+*/ -}}
+
+{{- /* ais 2.0 replaced the plain `jupyterhub` dependency with `neurodesk`
+       (which brings its own JupyterHub). A leftover top-level `jupyterhub:`
+       block would otherwise be ignored silently: `jupyterhub.enabled=false`
+       would no longer turn the hub off, and hub auth/ingress/storage overrides
+       would not apply. */ -}}
+{{- if hasKey .Values "jupyterhub" }}
+  {{- fail "ais: the top-level `jupyterhub:` values block is from ais 1.x and is no longer used. ais 2.0 installs JupyterHub through `neurodesk`: move hub/singleuser/ingress/auth settings under `neurodesk.jupyterhub:`, and use `neurodesk.enabled: false` to install without a hub. See releases/neurodesk/docs/migration.md." }}
+{{- end }}
+
+{{- /* Neurodesk pins AppArmor through the pod securityContext field, which the
+       API server ignores before Kubernetes 1.30 (notebooks would run
+       unconfined). Helm does not enforce a subchart's kubeVersion, so check it
+       here; an XNAT/CTP-only install (neurodesk.enabled=false) is unaffected. */ -}}
+{{- if and .Values.neurodesk .Values.neurodesk.enabled (semverCompare "<1.30.0-0" .Capabilities.KubeVersion.Version) }}
+  {{- fail (printf "ais: neurodesk needs Kubernetes >= 1.30 (this cluster: %s). Upgrade the cluster or set neurodesk.enabled=false." .Capabilities.KubeVersion.Version) }}
+{{- end }}
+
+{{- /* The neurodesk XNAT integration finds this release's XNAT by name
+       (<release>-xnat-web Service, -admin Secret, -archive PVC, archive at
+       /data/xnat/archive). If XNAT is off, renamed, or keeps its archive
+       elsewhere, those names point at nothing and XNAT launches fail at spawn
+       time, so check here what the xnat chart will actually render. */ -}}
+{{- $nd := .Values.neurodesk | default dict -}}
+{{- $ndx := dig "xnat" (dict) $nd -}}
+{{- $ndxj := dig "jupyterhub" (dict) $ndx -}}
+{{- $ndOn := and (dig "enabled" false $nd) (dig "jupyterhub" "enabled" true $nd) (dig "enabled" false $ndx) -}}
+{{- $launchOn := and $ndOn (dig "enabled" false $ndxj) -}}
+{{- if $ndOn }}
+{{- $host := dig "server" "host" "" $ndx -}}
+{{- $secret := dig "credentialsSecret" "" $ndxj -}}
+{{- $pvc := dig "archivePvc" "" $ndxj -}}
+{{- $mount := dig "archiveMountPath" "/data/xnat/archive" $ndxj -}}
+{{- if not .Values.xnat.enabled }}
+  {{- if or (not $host) (and $launchOn (or (not $secret) (not $pvc))) }}
+    {{- fail "ais: xnat.enabled=false, but neurodesk.xnat is on and would point at this release's (absent) XNAT. Set neurodesk.xnat.enabled: false, or for an XNAT elsewhere set neurodesk.xnat.server.host (and, with neurodesk.xnat.jupyterhub.enabled, its credentialsSecret and archivePvc)." }}
+  {{- end }}
+{{- else }}
+  {{- $xw := index .Values.xnat "xnat-web" | default dict -}}
+  {{- $xfull := "" -}}
+  {{- if $xw.fullnameOverride }}{{- $xfull = $xw.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+  {{- else }}{{- $xfull = printf "%s-%s" .Release.Name ($xw.nameOverride | default "xnat") | trunc 63 | trimSuffix "-" -}}{{- end }}
+  {{- $arch := dig "volumes" "archive" (dict) $xw -}}
+  {{- /* The xnat chart mounts a volume only when it has a size, existingClaim
+         or not: without one the archive is not its own mounted PVC. */ -}}
+  {{- $wantPvc := "" -}}
+  {{- if $arch.size }}{{- $wantPvc = $arch.existingClaim | default (printf "%s-archive" $xfull) -}}{{- end }}
+  {{- $xname := $xw.nameOverride | default "xnat" | trunc 63 | trimSuffix "-" -}}
+  {{- $podName := dig "server" "podLabels" "app.kubernetes.io/name" "" $ndx -}}
+  {{- $wantMount := $arch.mountPath | default ($xw.fileStorePath | default "/data/xnat") -}}
+  {{- $bad := list -}}
+  {{- if ne ($host | default (printf "%s-xnat-web" .Release.Name)) $xfull }}{{- $bad = append $bad (printf "neurodesk.xnat.server.host: %s" $xfull) -}}{{- end }}
+  {{- if and $podName (ne $podName $xname) }}{{- $bad = append $bad (printf "neurodesk.xnat.server.podLabels app.kubernetes.io/name: %s (XNAT's pod label; the NetworkPolicies select it)" $xname) -}}{{- end }}
+  {{- if $launchOn }}
+    {{- if ne ($secret | default (printf "%s-xnat-web-admin" .Release.Name)) (printf "%s-admin" $xfull) }}{{- $bad = append $bad (printf "neurodesk.xnat.jupyterhub.credentialsSecret: %s-admin" $xfull) -}}{{- end }}
+    {{- if not $wantPvc }}
+      {{- if not $pvc }}{{- $bad = append $bad "neurodesk.xnat.jupyterhub.archivePvc and archiveMountPath: the PVC and path that hold XNAT's /data/xnat/archive (the archive volume is not its own PVC)" -}}{{- end }}
+    {{- else }}
+      {{- if ne ($pvc | default (printf "%s-xnat-web-archive" .Release.Name)) $wantPvc }}{{- $bad = append $bad (printf "neurodesk.xnat.jupyterhub.archivePvc: %s" $wantPvc) -}}{{- end }}
+      {{- if ne $mount $wantMount }}{{- $bad = append $bad (printf "neurodesk.xnat.jupyterhub.archiveMountPath: %s" $wantMount) -}}{{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if $bad }}
+    {{- fail (printf "ais: the XNAT this release installs is not where neurodesk.xnat looks for it. Set: %s" (join "; " $bad)) }}
+  {{- end }}
+{{- end }}
+{{- end }}

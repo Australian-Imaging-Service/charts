@@ -1,0 +1,28 @@
+apiVersion: security-profiles-operator.x-k8s.io/v1
+kind: SecurityProfilesOperatorDaemon
+metadata:
+  labels:
+    {{- include "security-profiles-operator.labels" . | nindent 4 }}
+  name: spod
+  namespace: {{ include "security-profiles-operator.runtimeNamespace" . }}
+spec:
+  scheduling:
+    {{- with .Values.daemon.affinity }}
+    affinity:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.daemon.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  daemonResourceRequirements:
+    {{- toYaml .Values.daemon.resources | nindent 4 }}
+  selinux:
+    enable: {{ .Values.enableSelinux }}
+  enricher:
+    enableLogEnricher: {{ .Values.enableLogEnricher }}
+    enableJsonEnricher: {{ .Values.enableJsonEnricher }}
+    enableBpfRecorder: {{ .Values.enableBpfRecorder }}
+  enableAppArmor: {{ .Values.enableAppArmor }}
+  enableProfiling: {{ .Values.enableProfiling }}
+  verbosity: {{ .Values.verbosity }}

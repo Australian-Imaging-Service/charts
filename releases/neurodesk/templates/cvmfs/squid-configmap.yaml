@@ -1,0 +1,80 @@
+{{- if and .Values.cvmfs.enabled .Values.global.cvmfs.squidEnabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cvmfs-squid-config
+  namespace: {{ include "neurodesk.namespace" . }}
+  labels:
+    app: cvmfs-squid
+    {{- include "neurodesk.labels" . | nindent 4 }}
+data:
+  squid.conf: |
+    # Forward proxy for CVMFS Stratum-1 mirrors. Internal-only — not exposed
+    # outside the cluster. Tuning follows
+    # https://cvmfs.readthedocs.io/en/stable/cpt-squid.html
+
+    http_port 3128
+    # Squid sizes its file-descriptor table from the process RLIMIT_NOFILE. Where
+    # the container runtime passes an unlimited-style limit through (for example
+    # kind on GitHub runners: 1073741816), that table cannot be allocated and
+    # squid exits right after start-up. Cap it explicitly.
+    # `| int`: Helm reads numbers as floats and would print 1048576 as
+    # 1.048576e+06, which squid rejects; the default covers values carried over
+    # from a release that predates this key.
+    max_filedescriptors {{ .Values.cvmfs.squid.maxFileDescriptors | default 65536 | int }}
+
+    # Internal-only proxy — only cluster pods can reach the ClusterIP service.
+    # We don't restrict by destination because CVMFS clients also fetch from
+    # the cvmfs-config.cern.ch bootstrap mirrors (BNL/FNAL/CERN/RAL) for
+    # public-key / blacklist / geoapi lookups, and that list shifts over time.
+    acl Clients src {{ join " " .Values.cvmfs.squid.clientCidrs }}
+    acl CONNECT method CONNECT
+
+    http_access allow Clients
+    http_access deny CONNECT
+    http_access deny all
+
+    # Cache sizing
+    cache_mem {{ .Values.cvmfs.squid.cacheMemMB | int }} MB
+    maximum_object_size {{ .Values.cvmfs.squid.maxObjectSizeMB | int }} MB
+    maximum_object_size_in_memory 128 KB
+    cache_dir aufs /var/spool/squid {{ .Values.cvmfs.squid.cacheDirSizeMB | int }} 16 256
+    cache_replacement_policy heap LFUDA
+    memory_replacement_policy heap GDSF
+
+    # Refresh patterns — CVMFS data files are content-addressed and immutable
+    # so we cache them aggressively. Manifest/whitelist/checksum files are
+    # mutable and must always be revalidated.
+    refresh_pattern -i \.cvmfspublished$ 0 0% 0 ignore-no-store ignore-private
+    refresh_pattern -i \.cvmfswhitelist$ 0 0% 0 ignore-no-store ignore-private
+    refresh_pattern -i \.cvmfschecksum$ 0 0% 0 ignore-no-store ignore-private
+    refresh_pattern -i /data/ 30000 100% 30000 override-expire override-lastmod ignore-no-store ignore-private
+    refresh_pattern .                   30   20%   4320
+
+    # Cross-mirror dedupe: collapse all upstream mirror hostnames to one
+    # canonical store key so a fetch via any mirror serves the others.
+    store_id_program /usr/lib/squid/storeid_file_rewrite /etc/squid/storeid.conf
+    store_id_children 20 startup=10 idle=5 concurrency=0
+
+    # Logs to /var/log/squid (emptyDir) — a tail sidecar streams them to
+    # stdout so they show up in kubectl logs. Squid 6 refuses /dev/stdout
+    # because the proxy user can't open files under /dev/.
+    access_log /var/log/squid/access.log squid
+    cache_log /var/log/squid/cache.log
+    cache_store_log none
+
+    pid_filename /var/run/squid.pid
+    coredump_dir /var/spool/squid
+
+    # Forwarded-for stripping: we are an internal cache, no need to leak
+    # client IPs upstream.
+    forwarded_for delete
+    via off
+  # NOTE: storeid_file_rewrite requires a LITERAL TAB between regex and
+  # replacement (the parser is /^\s*([^\t]+?)\s*\t+\s*([^\t]+?)\s*$/) and
+  # treats only bare-"#" lines as comments — any other "#" line is a parse
+  # error that drops ALL rules. We use printf "\t" to inject the tab
+  # because YAML editors tend to convert tabs to spaces.
+  storeid.conf: |
+    {{ printf "^https?://[^/]+/cvmfs/(.*)$\thttp://cvmfs-canonical.local/cvmfs/$1" }}
+{{- end }}

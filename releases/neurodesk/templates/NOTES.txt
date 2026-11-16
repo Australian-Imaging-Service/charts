@@ -1,0 +1,54 @@
+{{ include "neurodesk.fullname" . }} ({{ .Chart.Name }}-{{ .Chart.Version }}) installed into namespace "{{ include "neurodesk.namespace" . }}".
+
+Components enabled in this release:
+  • JupyterHub .................. {{ if .Values.jupyterhub.enabled }}ON{{ else }}off{{ end }}
+  • CVMFS access ............... {{ if .Values.cvmfs.enabled }}ON{{ else }}off{{ end }}{{ if .Values.cvmfs.enabled }} (squid: {{ if .Values.global.cvmfs.squidEnabled }}on{{ else }}off{{ end }}, probe: {{ if .Values.cvmfs.probe.enabled }}on{{ else }}off{{ end }}, trace-parser: {{ if .Values.cvmfs.traceParser.enabled }}on{{ else }}off{{ end }}){{ end }}
+  • Security profiles .......... {{ if .Values.security.enabled }}ON{{ else }}off{{ end }}{{ if .Values.security.enabled }} (SPO install: {{ if .Values.security.installOperator }}on{{ else }}off{{ end }}, apparmor: {{ if .Values.security.appArmor.enabled }}on{{ else }}off{{ end }}, seccomp: {{ if .Values.security.seccomp.enabled }}on{{ else }}off{{ end }}){{ end }}
+  • XNAT integration .......... {{ if .Values.xnat.enabled }}ON{{ else }}off{{ end }}
+
+CLUSTER PREREQUISITES (this chart does NOT install infrastructure):
+{{- if .Values.cvmfs.enabled }}
+  • The FUSE device plugin (smarter-device-manager) runs on the nodes matching
+    smarter-device-manager.nodeSelector (default: every Linux node).
+{{- end }}
+{{- if .Values.cvmfs.external }}
+  ⚠ cvmfs.external=true (bring your own CVMFS) — your cluster MUST already
+    provide, in namespace {{ include "neurodesk.namespace" . }}:
+      • a PVC named "{{ .Values.cvmfs.pvc.name | default "cvmfs" }}" mounting /cvmfs into notebooks
+      • the smarter-devices/fuse resource (your own device plugin + node label)
+      • the automount StorageClass that PVC binds to
+    If those are set up correctly, the notebooks consume your CVMFS unchanged.
+{{- end }}
+{{- $cm := index .Values "cert-manager" | default dict }}
+{{- if .Values.security.installOperator }}
+  • Security Profiles Operator 1.0.0 runs in namespace "security-profiles-operator"
+    (fixed by upstream SPO, whatever the release namespace). That namespace is
+    kept on uninstall, as are the SPO CRDs.
+{{- if dig "enabled" false $cm }}
+  • cert-manager was installed by THIS release (cert-manager.enabled=true); the
+    release now owns it. Its CRDs are kept on uninstall.
+{{- else }}
+  ⚠ cert-manager must already run in the cluster: SPO gets its webhook and
+    metrics certificates from it (cert-manager.enabled=false).
+{{- end }}
+{{- end }}
+{{- if and .Values.security.enabled (not .Values.security.installOperator) }}
+  ⚠ security.installOperator=false — Security Profiles Operator >= 1.0.0
+    (API security-profiles-operator.x-k8s.io/v1) must already be running, or
+    the AppArmor/Seccomp profiles are never loaded onto nodes. SPO 0.x,
+    including the neurodesk fork, is not compatible.
+{{- end }}
+{{- if or .Values.infra.monitoring.serviceMonitors .Values.cvmfs.traceParser.enabled }}
+  ⚠ ServiceMonitors require the Prometheus Operator CRDs (monitoring.coreos.com).
+{{- end }}
+  • A default (or named) StorageClass must exist for hub DB + home PVCs.
+
+NEXT STEPS:
+  1. Check rollout:   kubectl -n {{ include "neurodesk.namespace" . }} get pods
+{{- if .Values.jupyterhub.enabled }}
+  2. Hub URL:         {{ if .Values.jupyterhub.ingress.enabled }}https://{{ .Values.global.domain }}{{ else }}kubectl -n {{ include "neurodesk.namespace" . }} port-forward svc/proxy-public 8080:80{{ end }}
+{{- end }}
+  3. Docs:            see the docs/ folder in the chart repository.
+
+To turn a component off and run it yourself separately, set e.g.
+  --set cvmfs.enabled=false   (or jupyterhub.enabled / security.enabled / xnat.enabled)

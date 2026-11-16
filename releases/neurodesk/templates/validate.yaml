@@ -1,0 +1,151 @@
+{{- /*
+================================================================================
+Render-time consistency guards (fail-fast).
+
+Plain Helm cannot mutate the `jupyterhub` subchart's singleuser values from this
+chart's sibling toggles (cvmfs.enabled / security.*). So a mismatch — e.g.
+cvmfs disabled while the notebook still requests the FUSE device or mounts the
+`cvmfs` PVC — renders fine but silently strands every spawn. These guards turn
+that silent footgun into a LOUD, actionable error at `helm template`/install.
+
+Each guard can be bypassed with `--set validation.<key>=true` if you genuinely
+know better (e.g. you supply FUSE from a different device plugin).
+================================================================================
+*/ -}}
+{{- $v := .Values.validation | default dict -}}
+{{- $ju := .Values.jupyterhub | default dict -}}
+{{- $su := $ju.singleuser | default dict -}}
+
+{{- /* ---- -1. values carried over from chart 0.1.x ----
+       `helm upgrade --reuse-values` renders the NEW templates with the OLD
+       release's coalesced values, not this chart's defaults. Across 0.1.x ->
+       0.2.0 that silently keeps the old notebook image, the old SPO fork image
+       and settings the templates no longer understand. uninstallCleanup is a
+       0.2.0 default, so its absence identifies that case. */ -}}
+{{- if not (hasKey .Values "uninstallCleanup") }}
+  {{- fail "neurodesk: these values have no 'uninstallCleanup' block, which chart 0.2.0 always defines. Either it was set to null (to turn the hook off use uninstallCleanup.enabled=false instead), or these are values carried over from chart 0.1.x by `helm upgrade --reuse-values`. That would keep 0.1.x defaults (old notebook image, SPO fork image) under the new templates. Upgrade with your own values files instead (-f my-values.yaml), or with --reset-then-reuse-values. See docs/migration.md (0.1.x -> 0.2.0)." }}
+{{- end }}
+
+{{- /* ---- 0. global.storageClassName set but not bridged to the z2jh keys ---- */ -}}
+{{- if and (not (dig "storageClassNotBridged" false $v)) .Values.global.storageClassName .Values.jupyterhub.enabled }}
+  {{- $hubSc := dig "hub" "db" "pvc" "storageClassName" "" $ju -}}
+  {{- $suSc := dig "storage" "dynamic" "storageClass" "" $su -}}
+  {{- if and (not $hubSc) (not $suSc) }}
+    {{- fail (printf "neurodesk: global.storageClassName='%s' does NOT control the hub DB or singleuser home PVCs (Helm can't reach the jupyterhub subchart from here). Set jupyterhub.hub.db.pvc.storageClassName and jupyterhub.singleuser.storage.dynamic.storageClass explicitly. (bypass: --set validation.storageClassNotBridged=true)" .Values.global.storageClassName) }}
+  {{- end }}
+{{- end }}
+
+{{- /* ---- contradiction: external CVMFS but the chart is also managing it ---- */ -}}
+{{- if and .Values.cvmfs.external .Values.cvmfs.enabled }}
+  {{- fail "neurodesk: cvmfs.external=true (bring your own CVMFS) but cvmfs.enabled=true (the chart also installs its own CVMFS). Pick one: set cvmfs.enabled=false to consume your external CVMFS, or cvmfs.external=false to let the chart manage it." }}
+{{- end }}
+
+{{- /* ---- 1. CVMFS off, but the notebook still demands the FUSE device ----
+       Skipped in `external` mode: there the notebook is MEANT to keep /cvmfs +
+       FUSE and consume an operator-provided CVMFS. */ -}}
+{{- if and (not (dig "fuseResourceWhenCvmfsOff" false $v)) (not .Values.cvmfs.enabled) (not .Values.cvmfs.external) }}
+  {{- $fuseLim := dig "extraResource" "limits" "smarter-devices/fuse" "" $su -}}
+  {{- $fuseGar := dig "extraResource" "guarantees" "smarter-devices/fuse" "" $su -}}
+  {{- if or $fuseLim $fuseGar }}
+    {{- fail "neurodesk: cvmfs.enabled=false but jupyterhub.singleuser.extraResource still requests 'smarter-devices/fuse'. smarter-device-manager is not installed when cvmfs is off, so every notebook will stay Pending (no FUSE device). Remove the smarter-devices/fuse request from your jupyterhub overlay, or keep cvmfs.enabled=true. (bypass: --set validation.fuseResourceWhenCvmfsOff=true)" }}
+  {{- end }}
+{{- end }}
+
+{{- /* ---- 2. CVMFS off, but the notebook still mounts the `cvmfs` PVC ----
+       Skipped in `external` mode (see guard 1). */ -}}
+{{- if and (not (dig "cvmfsVolumeWhenCvmfsOff" false $v)) (not .Values.cvmfs.enabled) (not .Values.cvmfs.external) }}
+  {{- $claim := .Values.cvmfs.pvc.name | default "cvmfs" -}}
+  {{- $vols := dig "storage" "extraVolumes" (list) $su -}}
+  {{- if kindIs "slice" $vols }}
+    {{- range $vols }}
+      {{- /* defensive: list items may be scalars/strings on malformed input */ -}}
+      {{- if kindIs "map" . }}
+        {{- $pvc := index . "persistentVolumeClaim" -}}
+        {{- if and (kindIs "map" $pvc) (eq (dig "claimName" "" $pvc) $claim) }}
+          {{- fail (printf "neurodesk: cvmfs.enabled=false but jupyterhub.singleuser.storage.extraVolumes still references the '%s' PVC, which this chart no longer creates. Every spawn will fail to mount /cvmfs. Drop that volume from your overlay, or keep cvmfs.enabled=true. (bypass: --set validation.cvmfsVolumeWhenCvmfsOff=true)" $claim) }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- /* ---- 3/4/5. AppArmor profile attached on the pod vs the CR that backs it ----
+       Traverse defensively: a key set to explicit `null` (to delete an inherited
+       default) is nil, not a map, and `dig` errors if it descends into nil. */ -}}
+{{- $sc := dig "extraPodConfig" "securityContext" (dict) $su -}}
+{{- $aap := "" -}}
+{{- if kindIs "map" $sc }}{{- $aap = (index $sc "appArmorProfile") -}}{{- end -}}
+{{- $attached := "" -}}
+{{- if kindIs "map" $aap }}{{- $attached = ($aap.localhostProfile | default "") -}}{{- end -}}
+{{- if $attached }}
+  {{- /* 3. attached but security/appArmor disabled => no CR creates the profile */ -}}
+  {{- if and (not (dig "apparmorAttachWithoutProfile" false $v)) (not (and .Values.security.enabled .Values.security.appArmor.enabled)) }}
+    {{- fail (printf "neurodesk: jupyterhub.singleuser pins AppArmor localhostProfile '%s' but security.appArmor is disabled, so no AppArmorProfile CR is created. Pods will fail with CreateContainerError (profile not found). Enable security.appArmor, or remove the appArmorProfile from your jupyterhub overlay. (bypass: --set validation.apparmorAttachWithoutProfile=true)" $attached) }}
+  {{- end }}
+  {{- /* 4. attached name must equal the CR name this chart creates */ -}}
+  {{- if and (not (dig "apparmorNameMismatch" false $v)) .Values.security.enabled .Values.security.appArmor.enabled (ne $attached .Values.security.appArmor.profileName) }}
+    {{- fail (printf "neurodesk: jupyterhub.singleuser references AppArmor profile '%s' but security.appArmor.profileName is '%s'. The referenced profile will not exist. Make them equal. (bypass: --set validation.apparmorNameMismatch=true)" $attached .Values.security.appArmor.profileName) }}
+  {{- end }}
+{{- end }}
+
+{{- /* ---- 5. Security Profiles Operator must be able to serve the v1 profiles ----
+       SPO >= 1.0.0 is required (profiles are written against API v1). All
+       checks use API discovery (.Capabilities), which `helm install/upgrade`,
+       Argo CD and Flux fill from the live cluster. An offline `helm template`
+       sees only built-in APIs, so these checks either cannot fire there (5a)
+       or need an explicit assertion (5b/5c: --api-versions, or the named
+       setting). */ -}}
+{{- $spoV1 := "security-profiles-operator.x-k8s.io/v1" -}}
+{{- $spoLegacyAA := .Capabilities.APIVersions.Has "security-profiles-operator.x-k8s.io/v1alpha1/AppArmorProfile" -}}
+{{- $spoV1AA := .Capabilities.APIVersions.Has (printf "%s/AppArmorProfile" $spoV1) -}}
+{{- $spoV1SC := .Capabilities.APIVersions.Has (printf "%s/SeccompProfile" $spoV1) -}}
+
+{{- /* 5a. bundled operator, but the cluster serves only the LEGACY SPO API =>
+       a pre-1.0 SPO is installed, e.g. the neurodesk fork bundled by chart
+       0.1.0. Helm never upgrades crds/, so upgrading in place would leave the
+       old CRDs, fail on the v1 profile, and move the operator out of this
+       release's namespace. Refuse before Helm changes anything. */ -}}
+{{- if and .Values.security.installOperator $spoLegacyAA (not $spoV1AA) }}
+  {{- fail "neurodesk: this cluster serves only the legacy Security Profiles Operator API (security-profiles-operator.x-k8s.io/v1alpha1), i.e. SPO < 1.0.0 is installed - for example the neurodesk fork bundled by chart 0.1.0. This chart bundles upstream SPO 1.0.0 (API v1) and cannot upgrade that installation in place: see docs/migration.md (0.1.x -> 0.2.0). If no 0.1.x release is left (it was uninstalled), these are its leftover CRDs, which Helm never deletes: remove them as described in docs/install.md (full SPO teardown) - only when nothing else on the cluster uses SPO, because deleting the CRDs deletes every profile." }}
+{{- end }}
+
+{{- /* 5d. bundled operator arriving by UPGRADE: the release existed without
+       this chart's operator (e.g. the AIS umbrella 1.x -> 2.0). Helm installs
+       crds/ only on a first install, so the SPO CRDs are missing and the
+       upgrade would stop half-way on "no matches for kind". Say how to fix it. */ -}}
+{{- if and .Values.security.installOperator .Release.IsUpgrade (not $spoV1AA) (not $spoLegacyAA) (not .Values.security.assumeCrdsPresent) }}
+  {{- fail "neurodesk: this upgrade adds the bundled Security Profiles Operator to an existing release (for example the AIS umbrella 1.x -> 2.0), and Helm installs a chart's CRDs only on a first install. Apply them, then re-run the upgrade: `helm pull <this chart> --untar` and `kubectl apply --server-side -f neurodesk/vendor/security-profiles-operator/crds/crds.yaml` (under the AIS umbrella: ais/charts/neurodesk/vendor/...). See docs/migration.md." }}
+{{- end }}
+
+{{- /* 5b. external operator (installOperator=false): the v1 kinds must exist. */ -}}
+{{- if and .Values.security.enabled (not .Values.security.installOperator) (not .Values.security.assumeCrdsPresent) }}
+  {{- if and .Values.security.appArmor.enabled (not $spoV1AA) }}
+    {{- fail (printf "neurodesk: security.installOperator=false, but the cluster does not serve %s AppArmorProfile, so the '%s' profile the notebooks need cannot be created. Install Security Profiles Operator >= 1.0.0 (SPO 0.x, including the neurodesk fork, is NOT compatible), or set security.installOperator=true to use the bundled operator. When rendering without a cluster, assert SPO is present with --api-versions %s/AppArmorProfile or security.assumeCrdsPresent=true." $spoV1 .Values.security.appArmor.profileName $spoV1) }}
+  {{- end }}
+  {{- if and .Values.security.seccomp.enabled (not $spoV1SC) }}
+    {{- fail (printf "neurodesk: security.installOperator=false, but the cluster does not serve %s SeccompProfile. Install Security Profiles Operator >= 1.0.0, or set security.installOperator=true. When rendering without a cluster: --api-versions %s/SeccompProfile or security.assumeCrdsPresent=true." $spoV1 $spoV1) }}
+  {{- end }}
+{{- end }}
+
+{{- /* 5c. bundled operator needs cert-manager: installed by this release, or
+       already served by the cluster. */ -}}
+{{- $cm := index .Values "cert-manager" | default dict -}}
+{{- if and .Values.security.installOperator (not (dig "enabled" false $cm)) (not (.Capabilities.APIVersions.Has "cert-manager.io/v1/Certificate")) (not (dig "certManagerMissing" false $v)) }}
+  {{- fail "neurodesk: the bundled Security Profiles Operator needs cert-manager for its webhook certificates, and the cluster does not serve cert-manager.io/v1 Certificate. Either set cert-manager.enabled=true to install cert-manager with this release (only on a cluster with NO cert-manager), or install cert-manager first. When rendering without a cluster: --api-versions cert-manager.io/v1/Certificate. (bypass: --set validation.certManagerMissing=true)" }}
+{{- end }}
+
+{{- /* ---- 6. removed key: xnat.uploadExtension.installerImage ----
+       In 0.1.x it reached no manifest (the image is chosen by the spawner), so
+       a value set there silently did nothing. */ -}}
+{{- if hasKey (dig "uploadExtension" (dict) (.Values.xnat | default dict)) "installerImage" }}
+  {{- fail "neurodesk: xnat.uploadExtension.installerImage was removed in chart 0.2.0 - it never reached any manifest. The XNAT extension installer image is chosen by the spawner: set jupyterhub.hub.extraEnv.XNAT_EXT_INSTALLER_IMAGE instead (see examples/devstack-values.yaml), and delete the old key. (Chart 0.1.x set it by default, so it also appears when upgrading with --reuse-values; upgrade with your own values files instead.)" }}
+{{- end }}
+
+{{- /* ---- 7. AAF login needs its inputs ----
+       (xnat.jupyterhub.enabled needs no guard: like xnat.uploadExtension it
+       only takes effect under xnat.enabled.) */ -}}
+{{- $aaf := dig "aaf" (dict) (.Values.auth | default dict) -}}
+{{- if and (dig "enabled" false $aaf) (or (not $aaf.clientId) (not $aaf.callbackUrl)) }}
+  {{- fail "neurodesk: auth.aaf.enabled=true needs auth.aaf.clientId and auth.aaf.callbackUrl (https://<hub host>/hub/oauth_callback). The client secret goes in Secret neurodesk-aaf, key client-secret." }}
+{{- end }}
+

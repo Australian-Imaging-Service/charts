@@ -26,6 +26,27 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4.3.0
 
+      # The ais umbrella depends on neurodesk, xnat and ctp through
+      # file://../<chart>. Helm packages such a dependency as it is on disk and
+      # does NOT fetch that chart's own dependencies, so they must be built
+      # first; otherwise the ais package ships without JupyterHub, the Security
+      # Profiles Operator, CVMFS, cert-manager and XNAT's PostgreSQL.
+      # (No Chart.lock is committed here, so `build` resolves like `update`.)
+      # The build writes Chart.lock into those charts, and chart-releaser then
+      # packages them from the lock, which needs their HTTP repositories
+      # registered (OCI and file:// dependencies need no entry).
+      - name: Register the charts' Helm repositories
+        run: |
+          helm repo add jupyterhub https://jupyterhub.github.io/helm-chart
+          helm repo add smarter-device-manager https://smarter-project.github.io/smarter-device-manager
+          helm repo add bitnami-archive https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+
+      - name: Build dependencies of charts used via file://
+        run: |
+          for chart in neurodesk xnat ctp; do
+            helm dependency build "releases/$chart"
+          done
+
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
         env:

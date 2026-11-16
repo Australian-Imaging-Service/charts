@@ -1,0 +1,101 @@
+{{- if and .Values.security.enabled .Values.security.appArmor.enabled }}
+{{- /*
+AppArmorProfile CR (security-profiles-operator >= 1.0.0, API v1). The SPO node
+daemon (spod, enableAppArmor=true) loads it onto every node under the CR name;
+singleuser pods reference that name via
+jupyterhub.singleuser.extraPodConfig.securityContext.appArmorProfile.
+
+CLUSTER-scoped (SPO 1.0.0 CRD), so no namespace; the name is cluster-unique.
+Rendered whenever AppArmor is enabled: the notebook cannot start without it,
+so a missing SPO is caught by templates/validate.yaml, never skipped silently.
+
+Written only with SPO's structured `abstract` fields, which is the profile
+neurocloud runs in production on upstream SPO 1.0.0. The 0.1.0 chart used the
+neurodesk fork's raw-rule field `spec.abstract.extra`; upstream has no such
+field (and rejects it under strict field validation).
+*/ -}}
+apiVersion: security-profiles-operator.x-k8s.io/v1
+kind: AppArmorProfile
+metadata:
+  name: {{ .Values.security.appArmor.profileName }}
+  labels:
+    {{- include "neurodesk.labels" . | nindent 4 }}
+spec:
+  # Upstream additionally injects hardening denies for /proc/*, /proc/sys,
+  # /proc/{mem,kmem,kcore,sysrq-trigger} and efivars. Those leave
+  # /proc/<pid>/{uid_map,gid_map,setgroups} writable, so unprivileged
+  # Apptainer/Singularity user-namespace setup still works.
+  mode: Enforce
+  abstract:
+    # Execute uses `ix` (inherit): binaries launched from a notebook, including
+    # processes inside Apptainer containers, stay confined under this same
+    # profile instead of transitioning to one that does not exist.
+    executable:
+      allowedExecutables: [ "/**" ]   # -> /** ixr,
+      allowedLibraries:   [ "/**" ]   # -> /** mr,
+    filesystem:
+      # Keep "/" explicit: AppArmor's "/**" does not match the root directory
+      # itself, and rootless Apptainer opens that disconnected root while
+      # entering its shared mount namespace.
+      readWritePaths: [ "/", "/**" ]
+    # sys_rawio is the upstream switch that makes the profile generator emit
+    # `mount, remount, umount,` - required by unprivileged Apptainer for its
+    # overlay/bind mounts and by CVMFS FUSE. The rest reproduce the fork
+    # profile's blanket `capability,` rule; effective capabilities remain
+    # bounded by the unprivileged pod's own capability set.
+    capability:
+      allowedCapabilities:
+        - sys_rawio
+        - sys_admin
+        - sys_chroot
+        - sys_ptrace
+        - setuid
+        - setgid
+        - setpcap
+        - setfcap
+        - dac_override
+        - dac_read_search
+        - chown
+        - fowner
+        - fsetid
+        - mknod
+        - kill
+        - net_admin
+        - net_bind_service
+        - net_raw
+        - net_broadcast
+        - ipc_lock
+        - ipc_owner
+        - sys_nice
+        - sys_resource
+        - sys_time
+        - sys_module
+        - sys_boot
+        - sys_pacct
+        - sys_tty_config
+        - linux_immutable
+        - lease
+        - audit_write
+        - audit_control
+        - audit_read
+        - mac_override
+        - mac_admin
+        - syslog
+        - wake_alarm
+        - block_suspend
+        - perfmon
+        - bpf
+        - checkpoint_restore
+    network:
+      allowRaw: true
+      allowedProtocols:
+        allowTcp: true
+        allowUdp: true
+{{- /*
+Not carried over from the fork profile: the crypto-miner exec denylist
+(deny /**{m,M}iner* x, ...). SPO's structured API has allow lists only, so it
+cannot express deny rules, and name globs were bypassed by renaming a binary.
+Deploy a runtime detector such as cryptnono if you need miner protection; see
+docs/security.md.
+*/}}
+{{- end }}
