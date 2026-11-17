@@ -19,7 +19,7 @@ helm repo add ais https://australian-imaging-service.github.io/charts
 helm repo update
 ```
 
-Deploy XNAT
+[Deploy XNAT](docs/xnat.md)
 
 ```bash
 # Create a namespace and deploy the AIS XNAT service
